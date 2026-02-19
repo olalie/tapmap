@@ -960,6 +960,7 @@ class TapMap:
     # ---------------------------------------------------------------------
 
     def run(self) -> None:
+        """Start the Dash server."""
         host = "127.0.0.1"
         port = 8050
         url = f"http://{host}:{port}/"
@@ -973,6 +974,7 @@ class TapMap:
         )
 
     def close(self) -> None:
+        """Release resources held by the model."""
         close_fn = getattr(self.model.geoinfo, "close", None)
         if callable(close_fn):
             close_fn()

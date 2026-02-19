@@ -1,13 +1,13 @@
-"""GeoInfo enriches connection records with GeoIP City (lat/lon, city, country)
-and ASN information using MaxMind databases.
+"""Enrich connection records with GeoIP and ASN information using MaxMind databases.
 
 Expected files in the configured data_dir:
 - GeoLite2-City.mmdb
 - GeoLite2-ASN.mmdb
 
-If database files are missing or cannot be opened, GeoInfo will run in
-best-effort mode and return None for unavailable fields.
+If database files are missing or cannot be opened, GeoInfo runs in best-effort mode and
+returns None for unavailable fields.
 """
+
 
 from __future__ import annotations
 
@@ -67,10 +67,12 @@ class GeoInfo:
         cache_size: int = 10_000,
         silent: bool = True,
     ) -> None:
-        """Args:
-        data_dir: Directory containing GeoLite2 mmdb files.
-        cache_size: Max number of IP lookup results to keep in memory.
-        silent: If False, raise on DB open errors.
+        """Initialize GeoInfo.
+
+        Args:
+            data_dir: Directory containing GeoLite2 mmdb files.
+            cache_size: Max number of IP lookup results to keep in memory.
+            silent: If False, raise on DB open errors.
         """
         self._cache_size = max(0, int(cache_size))
         self._silent = bool(silent)
@@ -139,9 +141,11 @@ class GeoInfo:
             self._asn_reader = None
 
     def __enter__(self) -> GeoInfo:
+        """Return self as a context manager."""
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
+        """Close database readers when leaving the context."""
         self.close()
 
     # ---------------------------------------------------------------------

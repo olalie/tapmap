@@ -60,6 +60,7 @@ class Model:
         self.logger = logging.getLogger(__name__)
 
     def snapshot(self) -> SnapshotPayload:
+        """Build and return a snapshot payload for the UI."""
         now = datetime.now()
         geo_enabled = self._geoinfo_enabled()
 

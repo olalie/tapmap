@@ -435,8 +435,7 @@ class ModalTextBuilder:
 
     @classmethod
     def _render_open_ports(cls, snapshot: Any | None) -> list[Any]:
-        """Render the Open ports view.
-        """
+        """Render the Open ports view."""
         snap = snapshot if isinstance(snapshot, dict) else {}
         rows = snap.get("open_ports")
         rows_list = rows if isinstance(rows, list) else []
@@ -679,6 +678,7 @@ class ModalTextBuilder:
         return [header, table]
 
     def missing_geo_db(self, geo_data_dir: str) -> list[Any]:
+        """Render the Missing GeoIP databases view."""
         return [
             self._h1("Missing GeoIP databases"),
             html.P(

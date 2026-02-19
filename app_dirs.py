@@ -17,9 +17,9 @@ README_TEXT: Final[str] = (
 
 
 def get_app_data_dir(app_name: str = APP_NAME) -> Path:
-    """Return the per-user application data directory for the current OS.
+    r"""Return the per-user application data directory for the current OS.
 
-    Windows: %APPDATA%\\<app_name>
+    Windows: %APPDATA%\<app_name>
     macOS:   ~/Library/Application Support/<app_name>
     Linux:   ${XDG_DATA_HOME:-~/.local/share}/<app_name>
     """
@@ -40,8 +40,7 @@ def get_app_data_dir(app_name: str = APP_NAME) -> Path:
 
 
 def ensure_app_data_dir(app_dir: Path) -> None:
-    """Ensure the application data directory exists and contains a README file.
-    """
+    """Ensure the application data directory exists and contains a README file."""
     app_dir.mkdir(parents=True, exist_ok=True)
     readme = app_dir / "README.txt"
     if not readme.exists():
@@ -49,8 +48,7 @@ def ensure_app_data_dir(app_dir: Path) -> None:
 
 
 def get_or_create_app_data_dir(app_name: str = APP_NAME) -> Path:
-    """Return the per-user app data directory and create it if needed.
-    """
+    """Return the per-user app data directory and create it if needed."""
     app_dir = get_app_data_dir(app_name)
     ensure_app_data_dir(app_dir)
     return app_dir

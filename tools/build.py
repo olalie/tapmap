@@ -21,6 +21,7 @@ BUILD_DIR = Path("build")
 
 
 def run(cmd: list[str]) -> None:
+    """Run a subprocess command and raise on failure."""
     print(">", " ".join(cmd))
     subprocess.run(cmd, check=True)
 
@@ -67,6 +68,7 @@ def rm_tree(path: Path, *, retries: int = 12, delay_s: float = 0.25) -> None:
 
 
 def main() -> None:
+    """Build a packaged TapMap executable using PyInstaller."""
     # Stop a running exe that may lock dist/ files.
     stop_running_app(APP_NAME)
 
