@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 import psutil
 
@@ -18,8 +19,7 @@ class ProcessInfo:
 
 
 class NetInfo:
-    """
-    Read socket information via psutil and attach process metadata.
+    """Read socket information via psutil and attach process metadata.
 
     Returns a raw snapshot. The model decides which records are used for cache and mapping.
 
@@ -91,8 +91,7 @@ class NetInfo:
         return True
 
     def _process_info(self, pid: int | None, cache: dict[int, ProcessInfo]) -> ProcessInfo:
-        """
-        Return process metadata for a PID.
+        """Return process metadata for a PID.
 
         Status values:
             OK, No process, Access denied, Unavailable

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import ipaddress
-from typing import Any, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 from dash import dcc, html
 
@@ -9,8 +10,7 @@ from ui.help_text import HELP_CONTENT
 
 
 class ModalTextBuilder:
-    """
-    Build modal content for menu actions and map clicks.
+    """Build modal content for menu actions and map clicks.
 
     All methods return Dash components (not raw strings) to keep the UI safe.
     """
@@ -36,8 +36,7 @@ class ModalTextBuilder:
         snapshot: Any | None = None,
         show_lan_local: bool = False,
     ) -> list[Any]:
-        """
-        Return modal body content for a menu action.
+        """Return modal body content for a menu action.
 
         Args:
             action: Menu action id.
@@ -63,8 +62,7 @@ class ModalTextBuilder:
         return [self._h1("Details"), html.Pre(f"Menu selected: {label}")]
 
     def for_click(self, click_data: Any, ui_view: Any) -> html.Pre | None:
-        """
-        Build click detail content from Plotly clickData.
+        """Build click detail content from Plotly clickData.
 
         Args:
             click_data: Plotly clickData payload.
@@ -107,8 +105,7 @@ class ModalTextBuilder:
 
     @staticmethod
     def _kv_table(rows: Iterable[tuple[str, str]]) -> html.Table:
-        """
-        Render a simple two-column key/value table.
+        """Render a simple two-column key/value table.
 
         Each value is wrapped in a span with tooltip = full value.
         Column widths are set with Colgroup to avoid CSS nth-child rules.
@@ -138,8 +135,7 @@ class ModalTextBuilder:
 
     @staticmethod
     def _cell(text: str, title: str | None = None) -> html.Td:
-        """
-        Render a table cell with consistent truncation + tooltip behaviour.
+        """Render a table cell with consistent truncation + tooltip behaviour.
 
         Tooltip defaults to the full text unless explicitly overridden.
         """
@@ -162,8 +158,7 @@ class ModalTextBuilder:
     # ---------- Help ----------
 
     def _render_help(self) -> list[Any]:
-        """
-        Return Help content.
+        """Return Help content.
 
         HELP_CONTENT is expected to start with H1. If not, add one.
         """
@@ -178,8 +173,7 @@ class ModalTextBuilder:
     # ---------- About ----------
 
     def _render_about(self, snapshot: Any | None = None) -> list[Any]:
-        """
-        Render the About view.
+        """Render the About view.
 
         This view must not trigger network calls. It reads only snapshot["app_info"],
         which is prepared by TapMap.
@@ -326,8 +320,7 @@ class ModalTextBuilder:
         public_ip_cached: str | None,
         auto_geo: dict[str, Any],
     ) -> list[tuple[str, str]]:
-        """
-        Build the Location section rows based on MY_LOCATION mode.
+        """Build the Location section rows based on MY_LOCATION mode.
 
         Modes:
             OFF: show local marker disabled
@@ -398,8 +391,7 @@ class ModalTextBuilder:
 
     @staticmethod
     def _strip_port(addr: str) -> str:
-        """
-        Return address without trailing ':port'.
+        """Return address without trailing ':port'.
 
         Examples:
             '127.0.0.1:8050' -> '127.0.0.1'
@@ -443,8 +435,7 @@ class ModalTextBuilder:
 
     @classmethod
     def _render_open_ports(cls, snapshot: Any | None) -> list[Any]:
-        """
-        Render the Open ports view.
+        """Render the Open ports view.
         """
         snap = snapshot if isinstance(snapshot, dict) else {}
         rows = snap.get("open_ports")
@@ -533,8 +524,7 @@ class ModalTextBuilder:
 
     @staticmethod
     def _remote_scope(ip: str | None) -> str:
-        """
-        Classify a remote IP for display in the Unmapped table.
+        """Classify a remote IP for display in the Unmapped table.
 
         LOCAL: loopback
         LAN: private or link-local
@@ -559,8 +549,7 @@ class ModalTextBuilder:
 
     @classmethod
     def _render_unmapped(cls, snapshot: Any | None, *, show_lan_local: bool) -> list[Any]:
-        """
-        Render Unmapped endpoints.
+        """Render Unmapped endpoints.
 
         Unmapped means: ESTABLISHED TCP endpoints that are not shown on the map
         because geolocation is missing (no lat/lon).
@@ -756,8 +745,7 @@ class ModalTextBuilder:
 
     @staticmethod
     def first_idx(customdata: Any) -> int | None:
-        """
-        Extract endpoint index from Plotly customdata.
+        """Extract endpoint index from Plotly customdata.
 
         Supports:
             - dict with keys {"kind", "idx"}

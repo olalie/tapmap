@@ -30,8 +30,7 @@ APP_META: Final[AppMeta] = AppMeta(name="TapMap", version="v1.0", author="Ola Li
 
 
 class TapMap:
-    """
-    Dash controller and UI wiring.
+    """Dash controller and UI wiring.
 
     Design goals:
       - Keep callbacks thin and readable.
@@ -756,8 +755,7 @@ class TapMap:
             geo_data_dir: Any,
             snapshot: Any,
         ):
-            """
-            Route UI actions into modal state changes and one-off ui_event commands.
+            """Route UI actions into modal state changes and one-off ui_event commands.
 
             Rules:
             - This callback is the only writer of modal_open and modal_state.

@@ -1,5 +1,4 @@
-"""
-Configuration for TapMap.
+"""Configuration for TapMap.
 
 Users can edit this file to adjust basic behavior without modifying
 the application code.

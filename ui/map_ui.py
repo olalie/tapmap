@@ -1,5 +1,4 @@
-"""
-Plotly map rendering for TapMap.
+"""Plotly map rendering for TapMap.
 
 Builds a dark themed world map with:
 - a base choropleth layer
@@ -290,8 +289,7 @@ class MapUI:
         point_sets: PointSets,
         summaries: dict[str, str] | None = None,
     ) -> go.Figure:
-        """
-        Build a world map figure.
+        """Build a world map figure.
 
         Color rules:
             - MAGENTA: normal remote targets and lines

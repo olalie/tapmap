@@ -1,5 +1,4 @@
-"""
-Public IP lookup utilities.
+"""Public IP lookup utilities.
 
 This module resolves the machine's public IP address using small external
 services. The result is validated as an IPv4 or IPv6 address.
@@ -10,7 +9,8 @@ from __future__ import annotations
 import ipaddress
 import logging
 import ssl
-from typing import Final, Iterator
+from collections.abc import Iterator
+from typing import Final
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -30,8 +30,7 @@ IP_SERVICES: Final[tuple[str, ...]] = (
 
 
 def iter_public_ip_candidates(*, timeout_s: float = DEFAULT_TIMEOUT_S) -> Iterator[str]:
-    """
-    Yield validated public IP candidates from multiple services.
+    """Yield validated public IP candidates from multiple services.
 
     Args:
         timeout_s: Request timeout in seconds.
@@ -60,7 +59,6 @@ def iter_public_ip_candidates(*, timeout_s: float = DEFAULT_TIMEOUT_S) -> Iterat
 
 
 def get_public_ip(*, timeout_s: float = DEFAULT_TIMEOUT_S) -> str | None:
-    """
-    Return the first validated public IP candidate, or None on failure.
+    """Return the first validated public IP candidate, or None on failure.
     """
     return next(iter_public_ip_candidates(timeout_s=timeout_s), None)

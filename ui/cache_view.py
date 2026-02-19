@@ -1,5 +1,4 @@
-"""
-Cache and view building for TapMap.
+"""Cache and view building for TapMap.
 
 This module:
 - merges map candidates into a per-IP cache
@@ -28,8 +27,7 @@ class CacheViewBuilder:
         ui_cache: dict[str, Any],
         map_candidates: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        """
-        Merge map candidates into a per-IP cache.
+        """Merge map candidates into a per-IP cache.
 
         Cache is keyed by IP. Each entry accumulates ports and process names over time.
         Stored format is JSON-friendly (lists), while merging uses local sets.
@@ -100,8 +98,7 @@ class CacheViewBuilder:
         return f"{shown} +{len(cleaned) - max_items}"
 
     def build_view_from_cache(self, ui_cache: dict[str, Any]) -> dict[str, Any]:
-        """
-        Aggregate cached IP entries by rounded coordinate so overlapping endpoints become one marker.
+        """Aggregate cached IP entries by rounded coordinate so overlapping endpoints become one marker.
 
         Returns:
             {

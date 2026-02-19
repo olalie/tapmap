@@ -1,5 +1,4 @@
-"""
-GeoInfo enriches connection records with GeoIP City (lat/lon, city, country)
+"""GeoInfo enriches connection records with GeoIP City (lat/lon, city, country)
 and ASN information using MaxMind databases.
 
 Expected files in the configured data_dir:
@@ -50,8 +49,7 @@ class GeoDbPaths:
 
 
 class GeoInfo:
-    """
-    Best-effort GeoIP enrichment for connection dictionaries.
+    """Best-effort GeoIP enrichment for connection dictionaries.
 
     Design goals:
       - Safe to run without databases.
@@ -69,11 +67,10 @@ class GeoInfo:
         cache_size: int = 10_000,
         silent: bool = True,
     ) -> None:
-        """
-        Args:
-            data_dir: Directory containing GeoLite2 mmdb files.
-            cache_size: Max number of IP lookup results to keep in memory.
-            silent: If False, raise on DB open errors.
+        """Args:
+        data_dir: Directory containing GeoLite2 mmdb files.
+        cache_size: Max number of IP lookup results to keep in memory.
+        silent: If False, raise on DB open errors.
         """
         self._cache_size = max(0, int(cache_size))
         self._silent = bool(silent)
@@ -121,8 +118,7 @@ class GeoInfo:
     # ---------------------------------------------------------------------
 
     def reload(self) -> bool:
-        """
-        Reopen database readers from disk.
+        """Reopen database readers from disk.
 
         Used when the user places the .mmdb files while the app is running.
 
@@ -142,7 +138,7 @@ class GeoInfo:
             self._asn_reader.close()
             self._asn_reader = None
 
-    def __enter__(self) -> "GeoInfo":
+    def __enter__(self) -> GeoInfo:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
@@ -153,8 +149,7 @@ class GeoInfo:
     # ---------------------------------------------------------------------
 
     def enrich(self, connections: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """
-        Enrich connection dictionaries in-place using raddr_ip.
+        """Enrich connection dictionaries in-place using raddr_ip.
 
         Args:
             connections: List of connection dicts.
@@ -187,8 +182,7 @@ class GeoInfo:
         return connections
 
     def lookup(self, ip: str) -> GeoResult:
-        """
-        Lookup geo information for an IP address.
+        """Lookup geo information for an IP address.
 
         Returns:
             GeoResult with None values for unavailable fields.

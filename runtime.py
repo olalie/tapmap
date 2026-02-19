@@ -18,8 +18,7 @@ class AppMeta:
 
 @dataclass(frozen=True)
 class RuntimeContext:
-    """
-    Runtime context for the current OS and execution mode.
+    """Runtime context for the current OS and execution mode.
 
     Attributes:
         meta: App metadata.
@@ -35,8 +34,7 @@ class RuntimeContext:
 
     @property
     def geo_data_dir(self) -> Path:
-        """
-        Directory containing GeoIP databases.
+        """Directory containing GeoIP databases.
 
         We store .mmdb files directly in the per-user app data directory.
         """

@@ -32,8 +32,7 @@ class SnapshotPayload(TypedDict):
 
 
 class Model:
-    """
-    Build a live snapshot for the UI.
+    """Build a live snapshot for the UI.
 
     The model is stateless. All caching and aggregation over time happens in the UI.
 
@@ -177,8 +176,7 @@ class Model:
 
     @staticmethod
     def _get_scope(ip: str | None) -> str:
-        """
-        Return a coarse exposure scope based on the bound local IP address.
+        """Return a coarse exposure scope based on the bound local IP address.
 
         LOCAL: loopback only
         LAN: private or link-local
@@ -238,8 +236,7 @@ class Model:
             return "Unknown"
 
     def _build_open_port(self, conn: dict[str, Any], *, proto: str) -> OpenPort | None:
-        """
-        Build one OpenPort item for the modal table.
+        """Build one OpenPort item for the modal table.
 
         Rules:
             - process_label: name if available, otherwise process_status

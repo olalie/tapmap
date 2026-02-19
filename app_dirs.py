@@ -4,7 +4,7 @@ import os
 import platform
 import subprocess
 from pathlib import Path
-from typing import Final, Tuple
+from typing import Final
 
 APP_NAME: Final[str] = "TapMap"
 
@@ -17,8 +17,7 @@ README_TEXT: Final[str] = (
 
 
 def get_app_data_dir(app_name: str = APP_NAME) -> Path:
-    """
-    Return the per-user application data directory for the current OS.
+    """Return the per-user application data directory for the current OS.
 
     Windows: %APPDATA%\\<app_name>
     macOS:   ~/Library/Application Support/<app_name>
@@ -41,8 +40,7 @@ def get_app_data_dir(app_name: str = APP_NAME) -> Path:
 
 
 def ensure_app_data_dir(app_dir: Path) -> None:
-    """
-    Ensure the application data directory exists and contains a README file.
+    """Ensure the application data directory exists and contains a README file.
     """
     app_dir.mkdir(parents=True, exist_ok=True)
     readme = app_dir / "README.txt"
@@ -51,17 +49,15 @@ def ensure_app_data_dir(app_dir: Path) -> None:
 
 
 def get_or_create_app_data_dir(app_name: str = APP_NAME) -> Path:
-    """
-    Return the per-user app data directory and create it if needed.
+    """Return the per-user app data directory and create it if needed.
     """
     app_dir = get_app_data_dir(app_name)
     ensure_app_data_dir(app_dir)
     return app_dir
 
 
-def open_folder(path: Path) -> Tuple[bool, str]:
-    """
-    Open the given folder in the system file manager.
+def open_folder(path: Path) -> tuple[bool, str]:
+    """Open the given folder in the system file manager.
 
     Returns:
         (ok, message)
