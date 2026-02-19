@@ -446,7 +446,7 @@ class ModalTextBuilder:
         header = [cls._h1("Open ports (TCP LISTEN and UDP bound)")]
 
         if not cleaned:
-            return header + [html.Pre("(no open ports found)")]
+            return [*header, html.Pre("(no open ports found)")]
 
         body_rows: list[Any] = []
         for r in cleaned:
@@ -517,7 +517,7 @@ class ModalTextBuilder:
                 html.Tbody(body_rows),
             ],
         )
-        return header + [table]
+        return [*header, table]
 
     # ---------- Unmapped endpoints ----------
 
@@ -684,7 +684,8 @@ class ModalTextBuilder:
             html.P(
                 [
                     "TapMap can run without geolocation, but GeoIP lookups will be disabled. ",
-                    "To enable geolocation, download the GeoLite2 databases and place them in this folder:",
+                    "To enable geolocation, download the GeoLite2 databases and place them in "
+                    "this folder:",
                 ]
             ),
             html.Div(
@@ -725,7 +726,8 @@ class ModalTextBuilder:
             html.H2("Download"),
             html.P(
                 [
-                    "Download is free from MaxMind, but requires an account and acceptance of license terms. ",
+                    "Download is free from MaxMind, but requires an account and "
+                    "acceptance of license terms. ",
                     "Create a free account and download the databases here: ",
                     html.A(
                         "MaxMind GeoLite2 download page",

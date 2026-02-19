@@ -57,6 +57,7 @@ def iter_public_ip_candidates(*, timeout_s: float = DEFAULT_TIMEOUT_S) -> Iterat
 
         yield raw_ip
 
+
 def get_public_ip(*, timeout_s: float = DEFAULT_TIMEOUT_S) -> str | None:
     """Return the first validated public IP candidate, or None on failure."""
     return next(iter_public_ip_candidates(timeout_s=timeout_s), None)

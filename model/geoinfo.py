@@ -8,7 +8,6 @@ If database files are missing or cannot be opened, GeoInfo runs in best-effort m
 returns None for unavailable fields.
 """
 
-
 from __future__ import annotations
 
 from collections import OrderedDict

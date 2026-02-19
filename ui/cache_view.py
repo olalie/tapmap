@@ -98,7 +98,9 @@ class CacheViewBuilder:
         return f"{shown} +{len(cleaned) - max_items}"
 
     def build_view_from_cache(self, ui_cache: dict[str, Any]) -> dict[str, Any]:
-        """Aggregate cached IP entries by rounded coordinate so overlapping endpoints become one marker.
+        """Aggregate cached IP entries by rounded coordinate.
+
+        Overlapping endpoints become one marker.
 
         Returns:
             {
@@ -148,10 +150,7 @@ class CacheViewBuilder:
             else:
                 place = "Unknown place name"
 
-            if endpoint_count > 1:
-                line1 = f"{place} ({endpoint_count} endpoints)"
-            else:
-                line1 = place
+            line1 = f"{place} ({endpoint_count} endpoints)" if endpoint_count > 1 else place
 
             # --- Networks ---
             unique_orgs = sorted({e.get("asn_org") for e in entries if e.get("asn_org")})

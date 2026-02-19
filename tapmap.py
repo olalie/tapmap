@@ -7,7 +7,7 @@ import threading
 import webbrowser
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, ClassVar, Final
 
 import psutil
 from dash import Dash, Input, Output, State, ctx, dcc, html, no_update
@@ -43,19 +43,12 @@ class TapMap:
     # Menu configuration
     # ---------------------------------------------------------------------
 
-    MENU_SCREENS: set[str] = {
-        "menu_help",
-        "menu_about",
-        "menu_open_ports",
-        "menu_unmapped",
-    }
-
-    MENU_COMMANDS: set[str] = {
-        "menu_clear",
-        "menu_cache_terminal",
-        "menu_recheck_geo",
-    }
-
+    MENU_SCREENS: ClassVar[frozenset[str]] = frozenset(
+        {"menu_help", "menu_about", "menu_open_ports", "menu_unmapped"}
+    )
+    MENU_COMMANDS: ClassVar[frozenset[str]] = frozenset(
+        {"menu_clear", "menu_cache_terminal", "menu_recheck_geo"}
+    )
     # ---------------------------------------------------------------------
     # Debug and runtime flags
     # ---------------------------------------------------------------------
@@ -601,9 +594,13 @@ class TapMap:
             if isinstance(status_flash, dict):
                 message = status_flash.get("message")
                 until = status_flash.get("until")
-                if isinstance(message, str) and message and isinstance(until, (int, float)):
-                    if datetime.now().timestamp() < float(until):
-                        return message
+                if (
+                    isinstance(message, str)
+                    and message
+                    and isinstance(until, (int, float))
+                    and datetime.now().timestamp() < float(until)
+                ):
+                    return message
 
             status_cache = StatusCache.from_store(status_cache_data)
 
@@ -703,9 +700,13 @@ class TapMap:
             if trigger == "menu_overlay":
                 return False
 
-            if trigger == "key_action" and isinstance(key_action, dict):
-                if key_action.get("action") == "escape" and bool(menu_open):
-                    return False
+            if (
+                trigger == "key_action"
+                and isinstance(key_action, dict)
+                and key_action.get("action") == "escape"
+                and bool(menu_open)
+            ):
+                return False
 
             if trigger in (self.MENU_SCREENS | self.MENU_COMMANDS):
                 return False
@@ -788,9 +789,12 @@ class TapMap:
             # --------------------------------------------------------------
             # 0) Auto-close the missing DB modal when geo becomes enabled
             # --------------------------------------------------------------
-            if bool(modal_open) and current_state.get("screen") == self.SCR_MISSING_GEO_DB:
-                if is_geo_enabled(snapshot):
-                    return False, None, None
+            if (
+                bool(modal_open)
+                and current_state.get("screen") == self.SCR_MISSING_GEO_DB
+                and is_geo_enabled(snapshot)
+            ):
+                return False, None, None
 
             # --------------------------------------------------------------
             # 1) Close modal button

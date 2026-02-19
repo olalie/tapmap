@@ -371,7 +371,7 @@ class MapUI:
             lats = [lat for _, lat in targets]
 
             if self.debug:
-                unique_xy = len(set(zip(lons, lats)))
+                unique_xy = len(set(zip(lons, lats, strict=False)))
                 self.logger.debug("Figure targets: count=%s unique_xy=%s", len(lons), unique_xy)
 
             colors: list[str] = []
@@ -410,6 +410,10 @@ class MapUI:
             uirevision="keep",
         )
 
+        font_family = (
+            "ui-monospace, SFMono-Regular, Menlo, Consolas, "
+            "'Liberation Mono', 'Courier New', monospace"
+        )
         fig.update_layout(
             margin=dict(l=0, r=0, t=0, b=0),
             paper_bgcolor="black",
@@ -424,7 +428,7 @@ class MapUI:
                 bordercolor=self.HOVER_BORDER,
                 font=dict(
                     color=self.HOVER_FONT,
-                    family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', 'Courier New', monospace",
+                    family=font_family,
                     size=14,
                 ),
             ),

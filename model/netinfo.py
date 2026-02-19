@@ -82,13 +82,11 @@ class NetInfo:
     def _is_included(self, conn: Any, *, proto: str) -> bool:
         """Return True if the connection should be included in the snapshot."""
         status = conn.status or "NONE"
-        if (
+        return not (
             proto == "tcp"
             and self.allowed_statuses is not None
             and status not in self.allowed_statuses
-        ):
-            return False
-        return True
+        )
 
     def _process_info(self, pid: int | None, cache: dict[int, ProcessInfo]) -> ProcessInfo:
         """Return process metadata for a PID.

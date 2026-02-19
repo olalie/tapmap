@@ -199,7 +199,8 @@ class StatusCache:
             place = ", ".join([x for x in [city, country] if x]) or "-"
 
             lines.append(
-                f"{ip:<40}  {asn_org}  place={place}  ports={ports_text(entry)}  procs={procs_text(entry)}"
+                f"{ip:<40}  {asn_org}  place={place}  "
+                f"ports={ports_text(entry)}  procs={procs_text(entry)}"
             )
 
         logger.info("\n".join(lines))

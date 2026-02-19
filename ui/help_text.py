@@ -53,10 +53,12 @@ HELP_CONTENT = [
         ]
     ),
     html.P(
-        "Yellow is only a visual hint. Zoom in or approach from another direction to separate nearby endpoints."
+        "Yellow is only a visual hint. Zoom in or approach from another direction to "
+        "separate nearby endpoints."
     ),
     html.P(
-        "Location grouping is a separate mechanism. Endpoints with the same rounded coordinates are shown as a single marker."
+        "Location grouping is a separate mechanism. Endpoints with the same rounded "
+        "coordinates are shown as a single marker."
     ),
     html.H2("Controls"),
     html.Table(
@@ -100,20 +102,24 @@ HELP_CONTENT = [
     ),
     html.H2("Unmapped endpoints"),
     html.P(
-        "The Unmapped endpoints window lists ESTABLISHED TCP connections not shown on the map because geolocation is missing."
+        "The Unmapped endpoints window lists ESTABLISHED TCP connections not shown on the "
+        "map because geolocation is missing."
     ),
     html.P(
-        "By default, only public endpoints are shown. Enable the toggle to include LAN and local endpoints."
+        "By default, only public endpoints are shown. Enable the toggle to include "
+        "LAN and local endpoints."
     ),
     html.P(
         "If a window is narrow, some fields may be truncated. Hover a cell to see the full value."
     ),
     html.H2("Open ports"),
     html.P(
-        "The Open ports window lists local TCP sockets in LISTEN state and UDP sockets bound to local ports."
+        "The Open ports window lists local TCP sockets in LISTEN state and UDP sockets "
+        "bound to local ports."
     ),
     html.P(
-        "TCP LISTEN means a local process is waiting for incoming connections. UDP bound means a local process can receive datagrams on that port."
+        "TCP LISTEN means a local process is waiting for incoming connections. "
+        "UDP bound means a local process can receive datagrams on that port."
     ),
     html.P("This is a local view only. Remote endpoints are not shown."),
     html.H2("Show cache in terminal"),
@@ -121,7 +127,8 @@ HELP_CONTENT = [
     html.H2("Status line"),
     html.P("A snapshot is a point-in-time view of current network connections."),
     html.P(
-        "Short status messages may appear temporarily after commands such as Clear cache, Show cache in terminal, or Recheck databases."
+        "Short status messages may appear temporarily after commands such as "
+        "Clear cache, Show cache in terminal, or Recheck databases."
     ),
     html.H3("STATUS: WAIT | OK | OFFLINE | ERROR"),
     html.Ul(
@@ -149,18 +156,22 @@ HELP_CONTENT = [
     html.Ul(
         [
             html.Li(
-                "EST: Unique remote endpoints seen in ESTABLISHED connections, defined as remote IP and port."
+                "EST: Unique remote endpoints seen in ESTABLISHED connections, "
+                "defined as remote IP and port."
             ),
             html.Li(
-                "LOC: Endpoints where the remote IP is local, private, or loopback. Not shown on the map."
+                "LOC: Endpoints where the remote IP is local, private, or loopback. "
+                "Not shown on the map."
             ),
             html.Li(
-                "NON_GEO: External endpoints without geolocation. Not shown on the map but available via key U."
+                "NON_GEO: External endpoints without geolocation. "
+                "Not shown on the map but available via key U."
             ),
             html.Li("GEO: External endpoints with valid geolocation. GEO = EST - LOC - NON_GEO."),
             html.Li("RIP: Unique remote IP addresses within GEO."),
             html.Li(
-                "RLOC: Map locations within GEO after coordinate grouping. Multiple IPs and ASNs may map to the same grouped location."
+                "RLOC: Map locations within GEO after coordinate grouping. "
+                "Multiple IPs and ASNs may map to the same grouped location."
             ),
         ]
     ),
@@ -187,11 +198,13 @@ HELP_CONTENT = [
     ),
     html.P("If the databases are missing, a setup window appears at startup."),
     html.P(
-        "Open the data folder from that window or from About. Copy the files into it and use Recheck GeoIP databases to enable geolocation without restarting."
+        "Open the data folder from that window or from About. Copy the files into it and use "
+        "Recheck GeoIP databases to enable geolocation without restarting."
     ),
     html.P(
         [
-            "The databases are free from MaxMind but require an account and acceptance of license terms. ",
+            "The databases are free from MaxMind but require an account and "
+            "acceptance of license terms. ",
             "Download them here: ",
             html.A(
                 "MaxMind GeoLite2 download page",
@@ -210,11 +223,13 @@ HELP_CONTENT = [
     html.Ul(
         [
             html.Li(
-                "MY_LOCATION: 'none' hides the local marker. Use (lon, lat) for fixed coordinates, or 'auto' to detect from public IP."
+                "MY_LOCATION: 'none' hides the local marker. Use (lon, lat) for fixed "
+                "coordinates, or 'auto' to detect from public IP."
             ),
             html.Li("POLL_INTERVAL_MS: Snapshot refresh interval in milliseconds."),
             html.Li(
-                "COORD_PRECISION: Decimal precision used to group endpoints into one marker. 3 is approximately 100 meters."
+                "COORD_PRECISION: Decimal precision used to group endpoints into one marker. "
+                "3 is approximately 100 meters."
             ),
             html.Li("ZOOM_NEAR_KM: Distance threshold for marking endpoints as nearby in yellow."),
         ]
@@ -224,7 +239,8 @@ HELP_CONTENT = [
         [
             html.Li("IP-based geolocation is approximate."),
             html.Li(
-                "ASN and ASN organization identify the network operator, not necessarily the service owner."
+                "ASN and ASN organization identify the network operator, not "
+                "necessarily the service owner."
             ),
             html.Li("CDNs and hosting providers can make a service appear in another country."),
             html.Li("VPN and Tor can hide the true origin of a remote endpoint."),
@@ -234,7 +250,8 @@ HELP_CONTENT = [
     html.P("TapMap runs locally and reads local network connections."),
     html.P("Geolocation lookups are performed locally using the mmdb files."),
     html.P(
-        "If MY_LOCATION is set to 'auto', TapMap may query one or more external services to detect the public IP address. It stops at the first valid result."
+        "If MY_LOCATION is set to 'auto', TapMap may query one or more external "
+        "services to detect the public IP address. It stops at the first valid result."
     ),
     html.P(
         "To detect OFFLINE status, TapMap performs short connection checks to 1.1.1.1 and 8.8.8.8."

@@ -6,6 +6,7 @@ Run from project root:
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shutil
 import stat
@@ -29,23 +30,19 @@ def run(cmd: list[str]) -> None:
 def stop_running_app(app_name: str) -> None:
     """Best effort: terminate a running packaged exe that may lock dist/."""
     exe_name = f"{app_name}.exe"
-    try:
+    with contextlib.suppress(Exception):
         subprocess.run(
             ["taskkill", "/F", "/IM", exe_name],
             check=False,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-    except Exception:
-        pass
 
 
 def _on_rm_error(func, path: str, _exc_info) -> None:
     """If a file is read-only, make it writable and retry."""
-    try:
+    with contextlib.suppress(Exception):
         os.chmod(path, stat.S_IWRITE)
-    except Exception:
-        pass
     func(path)
 
 
