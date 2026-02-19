@@ -60,12 +60,13 @@ class Model:
 
     def snapshot(self) -> SnapshotPayload:
         now = datetime.now()
+        geo_enabled = self._geoinfo_enabled()
 
         try:
             online = self._has_internet()
             connections = self.netinfo.get_data()
 
-            if self._geoinfo_enabled():
+            if geo_enabled:
                 self.geoinfo.enrich(connections)
 
             live_con = 0
@@ -124,15 +125,15 @@ class Model:
                     "live_lst": live_lst,
                     "updated": now.strftime("%H:%M:%S"),
                     "dropped_missing_remote": dropped_missing_remote,
-                    "geoinfo_enabled": self._geoinfo_enabled(),
+                    "geoinfo_enabled": geo_enabled,
                 },
                 "cache_items": cache_items,
                 "map_candidates": map_candidates,
                 "open_ports": open_ports,
             }
 
-        except Exception:
-            self.logger.exception("Error in Model.snapshot()")
+        except Exception as exc:
+            self.logger.error("Error in Model.snapshot(): %s", exc)
             return {
                 "error": True,
                 "stats": {
@@ -142,7 +143,7 @@ class Model:
                     "live_lst": 0,
                     "updated": now.strftime("%H:%M:%S"),
                     "dropped_missing_remote": 0,
-                    "geoinfo_enabled": self._geoinfo_enabled(),
+                    "geoinfo_enabled": geo_enabled,
                 },
                 "cache_items": [],
                 "map_candidates": [],

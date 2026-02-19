@@ -2,25 +2,31 @@
 
 **See who your computer is talking to, on a live world map.**
 
-TapMap shows your active network connections and where they are located.  
-It is fast, simple and runs entirely on your own machine.
+TapMap combines local socket inspection, IP geolocation, and interactive map visualization.
 
-TapMap is not a firewall or a full security suite.  
-Think of it as a network thermometer for a quick overview.
+It uses:
+
+- `psutil` to read active network connections
+- MaxMind GeoLite2 databases for IP geolocation
+- Dash and Plotly to render an interactive world map
+
+TapMap runs entirely on your own machine.
+
+It is not a firewall or a full security suite.  
+Think of it as a live network overview.
 
 ---
 
 ## Screenshot
 
-![TapMap main view](docs/screenshot.png)
+![TapMap main view](docs/main-view.png)
 
 ---
 
 ## Download
 
-Download the latest version from the Releases page:
-
-https://github.com/olalie/tapmap/releases
+Download the latest version from the  
+[Releases page](https://github.com/olalie/tapmap/releases)
 
 Available builds:
 
@@ -28,7 +34,9 @@ Available builds:
 - macOS (zip)
 - Linux (zip)
 
-No installation required. Download, extract and run.
+No installation required. Download, extract, and run.
+
+Tested on Windows 10/11, macOS, and Linux.
 
 ---
 
@@ -50,17 +58,20 @@ TapMap runs locally and does not install anything on your system.
 
 TapMap runs locally and opens in your browser.
 
-If it does not open automatically, go to:
+The web interface runs on a local server at:
+
 http://127.0.0.1:8050/
+
+If it does not open automatically, enter the address manually in your browser.
 
 ---
 
-## GeoIP databases (required)
+## GeoIP databases (required for map locations)
 
 TapMap uses local MaxMind GeoLite2 databases for geolocation.  
 The databases are not included in the download.
 
-TapMap can run without them, but geolocation will be disabled.
+TapMap can run without them, but map locations will be disabled.
 
 Required files:
 
@@ -71,33 +82,15 @@ Download is free from MaxMind, but requires an account and acceptance of license
 
 https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
 
-### If you use the prebuilt release
+After downloading:
 
-1. Extract the downloaded zip file.
-2. Place the `.mmdb` files in the `data` folder next to the TapMap executable.
+1. Start TapMap.
+2. Open the **data folder** from the app.
+3. Copy the `.mmdb` files into that folder.
+4. Click **Recheck GeoIP databases**.
 
-### If you run TapMap from source with Python
-
-Place the `.mmdb` files in the folder defined by `GEO_DATA_DIR` in `config.py`.
-
-Update recommendation: download updated databases regularly (for example monthly).  
-Redistribution rules depend on the MaxMind license terms.
-
----
-
-## Interface
-
-### Actions menu
-![Actions menu](docs/menu.png)
-
-### Unmapped endpoints
-![Unmapped endpoints](docs/unmapped.png)
-
-### Open ports
-![Open ports](docs/openports.png)
-
-### About TapMap
-![My info](docs/myinfo.png)
+Update recommendation: download updated databases regularly, for example monthly.  
+Redistribution is subject to the MaxMind license terms.
 
 ---
 
@@ -107,7 +100,7 @@ Redistribution rules depend on the MaxMind license terms.
 - Approximate locations on a world map
 - Nearby clusters highlighted visually
 - Unmapped endpoints with missing geolocation
-- Local open ports
+- Local open ports (TCP LISTEN and UDP bound)
 
 All data is collected locally on your machine.
 
@@ -118,14 +111,32 @@ All data is collected locally on your machine.
 Most computers communicate with dozens of remote systems every day.  
 You usually cannot see them.
 
-TapMap makes this visible in seconds.
+TapMap makes these connections visible within seconds.
 
 - See unexpected connections
 - Understand where traffic goes
-- Get a quick health check of your system
+- Get a quick overview of network activity
 
-If everything looks familiar, you are probably fine.  
-If something looks strange, you can investigate further.
+Unexpected connections may indicate misconfiguration or unwanted software.
+
+---
+
+## Interface
+
+### Main view
+![Main view](docs/main-view.png)
+
+### Actions menu
+![Actions menu](docs/actions-menu.png)
+
+### Unmapped endpoints
+![Unmapped endpoints](docs/unmapped-endpoints.png)
+
+### Open ports
+![Open ports](docs/open-ports.png)
+
+### About
+![About](docs/about.png)
 
 ---
 
@@ -133,12 +144,13 @@ If something looks strange, you can investigate further.
 
 | Key | Action |
 |-----|--------|
-| U | Unmapped endpoints |
-| O | Open ports |
-| T | Show cache in terminal |
-| C | Clear cache |
-| H | Help |
-| A | About |
+| U   | Unmapped endpoints |
+| O   | Open ports |
+| T   | Show cache in terminal |
+| C   | Clear cache |
+| R   | Recheck GeoIP databases |
+| H   | Help |
+| A   | About |
 | ESC | Close window |
 
 ---
@@ -148,27 +160,8 @@ If something looks strange, you can investigate further.
 - TapMap runs locally.
 - No connection data is sent anywhere.
 - Geolocation uses local MaxMind databases.
-- If `MY_LOCATION = "auto"`, TapMap makes a single request to detect your public IP.
-- To detect offline status, TapMap performs short connection checks to the public DNS servers 1.1.1.1 and 8.8.8.8.
-
----
-
-## Support the project
-
-TapMap is free and open source.
-
-⭐ If you like TapMap, please give it a star on GitHub.  
-It helps others discover the project.
-
-If it helps you, consider supporting the project:
-
-**Buy Me a Coffee**  
-https://www.buymeacoffee.com/olalie  
-
-**PayPal**  
-https://www.paypal.com/donate/?hosted_button_id=ELLXBK9BY8EDU
-
-Even small donations are appreciated.
+- If `MY_LOCATION = "auto"`, TapMap makes a small request to detect your public IP.
+- To detect offline status, TapMap performs short connection checks to 1.1.1.1 and 8.8.8.8.
 
 ---
 
@@ -182,7 +175,6 @@ Common settings:
 - `POLL_INTERVAL_MS`
 - `COORD_PRECISION`
 - `ZOOM_NEAR_KM`
-- `GEO_DATA_DIR`
 
 ---
 
@@ -194,11 +186,31 @@ Requirements:
 
 Install dependencies:
 
-    pip install -r requirements.txt
+```
+pip install -r requirements.txt
+```
 
 Run:
 
-    python tapmap.py
+```
+python tapmap.py
+```
+
+---
+
+## Support the project
+
+TapMap is free and open source.
+
+If you find it useful, consider supporting the project:
+
+- Buy Me a Coffee  
+  https://www.buymeacoffee.com/olalie  
+
+- PayPal  
+  https://www.paypal.com/donate/?hosted_button_id=ELLXBK9BY8EDU  
+
+You can also give the project a star on GitHub.
 
 ---
 

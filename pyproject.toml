@@ -1,0 +1,17 @@
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF", "D"]
+ignore = [
+  "D100", "D104", "D107",
+  "D203", "D213",
+  "D401",
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

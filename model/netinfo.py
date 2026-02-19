@@ -39,7 +39,15 @@ class NetInfo:
         results: list[dict[str, Any]] = []
 
         for proto in self.KINDS:
-            for conn in psutil.net_connections(kind=proto):
+            try:
+                conns = psutil.net_connections(kind=proto)
+            except (psutil.AccessDenied, PermissionError):
+                # macOS can deny access to global connection info.
+                continue
+            except (OSError, RuntimeError):
+                continue
+
+            for conn in conns:
                 if not self._is_included(conn, proto=proto):
                     continue
 
@@ -69,6 +77,7 @@ class NetInfo:
                 )
 
         return results
+
 
     def _is_included(self, conn: Any, *, proto: str) -> bool:
         """Return True if the connection should be included in the snapshot."""

@@ -2,12 +2,26 @@
   function isTypingTarget(el) {
     if (!el) return false;
 
-    // Ikke blokker snarveier når target er det tekniske feltet
+    // Do not block shortcuts when target is the technical capture field
     if ((el.id || "") === "key_capture") return false;
 
     const tag = (el.tagName || "").toLowerCase();
-    return tag === "input" || tag === "textarea" || el.isContentEditable;
+    if (tag !== "input" && tag !== "textarea" && !el.isContentEditable) return false;
+
+    // Only treat text-like inputs as typing targets.
+    // Checkboxes/radios should not block ESC and shortcuts.
+    if (tag === "input") {
+      const t = (el.type || "").toLowerCase();
+      const typingTypes = new Set([
+        "", "text", "search", "email", "url", "tel", "password",
+        "number", "date", "datetime-local", "month", "time", "week",
+      ]);
+      return typingTypes.has(t);
+    }
+
+    return true; // textarea or contentEditable
   }
+
 
   function setNativeValue(el, value) {
     const setter = Object.getOwnPropertyDescriptor(
@@ -41,7 +55,7 @@
         return;
       }
 
-      if (k === "o" || k === "u" || k === "t" || k === "c" || k === "h" || k === "a") {
+      if (k === "o" || k === "u" || k === "t" || k === "c" || k === "r" || k === "h" || k === "a") {
         sendToken("__" + k + "__");
       }
     },
