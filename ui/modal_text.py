@@ -195,13 +195,19 @@ class ModalTextBuilder:
         near_km = app_info.get("zoom_near_km")
 
         geoinfo_enabled = bool(app_info.get("geoinfo_enabled", False))
-        geo_data_dir = app_info.get("geo_data_dir") if isinstance(app_info.get("geo_data_dir"), str) else ""
+        geo_data_dir = (
+            app_info.get("geo_data_dir") if isinstance(app_info.get("geo_data_dir"), str) else ""
+        )
 
-        myloc_mode = app_info.get("myloc_mode") if isinstance(app_info.get("myloc_mode"), str) else "OFF"
+        myloc_mode = (
+            app_info.get("myloc_mode") if isinstance(app_info.get("myloc_mode"), str) else "OFF"
+        )
         my_location = app_info.get("my_location")
 
         public_ip_cached = app_info.get("public_ip_cached")
-        public_ip_cached = public_ip_cached if isinstance(public_ip_cached, str) and public_ip_cached else None
+        public_ip_cached = (
+            public_ip_cached if isinstance(public_ip_cached, str) and public_ip_cached else None
+        )
 
         auto_geo_cached = app_info.get("auto_geo_cached")
         auto_geo = auto_geo_cached if isinstance(auto_geo_cached, dict) else {}
@@ -239,7 +245,6 @@ class ModalTextBuilder:
 
         return [
             self._h1(f"About {self.app_name}"),
-
             html.P(
                 "TapMap combines local socket inspection, IP geolocation, "
                 "and interactive map visualization."
@@ -249,19 +254,14 @@ class ModalTextBuilder:
                 "MaxMind GeoLite2 databases for geolocation, "
                 "and Dash with Plotly for map rendering."
             ),
-            html.P(
-                "All processing is local. TapMap does not inspect traffic contents."
-            ),
-
+            html.P("All processing is local. TapMap does not inspect traffic contents."),
             self._kv_table(tapmap_rows),
-
             html.H2("Geolocation"),
             html.P(
                 "Geolocation is based on local MaxMind GeoLite2 .mmdb databases. "
                 "The databases are not included."
             ),
             self._kv_table(geo_rows),
-
             html.Div(
                 className="mx-path-row",
                 children=[
@@ -282,13 +282,10 @@ class ModalTextBuilder:
                     ),
                 ],
             ),
-
             html.H2("Location"),
             self._kv_table(location_rows),
-
             html.H2("Runtime"),
             self._kv_table(runtime_rows),
-
             html.H2("Project"),
             html.P("TapMap is free and open source."),
             html.Ul(
@@ -320,7 +317,6 @@ class ModalTextBuilder:
                 ]
             ),
         ]
-
 
     @classmethod
     def _build_location_rows(
@@ -501,12 +497,12 @@ class ModalTextBuilder:
         # 1 6.7, 2 6.7, 3 6.7, 4 26.7, 5 20, 6 6.7, 7 26.7
         colgroup = html.Colgroup(
             [
-                html.Col(style={"width": "8.0%"}),   # Scope
-                html.Col(style={"width": "8.0%"}),   # Proto
-                html.Col(style={"width": "8.0%"}),   # Port
+                html.Col(style={"width": "8.0%"}),  # Scope
+                html.Col(style={"width": "8.0%"}),  # Proto
+                html.Col(style={"width": "8.0%"}),  # Port
                 html.Col(style={"width": "24.0%"}),  # Local IP
                 html.Col(style={"width": "20.0%"}),  # Port service
-                html.Col(style={"width": "8.0%"}),   # PID
+                html.Col(style={"width": "8.0%"}),  # PID
                 html.Col(style={"width": "24.0%"}),  # Process
             ]
         )
@@ -662,12 +658,12 @@ class ModalTextBuilder:
             )
         colgroup = html.Colgroup(
             [
-                html.Col(style={"width": "8%"}),    # Scope
-                html.Col(style={"width": "32%"}),   # Remote IP
-                html.Col(style={"width": "8%"}),    # Port
-                html.Col(style={"width": "16%"}),   # Port service
-                html.Col(style={"width": "8%"}),    # PID
-                html.Col(style={"width": "28%"}),   # Process
+                html.Col(style={"width": "8%"}),  # Scope
+                html.Col(style={"width": "32%"}),  # Remote IP
+                html.Col(style={"width": "8%"}),  # Port
+                html.Col(style={"width": "16%"}),  # Port service
+                html.Col(style={"width": "8%"}),  # PID
+                html.Col(style={"width": "28%"}),  # Process
             ]
         )
 
@@ -696,14 +692,12 @@ class ModalTextBuilder:
     def missing_geo_db(self, geo_data_dir: str) -> list[Any]:
         return [
             self._h1("Missing GeoIP databases"),
-
             html.P(
                 [
                     "TapMap can run without geolocation, but GeoIP lookups will be disabled. ",
                     "To enable geolocation, download the GeoLite2 databases and place them in this folder:",
                 ]
             ),
-
             html.Div(
                 className="mx-path-row",
                 children=[
@@ -724,20 +718,21 @@ class ModalTextBuilder:
                     ),
                 ],
             ),
-
             html.P("Required files:"),
-            html.Ul([
-                html.Li("GeoLite2-ASN.mmdb"),
-                html.Li("GeoLite2-City.mmdb"),
-            ]),
-
+            html.Ul(
+                [
+                    html.Li("GeoLite2-ASN.mmdb"),
+                    html.Li("GeoLite2-City.mmdb"),
+                ]
+            ),
             html.H2("Steps"),
-            html.Ol([
-                html.Li("Open the data folder."),
-                html.Li("Copy the GeoLite2 .mmdb files into the folder."),
-                html.Li("Click Recheck GeoIP databases in the app."),
-            ]),
-
+            html.Ol(
+                [
+                    html.Li("Open the data folder."),
+                    html.Li("Copy the GeoLite2 .mmdb files into the folder."),
+                    html.Li("Click Recheck GeoIP databases in the app."),
+                ]
+            ),
             html.H2("Download"),
             html.P(
                 [
@@ -752,12 +747,10 @@ class ModalTextBuilder:
                     ".",
                 ]
             ),
-
             html.P(
                 "Update recommendation: download updated databases regularly (for example monthly)."
             ),
         ]
-
 
     # ---------- Click helpers ----------
 

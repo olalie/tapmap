@@ -4,6 +4,7 @@ Build TapMap using PyInstaller.
 Run from project root:
     python tools/build.py
 """
+
 from __future__ import annotations
 
 import os

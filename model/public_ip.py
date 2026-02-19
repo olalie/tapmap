@@ -22,10 +22,10 @@ DEFAULT_TIMEOUT_S: Final[float] = 2.0
 USER_AGENT: Final[str] = "TapMap/1.0 (+https://github.com/olalie/tapmap)"
 
 IP_SERVICES: Final[tuple[str, ...]] = (
-    "https://api.ipify.org",           # often IPv4
-    "https://checkip.amazonaws.com",   # often IPv4
-    "https://ifconfig.me/ip",          # often IPv6
-    "https://icanhazip.com",           # often IPv6
+    "https://api.ipify.org",  # often IPv4
+    "https://checkip.amazonaws.com",  # often IPv4
+    "https://ifconfig.me/ip",  # often IPv6
+    "https://icanhazip.com",  # often IPv6
 )
 
 

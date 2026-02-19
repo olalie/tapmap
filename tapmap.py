@@ -70,12 +70,12 @@ class TapMap:
     # ---------------------------------------------------------------------
 
     # Polling intervals (milliseconds)
-    MODEL_TICK_MS = 5000      # model polling (network, psutil, etc.)
-    UI_TICK_MS = 500          # UI updates (status flash timeout)
+    MODEL_TICK_MS = 5000  # model polling (network, psutil, etc.)
+    UI_TICK_MS = 500  # UI updates (status flash timeout)
 
     # Status flash durations (seconds)
-    FLASH_SHORT_S = 1.5       # clear cache, show cache
-    FLASH_LONG_S = 3.0        # geo recheck result
+    FLASH_SHORT_S = 1.5  # clear cache, show cache
+    FLASH_LONG_S = 3.0  # geo recheck result
 
     # ---------------------------------------------------------------------
     # Event and modal identifiers
@@ -83,7 +83,6 @@ class TapMap:
 
     EVT_GEO_RECHECK = "geo_recheck"
     SCR_MISSING_GEO_DB = "missing_geo_db"
-
 
     def __init__(self, runtime_ctx: RuntimeContext) -> None:
         self.ctx = runtime_ctx
@@ -95,9 +94,10 @@ class TapMap:
             suppress_callback_exceptions=True,
         )
 
-
         self.ui = MapUI(debug=self.DEBUG_COORDS)
-        self.view_builder = CacheViewBuilder(coord_precision=COORD_PRECISION, debug=self.DEBUG_COORDS)
+        self.view_builder = CacheViewBuilder(
+            coord_precision=COORD_PRECISION, debug=self.DEBUG_COORDS
+        )
 
         self.modal_text = ModalTextBuilder(
             self.ctx.meta.name,
@@ -110,7 +110,9 @@ class TapMap:
             geoinfo=GeoInfo(data_dir=self.ctx.geo_data_dir),
         )
 
-        self.logger.info("GeoInfo enabled at startup: %s", getattr(self.model.geoinfo, "enabled", False))
+        self.logger.info(
+            "GeoInfo enabled at startup: %s", getattr(self.model.geoinfo, "enabled", False)
+        )
         self.logger.info("geo_data_dir: %s", self.ctx.geo_data_dir)
 
         self._public_ip_cached: str | None = None
@@ -164,7 +166,6 @@ class TapMap:
                 dcc.Store(id="ui_event_seen", data=None),
                 dcc.Store(id="modal_open", data=bool(initial_modal_state)),
                 dcc.Store(id="modal_state", data=initial_modal_state),
-
                 dcc.Input(
                     id="key_capture",
                     type="text",
@@ -181,10 +182,8 @@ class TapMap:
                         "pointerEvents": "none",
                     },
                 ),
-
                 dcc.Interval(id="tick_status", interval=self.MODEL_TICK_MS, n_intervals=0),
                 dcc.Interval(id="tick_ui", interval=self.UI_TICK_MS, n_intervals=0),
-
                 dcc.Graph(
                     id="map",
                     figure=start_fig,
@@ -192,30 +191,40 @@ class TapMap:
                     config=self.graph_config,
                     clear_on_unhover=True,
                 ),
-
                 html.Div(self.ctx.meta.name, className="app-title"),
-
-                html.Button("☰", id="btn_menu", n_clicks=0, className="mx-btn mx-btn--icon", type="button"),
-                html.Div(id="menu_overlay", n_clicks=0, className="mx-overlay", style={"display": "none"}),
+                html.Button(
+                    "☰", id="btn_menu", n_clicks=0, className="mx-btn mx-btn--icon", type="button"
+                ),
+                html.Div(
+                    id="menu_overlay", n_clicks=0, className="mx-overlay", style={"display": "none"}
+                ),
                 html.Nav(
                     id="menu_panel",
                     className="mx-panel",
                     style={"display": "none"},
                     children=[
                         html.Div("Actions", className="mx-panel__title"),
-
-                        html.Div([
-                            self._menu_button("Show unmapped endpoints (U)", "menu_unmapped"),
-                            self._menu_button("Show open ports (O)", "menu_open_ports"),
-                            self._menu_button("Show cache in terminal (T)", "menu_cache_terminal"),
-                            self._menu_button("Clear cache (C)", "menu_clear"),
-                        ], className="mx-menu-group"),
-
-                        html.Div([
-                            self._menu_button("Recheck GeoIP databases (R)", "menu_recheck_geo"),
-                            self._menu_button("Help (H)", "menu_help"),
-                            self._menu_button("About (A)", "menu_about"),
-                        ], className="mx-menu-group"),
+                        html.Div(
+                            [
+                                self._menu_button("Show unmapped endpoints (U)", "menu_unmapped"),
+                                self._menu_button("Show open ports (O)", "menu_open_ports"),
+                                self._menu_button(
+                                    "Show cache in terminal (T)", "menu_cache_terminal"
+                                ),
+                                self._menu_button("Clear cache (C)", "menu_clear"),
+                            ],
+                            className="mx-menu-group",
+                        ),
+                        html.Div(
+                            [
+                                self._menu_button(
+                                    "Recheck GeoIP databases (R)", "menu_recheck_geo"
+                                ),
+                                self._menu_button("Help (H)", "menu_help"),
+                                self._menu_button("About (A)", "menu_about"),
+                            ],
+                            className="mx-menu-group",
+                        ),
                     ],
                 ),
                 html.Div(
@@ -243,7 +252,6 @@ class TapMap:
                         )
                     ],
                 ),
-
                 html.Div(
                     id="status_bar",
                     className="status-bar",
@@ -257,7 +265,9 @@ class TapMap:
         )
 
     def _menu_button(self, label: str, btn_id: str) -> html.Button:
-        return html.Button(label, id=btn_id, n_clicks=0, className="mx-btn mx-btn--menu", type="button")
+        return html.Button(
+            label, id=btn_id, n_clicks=0, className="mx-btn mx-btn--menu", type="button"
+        )
 
     # ---------------------------------------------------------------------
     # Helpers
@@ -395,11 +405,13 @@ class TapMap:
         flash = self._flash("Clearing cache...", self.FLASH_SHORT_S)
         return snap, empty_cache, status_cache.to_store(), view, flash
 
-    def _handle_cache_terminal(self, status_cache: StatusCache, ui_cache: dict[str, Any]) -> tuple[Any, Any, Any, Any, Any]:
+    def _handle_cache_terminal(
+        self, status_cache: StatusCache, ui_cache: dict[str, Any]
+    ) -> tuple[Any, Any, Any, Any, Any]:
         status_cache.log_cache(ui_cache, title="UI CACHE")
         flash = self._flash("Cache shown in terminal.", self.FLASH_SHORT_S)
         return no_update, no_update, no_update, no_update, flash
-     
+
     def _handle_normal_poll(
         self, tick_n: int, status_cache: StatusCache, ui_cache: dict[str, Any]
     ) -> tuple[Any, Any, Any, Any, Any]:
@@ -551,7 +563,9 @@ class TapMap:
                 return a, b, c, d, flash, event_seen
 
             # 4) Normal polling
-            snap, cache, sc_store, view, flash = self._handle_normal_poll(tick_n, status_cache, ui_cache)
+            snap, cache, sc_store, view, flash = self._handle_normal_poll(
+                tick_n, status_cache, ui_cache
+            )
             return snap, cache, sc_store, view, flash, event_seen
 
         # -----------------------------------------------------------------
@@ -578,7 +592,13 @@ class TapMap:
             Input("ui_view", "data"),
             Input("tick_ui", "n_intervals"),
         )
-        def render_status(snapshot: Any, status_cache_data: Any, status_flash: Any, ui_view: Any,_tick_ui: int,) -> str:
+        def render_status(
+            snapshot: Any,
+            status_cache_data: Any,
+            status_flash: Any,
+            ui_view: Any,
+            _tick_ui: int,
+        ) -> str:
             if isinstance(status_flash, dict):
                 message = status_flash.get("message")
                 until = status_flash.get("until")
@@ -691,7 +711,6 @@ class TapMap:
             if trigger in (self.MENU_SCREENS | self.MENU_COMMANDS):
                 return False
 
-
             return no_update
 
         # -----------------------------------------------------------------
@@ -799,7 +818,11 @@ class TapMap:
                 # Commands: do not open modal
                 if action in self.MENU_COMMANDS:
                     if action == "menu_recheck_geo":
-                        return no_update, no_update, {"type": self.EVT_GEO_RECHECK, "t": datetime.now().isoformat()}
+                        return (
+                            no_update,
+                            no_update,
+                            {"type": self.EVT_GEO_RECHECK, "t": datetime.now().isoformat()},
+                        )
                     # menu_clear and menu_cache_terminal are handled by poll_model directly.
                     return no_update, no_update, None
 
@@ -829,7 +852,11 @@ class TapMap:
             if trigger == "btn_check_databases":
                 if not isinstance(check_db_clicks, int) or check_db_clicks < 1:
                     return no_update, no_update, None
-                return no_update, no_update, {"type": self.EVT_GEO_RECHECK, "t": datetime.now().isoformat()}
+                return (
+                    no_update,
+                    no_update,
+                    {"type": self.EVT_GEO_RECHECK, "t": datetime.now().isoformat()},
+                )
 
             # --------------------------------------------------------------
             # 5) Toggle inside unmapped modal
@@ -855,7 +882,11 @@ class TapMap:
             # 7) Menu command: recheck databases (no modal)
             # --------------------------------------------------------------
             if trigger == "menu_recheck_geo":
-                return no_update, no_update, {"type": self.EVT_GEO_RECHECK, "t": datetime.now().isoformat()}
+                return (
+                    no_update,
+                    no_update,
+                    {"type": self.EVT_GEO_RECHECK, "t": datetime.now().isoformat()},
+                )
 
             # --------------------------------------------------------------
             # 8) Map click opens click modal
@@ -866,7 +897,6 @@ class TapMap:
                 return True, make_state("map_click", {"click_data": click_data}), None
 
             return no_update, no_update, None
-
 
         # -----------------------------------------------------------------
         # Modal rendering (HTML only)
@@ -907,7 +937,9 @@ class TapMap:
                 return [], "modal-body"
 
             if screen == self.SCR_MISSING_GEO_DB:
-                return as_children(self.modal_text.missing_geo_db(geo_path)), class_for_screen(screen)
+                return as_children(self.modal_text.missing_geo_db(geo_path)), class_for_screen(
+                    screen
+                )
 
             if screen == "map_click":
                 click_data = payload.get("click_data")
@@ -918,11 +950,13 @@ class TapMap:
 
             if isinstance(screen, str) and screen in self.MENU_SCREENS:
                 show_lan_local = bool(payload.get("show_lan_local", False))
-                body = self.modal_text.for_action(screen, snapshot=snapshot, show_lan_local=show_lan_local)
+                body = self.modal_text.for_action(
+                    screen, snapshot=snapshot, show_lan_local=show_lan_local
+                )
                 return as_children(body), class_for_screen(screen)
 
             return [], "modal-body"
-        
+
     # ---------------------------------------------------------------------
     # Lifecycle
     # ---------------------------------------------------------------------

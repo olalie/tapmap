@@ -79,7 +79,6 @@ class CacheViewBuilder:
 
         return cache
 
-
     @staticmethod
     def format_list_compact(items: list[Any], max_items: int) -> str:
         """Return comma-separated values, truncated with +N overflow."""
@@ -99,7 +98,6 @@ class CacheViewBuilder:
 
         shown = ", ".join(cleaned[:max_items])
         return f"{shown} +{len(cleaned) - max_items}"
-
 
     def build_view_from_cache(self, ui_cache: dict[str, Any]) -> dict[str, Any]:
         """
@@ -204,11 +202,7 @@ class CacheViewBuilder:
                     f"  Procs: {', '.join(e_procs) if e_procs else '-'}"
                 )
 
-            details[key_str] = (
-                f"Location: {place}\n"
-                f"{counts_line}\n\n"
-                + "\n\n".join(ip_lines)
-            )
+            details[key_str] = f"Location: {place}\n{counts_line}\n\n" + "\n\n".join(ip_lines)
 
         return {
             "points": points,
@@ -247,4 +241,3 @@ class CacheViewBuilder:
         self.logger.debug("Top coord duplicates:")
         for (lon, lat), n in top:
             self.logger.debug("  (%s, %s) x%s", lon, lat, n)
-

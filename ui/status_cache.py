@@ -23,6 +23,7 @@ class StatusCache:
     - rip: ip
     - rloc: (lat, lon)
     """
+
     est: set[tuple[str, int]] = field(default_factory=set)
     loc: set[tuple[str, int]] = field(default_factory=set)
     non_geo: set[tuple[str, int]] = field(default_factory=set)
@@ -128,7 +129,6 @@ class StatusCache:
 
         return cache
 
-
     def format_chain(self, rloc_map: int | None = None) -> str:
         """Return the formatted status chain for the UI.
 
@@ -143,11 +143,8 @@ class StatusCache:
 
         rloc = rloc_map if rloc_map is not None else len(self.rloc)
 
-        return (
-            f"EST {est} - LOC {loc} - NON_GEO {non_geo} = "
-            f"GEO {geo} -> RIP {rip} -> RLOC {rloc}"
-        )
-    
+        return f"EST {est} - LOC {loc} - NON_GEO {non_geo} = GEO {geo} -> RIP {rip} -> RLOC {rloc}"
+
     def log_cache(self, ui_cache: dict[str, Any], *, title: str = "CACHE SNAPSHOT") -> None:
         """
         Write a readable cache snapshot to the terminal log.
@@ -210,4 +207,3 @@ class StatusCache:
             )
 
         logger.info("\n".join(lines))
-

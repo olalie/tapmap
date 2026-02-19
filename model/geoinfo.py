@@ -22,6 +22,7 @@ import maxminddb
 
 class GeoResult(TypedDict):
     """Normalized lookup result used by the rest of the application."""
+
     lat: float | None
     lon: float | None
     city: str | None
@@ -43,6 +44,7 @@ _EMPTY_RESULT: Final[GeoResult] = {
 @dataclass(frozen=True)
 class GeoDbPaths:
     """File paths to the MaxMind databases."""
+
     city_db: Path
     asn_db: Path
 

@@ -9,6 +9,7 @@ from typing import Any, Final, TypedDict
 
 class OpenPort(TypedDict):
     """One row in the Open Ports modal table."""
+
     proto: str
     local_address: str
     service: str
@@ -22,6 +23,7 @@ class OpenPort(TypedDict):
 
 class SnapshotPayload(TypedDict):
     """Payload returned from Model.snapshot()."""
+
     error: bool
     stats: dict[str, Any]
     cache_items: list[dict[str, Any]]
@@ -279,7 +281,6 @@ class Model:
         if service == "Unknown":
             service_hint = "Not in system service table"
 
-
         return {
             "proto": proto,
             "local_address": local_address,
@@ -292,8 +293,6 @@ class Model:
             "scope": self._get_scope(l_ip),
         }
 
-
-
     def _build_established_item(self, conn: dict[str, Any]) -> dict[str, Any] | None:
         """Build one cache item from an ESTABLISHED TCP connection."""
         remote_ip = conn.get("raddr_ip")
@@ -305,7 +304,7 @@ class Model:
             port = int(remote_port)
         except (TypeError, ValueError):
             return None
-        
+
         service = self._service_name(port, "tcp")
         service_hint = "Not in system service table" if service == "Unknown" else None
         is_local = self._is_local_ip(remote_ip)
@@ -317,7 +316,7 @@ class Model:
             "ip": remote_ip,
             "port": port,
             "service": service,
-             "service_hint": service_hint,
+            "service_hint": service_hint,
             "is_local": is_local,
             "lat": float(lat) if has_geo else None,
             "lon": float(lon) if has_geo else None,
@@ -331,10 +330,9 @@ class Model:
             "asn": conn.get("asn"),
             "asn_org": conn.get("asn_org"),
         }
-    
+
     def _service_name(self, port: int, proto: str) -> str:
         try:
             return socket.getservbyport(int(port), proto.lower())
         except OSError:
             return "Unknown"
-

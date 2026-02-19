@@ -32,10 +32,10 @@ def get_app_data_dir(app_name: str = APP_NAME) -> Path:
             base = str(Path.home() / "AppData" / "Roaming")
         return Path(base) / app_name
 
-    if system == "Darwin": # macOS
+    if system == "Darwin":  # macOS
         return Path.home() / "Library" / "Application Support" / app_name
 
-    xdg = os.environ.get("XDG_DATA_HOME") #
+    xdg = os.environ.get("XDG_DATA_HOME")  #
     base_dir = Path(xdg) if xdg else (Path.home() / ".local" / "share")
     return base_dir / app_name
 

@@ -9,6 +9,7 @@ import psutil
 @dataclass(frozen=True)
 class ProcessInfo:
     """Process metadata returned by NetInfo."""
+
     status: str
     label: str
     name: str | None = None
@@ -78,11 +79,14 @@ class NetInfo:
 
         return results
 
-
     def _is_included(self, conn: Any, *, proto: str) -> bool:
         """Return True if the connection should be included in the snapshot."""
         status = conn.status or "NONE"
-        if proto == "tcp" and self.allowed_statuses is not None and status not in self.allowed_statuses:
+        if (
+            proto == "tcp"
+            and self.allowed_statuses is not None
+            and status not in self.allowed_statuses
+        ):
             return False
         return True
 
