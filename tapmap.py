@@ -30,16 +30,8 @@ APP_META: Final[AppMeta] = AppMeta(name="TapMap", version="v1.0", author="Ola Li
 
 
 class TapMap:
-    """Wire Dash UI and callbacks to the model.
+    """Wire Dash UI callbacks to the model and view builders."""
 
-    Design goals:
-      - Keep callbacks small.
-      - Perform model state transitions in the polling callback.
-      - Use a simple UI event store for one-off actions.
-      - Split modal logic into routing (state) and rendering (HTML).
-    """
-
-    # Define menu identifiers used by UI callbacks.
     MENU_SCREENS: ClassVar[frozenset[str]] = frozenset(
         {"menu_help", "menu_about", "menu_open_ports", "menu_unmapped"}
     )
@@ -47,28 +39,23 @@ class TapMap:
         {"menu_clear", "menu_cache_terminal", "menu_recheck_geo"}
     )
 
-    # Configure debug behavior and runtime flags.
     DASH_DEBUG = False
     DEBUG_COORDS = False
     DEBUG_COORDS_EVERY_N_TICKS = 6
 
-    # Configure polling intervals and UI timing.
+    MODEL_TICK_MS = 5000
+    UI_TICK_MS = 500
 
-    # Control polling cadence in milliseconds.
-    MODEL_TICK_MS = 5000  # Drive model polling cadence.
-    UI_TICK_MS = 500  # Drive UI refresh cadence.
+    FLASH_SHORT_S = 1.5
+    FLASH_LONG_S = 3.0
 
-    # Control flash message lifetimes in seconds.
-    FLASH_SHORT_S = 1.5  # Use for short-lived status messages.
-    FLASH_LONG_S = 3.0  # Use for GeoIP reload outcomes.
-
-    # Define event and modal identifiers used by the UI state machine.
     EVT_GEO_RECHECK = "geo_recheck"
     SCR_MISSING_GEO_DB = "missing_geo_db"
 
     def __init__(self, runtime_ctx: RuntimeContext) -> None:
         self.ctx = runtime_ctx
         self.logger = logging.getLogger(__name__)
+
         self.app = Dash(
             __name__,
             title=self.ctx.meta.name,
@@ -77,9 +64,7 @@ class TapMap:
         )
 
         self.ui = MapUI(debug=self.DEBUG_COORDS)
-        self.view_builder = CacheViewBuilder(
-            coord_precision=COORD_PRECISION, debug=self.DEBUG_COORDS
-        )
+        self.view_builder = CacheViewBuilder(coord_precision=COORD_PRECISION, debug=self.DEBUG_COORDS)
 
         self.modal_text = ModalTextBuilder(
             self.ctx.meta.name,
@@ -118,7 +103,6 @@ class TapMap:
         self.app.layout = self._build_layout(start_fig)
         self._register_callbacks()
 
-    # Build the Dash layout tree.
     def _build_layout(self, start_fig: Any) -> html.Div:
         geo_ready = bool(getattr(self.model.geoinfo, "city_enabled", False))
 
@@ -129,6 +113,16 @@ class TapMap:
                 "t": datetime.now().isoformat(),
                 "payload": {"geo_data_dir": str(self.ctx.geo_data_dir)},
             }
+
+        initial_modal_open = bool(initial_modal_state)
+        initial_overlay_style = {"display": "flex"} if initial_modal_open else {"display": "none"}
+
+        initial_body_children: list[Any] = []
+        initial_body_class = "modal-body"
+        if initial_modal_state is not None:
+            geo_path = str(self.ctx.geo_data_dir)
+            initial_body_children = self._as_children(self.modal_text.missing_geo_db(geo_path))
+            initial_body_class = self._class_for_modal_screen(self.SCR_MISSING_GEO_DB)
 
         return html.Div(
             className="app",
@@ -143,7 +137,6 @@ class TapMap:
                 dcc.Store(id="geo_data_dir_store", data=str(self.ctx.geo_data_dir)),
                 dcc.Store(id="ui_event", data=None),
                 dcc.Store(id="ui_event_seen", data=None),
-                dcc.Store(id="modal_open", data=bool(initial_modal_state)),
                 dcc.Store(id="modal_state", data=initial_modal_state),
                 dcc.Input(
                     id="key_capture",
@@ -172,10 +165,17 @@ class TapMap:
                 ),
                 html.Div(self.ctx.meta.name, className="app-title"),
                 html.Button(
-                    "☰", id="btn_menu", n_clicks=0, className="mx-btn mx-btn--icon", type="button"
+                    "☰",
+                    id="btn_menu",
+                    n_clicks=0,
+                    className="mx-btn mx-btn--icon",
+                    type="button",
                 ),
                 html.Div(
-                    id="menu_overlay", n_clicks=0, className="mx-overlay", style={"display": "none"}
+                    id="menu_overlay",
+                    n_clicks=0,
+                    className="mx-overlay",
+                    style={"display": "none"},
                 ),
                 html.Nav(
                     id="menu_panel",
@@ -187,18 +187,14 @@ class TapMap:
                             [
                                 self._menu_button("Show unmapped endpoints (U)", "menu_unmapped"),
                                 self._menu_button("Show open ports (O)", "menu_open_ports"),
-                                self._menu_button(
-                                    "Show cache in terminal (T)", "menu_cache_terminal"
-                                ),
+                                self._menu_button("Show cache in terminal (T)", "menu_cache_terminal"),
                                 self._menu_button("Clear cache (C)", "menu_clear"),
                             ],
                             className="mx-menu-group",
                         ),
                         html.Div(
                             [
-                                self._menu_button(
-                                    "Recheck GeoIP databases (R)", "menu_recheck_geo"
-                                ),
+                                self._menu_button("Recheck GeoIP databases (R)", "menu_recheck_geo"),
                                 self._menu_button("Help (H)", "menu_help"),
                                 self._menu_button("About (A)", "menu_about"),
                             ],
@@ -209,12 +205,16 @@ class TapMap:
                 html.Div(
                     id="modal_overlay",
                     className="modal-overlay",
-                    style={"display": "none"},
+                    style=initial_overlay_style,
                     children=[
                         html.Div(
                             className="modal-card",
                             children=[
-                                html.Div(id="modal_body", className="modal-body", children=[]),
+                                html.Div(
+                                    id="modal_body",
+                                    className=initial_body_class,
+                                    children=initial_body_children,
+                                ),
                                 html.Div(
                                     className="mx-modal-actions",
                                     children=[
@@ -244,11 +244,8 @@ class TapMap:
         )
 
     def _menu_button(self, label: str, btn_id: str) -> html.Button:
-        return html.Button(
-            label, id=btn_id, n_clicks=0, className="mx-btn mx-btn--menu", type="button"
-        )
+        return html.Button(label, id=btn_id, n_clicks=0, className="mx-btn mx-btn--menu", type="button")
 
-    # Normalize values received from Dash stores and inputs.
     @staticmethod
     def _ensure_dict(value: object) -> dict[str, Any]:
         return value if isinstance(value, dict) else {}
@@ -286,7 +283,6 @@ class TapMap:
             return "AUTO" if self.my_location else "AUTO (NO GEO)"
         return "OFF"
 
-    # Resolve the reference location used by the map view.
     def _resolve_my_location(self) -> list[LonLat]:
         if isinstance(MY_LOCATION, tuple):
             return [MY_LOCATION]
@@ -311,7 +307,6 @@ class TapMap:
 
         return []
 
-    # Build the About payload exposed in the UI.
     def _build_app_info(self) -> dict[str, Any]:
         return {
             "version": self.ctx.meta.version,
@@ -332,7 +327,6 @@ class TapMap:
             "psutil": getattr(psutil, "__version__", "-"),
         }
 
-    # Handle polling actions and cache updates.
     def _handle_geo_recheck(self, status_cache: StatusCache) -> tuple[Any, Any, Any, Any, Any]:
         ok = bool(getattr(self.model.geoinfo, "reload", lambda: False)())
         city_ready = bool(getattr(self.model.geoinfo, "city_enabled", False))
@@ -408,7 +402,6 @@ class TapMap:
         view = self.view_builder.build_view_from_cache(updated_cache)
         return snap, updated_cache, status_cache.to_store(), view, no_update
 
-    # Open the local UI in a browser after server startup.
     def _open_browser(self, url: str, delay_s: float = 0.8) -> None:
         try:
             delay = float(delay_s)
@@ -425,9 +418,79 @@ class TapMap:
         timer.daemon = True
         timer.start()
 
-    # Register Dash callbacks.
+    @staticmethod
+    def _as_children(value: Any) -> list[Any]:
+        if value is None:
+            return []
+        if isinstance(value, (list, tuple)):
+            return list(value)
+        return [value]
+
+    def _class_for_modal_screen(self, screen: str | None) -> str:
+        if screen in {
+            "menu_help",
+            "menu_open_ports",
+            "menu_unmapped",
+            "menu_about",
+            self.SCR_MISSING_GEO_DB,
+        }:
+            return "modal-body mx-sticky-title"
+        return "modal-body"
+
+    @staticmethod
+    def _modal_overlay_style(is_open: bool) -> dict[str, str]:
+        return {"display": "flex"} if is_open else {"display": "none"}
+
+    @staticmethod
+    def _toggle_on(value: Any) -> bool:
+        return isinstance(value, list) and "on" in value
+
+    @staticmethod
+    def _is_geo_enabled(snapshot: Any) -> bool:
+        if not isinstance(snapshot, dict):
+            return False
+        app_info = snapshot.get("app_info")
+        if not isinstance(app_info, dict):
+            return False
+        return bool(app_info.get("geoinfo_enabled"))
+
+    def _render_modal(
+        self,
+        modal_state: dict[str, Any] | None,
+        snapshot: Any,
+        ui_view: Any,
+        geo_data_dir: Any,
+    ) -> tuple[list[Any], str]:
+        if not isinstance(modal_state, dict):
+            return [], "modal-body"
+
+        screen = modal_state.get("screen")
+        payload = self._ensure_dict(modal_state.get("payload"))
+
+        geo_path = str(geo_data_dir) if isinstance(geo_data_dir, str) else ""
+
+        if not isinstance(screen, str) or not screen:
+            return [], "modal-body"
+
+        if screen == self.SCR_MISSING_GEO_DB:
+            children = self._as_children(self.modal_text.missing_geo_db(geo_path))
+            return children, self._class_for_modal_screen(screen)
+
+        if screen == "map_click":
+            click_data = payload.get("click_data")
+            body = self.modal_text.for_click(click_data, ui_view)
+            if body is None:
+                return [], "modal-body"
+            return self._as_children(body), "modal-body"
+
+        if screen in self.MENU_SCREENS:
+            show_lan_local = bool(payload.get("show_lan_local", False))
+            body = self.modal_text.for_action(screen, snapshot=snapshot, show_lan_local=show_lan_local)
+            return self._as_children(body), self._class_for_modal_screen(screen)
+
+        return [], "modal-body"
+
     def _register_callbacks(self) -> None:
-        # Capture keyboard tokens written by the client script.
         @self.app.callback(
             Output("key_action", "data"),
             Output("key_capture", "value"),
@@ -455,7 +518,6 @@ class TapMap:
                 return no_update, ""
             return {"action": action, "t": datetime.now().isoformat()}, ""
 
-        # Drive the polling loop and apply one-off UI commands.
         @self.app.callback(
             Output("model_snapshot", "data"),
             Output("ui_cache", "data"),
@@ -486,19 +548,15 @@ class TapMap:
             status_cache = StatusCache.from_store(status_cache_data)
             ui_cache = self._ensure_dict(ui_cache_data)
 
-            # Process one-off UI events with signature-based deduplication.
             sig = self._event_signature(ui_event)
             if sig and sig != event_seen and isinstance(ui_event, dict):
                 if ui_event.get("type") == self.EVT_GEO_RECHECK:
                     snap, cache, sc_store, view, flash = self._handle_geo_recheck(status_cache)
                     return snap, cache, sc_store, view, flash, sig
-
-                # Mark unknown events as seen to avoid repeated execution.
                 return no_update, no_update, no_update, no_update, no_update, sig
 
             trigger = ctx.triggered_id
 
-            # Handle keyboard-triggered commands.
             if trigger == "key_action" and isinstance(key_action, dict):
                 action = key_action.get("action")
 
@@ -510,7 +568,6 @@ class TapMap:
                     a, b, c, d, flash = self._handle_cache_terminal(status_cache, ui_cache)
                     return a, b, c, d, flash, event_seen
 
-            # Handle menu-triggered commands.
             if trigger == "menu_clear":
                 snap, cache, sc_store, view, flash = self._handle_clear_cache(status_cache)
                 return snap, cache, sc_store, view, flash, event_seen
@@ -519,13 +576,9 @@ class TapMap:
                 a, b, c, d, flash = self._handle_cache_terminal(status_cache, ui_cache)
                 return a, b, c, d, flash, event_seen
 
-            # Perform the regular polling step.
-            snap, cache, sc_store, view, flash = self._handle_normal_poll(
-                tick_n, status_cache, ui_cache
-            )
+            snap, cache, sc_store, view, flash = self._handle_normal_poll(tick_n, status_cache, ui_cache)
             return snap, cache, sc_store, view, flash, event_seen
 
-        # Render the map figure from the current UI view state.
         @self.app.callback(
             Output("map", "figure"),
             Input("ui_view", "data"),
@@ -536,7 +589,6 @@ class TapMap:
             summaries = self._ensure_dict(view.get("summaries"))
             return self.ui.create_figure((points, self.my_location), summaries=summaries)
 
-        # Render the status bar text from model and cache state.
         @self.app.callback(
             Output("status_bar", "children"),
             Input("model_snapshot", "data"),
@@ -600,7 +652,6 @@ class TapMap:
                 f"MYLOC: {myloc}"
             )
 
-        # Toggle menu panel and overlay visibility.
         @self.app.callback(
             Output("menu_panel", "style"),
             Output("menu_overlay", "style"),
@@ -610,16 +661,6 @@ class TapMap:
             display = "block" if bool(is_open) else "none"
             return {"display": display}, {"display": display}
 
-        # Toggle modal overlay visibility.
-        @self.app.callback(
-            Output("modal_overlay", "style"),
-            Input("modal_open", "data"),
-            prevent_initial_call=False,
-        )
-        def show_hide_modal(modal_open: Any) -> dict[str, str]:
-            return {"display": "flex"} if bool(modal_open) else {"display": "none"}
-
-        # Control menu open and close transitions.
         @self.app.callback(
             Output("menu_open", "data"),
             Input("btn_menu", "n_clicks"),
@@ -668,11 +709,12 @@ class TapMap:
 
             return no_update
 
-        # Route UI actions into modal state changes and one-off UI events.
         @self.app.callback(
-            Output("modal_open", "data"),
             Output("modal_state", "data"),
             Output("ui_event", "data"),
+            Output("modal_overlay", "style"),
+            Output("modal_body", "children"),
+            Output("modal_body", "className"),
             Input("tick_status", "n_intervals"),
             Input("menu_open_ports", "n_clicks"),
             Input("menu_unmapped", "n_clicks"),
@@ -685,13 +727,13 @@ class TapMap:
             Input("btn_check_databases", "n_clicks", allow_optional=True),
             Input("btn_close", "n_clicks"),
             Input("key_action", "data"),
-            State("modal_open", "data"),
             State("modal_state", "data"),
             State("geo_data_dir_store", "data"),
             State("model_snapshot", "data"),
+            State("ui_view", "data"),
             prevent_initial_call=True,
         )
-        def modal_router(
+        def modal_controller(
             _tick_n: int,
             _open_ports_clicks: int,
             _unmapped_clicks: int,
@@ -704,195 +746,120 @@ class TapMap:
             check_db_clicks: int | None,
             _close_clicks: int,
             key_action: Any,
-            modal_open: Any,
-            modal_state: Any,
+            modal_state_data: Any,
             geo_data_dir: Any,
             snapshot: Any,
+            ui_view: Any,
         ):
-            """Route UI actions into modal state changes and one-off UI events.
-
-            Rules:
-            - Act as the single writer for modal_open and modal_state.
-            - Open modals for MENU_SCREENS.
-            - Do not open modals for MENU_COMMANDS.
-            - Emit a UI event for database recheck; poll_model processes it.
-            - Auto-close the missing GeoIP modal when geolocation becomes enabled.
-            - Keep snapshot as State to avoid callback dependency cycles.
-            """
             trigger = ctx.triggered_id
             geo_path = str(geo_data_dir) if isinstance(geo_data_dir, str) else ""
-            current_state = self._ensure_dict(modal_state)
+            current_state = modal_state_data if isinstance(modal_state_data, dict) else None
+            is_open = current_state is not None
 
             def make_state(screen: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
                 return {"screen": screen, "t": datetime.now().isoformat(), "payload": payload or {}}
 
-            def toggle_on(val: Any) -> bool:
-                return isinstance(val, list) and "on" in val
+            show_lan_local = self._toggle_on(toggle_value)
 
-            def is_geo_enabled(snap: Any) -> bool:
-                if not isinstance(snap, dict):
-                    return False
-                app_info = snap.get("app_info")
-                if not isinstance(app_info, dict):
-                    return False
-                return bool(app_info.get("geoinfo_enabled"))
-
-            show_lan_local = toggle_on(toggle_value)
-
-            # Auto-close the missing database modal when geolocation becomes enabled.
             if (
-                bool(modal_open)
+                is_open
+                and isinstance(current_state, dict)
                 and current_state.get("screen") == self.SCR_MISSING_GEO_DB
-                and is_geo_enabled(snapshot)
+                and self._is_geo_enabled(snapshot)
             ):
-                return False, None, None
+                new_state = None
+                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
+                return new_state, None, self._modal_overlay_style(False), children, class_name
 
-            # Handle explicit modal close requests.
             if trigger == "btn_close":
-                return False, None, None
+                new_state = None
+                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
+                return new_state, None, self._modal_overlay_style(False), children, class_name
 
-            # Handle keyboard-driven modal and command actions.
             if trigger == "key_action" and isinstance(key_action, dict):
                 action = key_action.get("action")
 
                 if action == "escape":
-                    # Close the modal only when one is open.
-                    if bool(modal_open):
-                        return False, None, None
-                    return no_update, no_update, None
+                    if is_open:
+                        new_state = None
+                        children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
+                        return new_state, None, self._modal_overlay_style(False), children, class_name
+                    return no_update, None, no_update, no_update, no_update
 
                 if not isinstance(action, str) or not action:
-                    return no_update, no_update, None
+                    return no_update, None, no_update, no_update, no_update
 
-                # Process commands without opening a modal.
                 if action in self.MENU_COMMANDS:
                     if action == "menu_recheck_geo":
                         return (
                             no_update,
-                            no_update,
                             {"type": self.EVT_GEO_RECHECK, "t": datetime.now().isoformat()},
+                            no_update,
+                            no_update,
+                            no_update,
                         )
-                    # poll_model processes menu_clear and menu_cache_terminal.
-                    return no_update, no_update, None
+                    return no_update, None, no_update, no_update, no_update
 
-                # Open a modal for screen actions.
                 if action in self.MENU_SCREENS:
                     payload: dict[str, Any] = {}
                     if action == "menu_unmapped":
                         payload["show_lan_local"] = show_lan_local
-                    return True, make_state(action, payload), None
+                    new_state = make_state(action, payload)
+                    children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
+                    return new_state, None, self._modal_overlay_style(True), children, class_name
 
-                return no_update, no_update, None
+                return no_update, None, no_update, no_update, no_update
 
-            # Open the GeoIP data directory from the missing database screen.
             if trigger == "btn_open_data":
-                if not geo_path:
-                    return no_update, no_update, None
-                if not isinstance(open_data_clicks, int) or open_data_clicks < 1:
-                    return no_update, no_update, None
-                open_folder(Path(geo_path))
-                return no_update, no_update, None
+                if geo_path and isinstance(open_data_clicks, int) and open_data_clicks >= 1:
+                    open_folder(Path(geo_path))
+                return no_update, None, no_update, no_update, no_update
 
-            # Emit a database recheck event from the missing database screen.
             if trigger == "btn_check_databases":
-                if not isinstance(check_db_clicks, int) or check_db_clicks < 1:
-                    return no_update, no_update, None
-                return (
-                    no_update,
-                    no_update,
-                    {"type": self.EVT_GEO_RECHECK, "t": datetime.now().isoformat()},
-                )
+                if isinstance(check_db_clicks, int) and check_db_clicks >= 1:
+                    return (
+                        no_update,
+                        {"type": self.EVT_GEO_RECHECK, "t": datetime.now().isoformat()},
+                        no_update,
+                        no_update,
+                        no_update,
+                    )
+                return no_update, None, no_update, no_update, no_update
 
-            # Apply toggle changes within the unmapped modal.
             if trigger == "toggle_unmapped_lan_local":
-                if not bool(modal_open):
-                    return no_update, no_update, None
-                if current_state.get("screen") != "menu_unmapped":
-                    return no_update, no_update, None
-                return True, make_state("menu_unmapped", {"show_lan_local": show_lan_local}), None
+                if not is_open or not isinstance(current_state, dict) or current_state.get("screen") != "menu_unmapped":
+                    return no_update, None, no_update, no_update, no_update
+                new_state = make_state("menu_unmapped", {"show_lan_local": show_lan_local})
+                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
+                return new_state, None, self._modal_overlay_style(True), children, class_name
 
-            # Open modals for menu screen items.
             if trigger in {"menu_open_ports", "menu_unmapped", "menu_help", "menu_about"}:
                 screen = str(trigger)
                 payload: dict[str, Any] = {}
                 if screen == "menu_unmapped":
                     payload["show_lan_local"] = show_lan_local
-                return True, make_state(screen, payload), None
+                new_state = make_state(screen, payload)
+                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
+                return new_state, None, self._modal_overlay_style(True), children, class_name
 
-            # Emit a database recheck event without opening a modal.
             if trigger == "menu_recheck_geo":
                 return (
                     no_update,
-                    no_update,
                     {"type": self.EVT_GEO_RECHECK, "t": datetime.now().isoformat()},
+                    no_update,
+                    no_update,
+                    no_update,
                 )
 
-            # Open a modal for map click details.
             if trigger == "map":
                 if click_data is None:
-                    return no_update, no_update, None
-                return True, make_state("map_click", {"click_data": click_data}), None
+                    return no_update, None, no_update, no_update, no_update
+                new_state = make_state("map_click", {"click_data": click_data})
+                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
+                return new_state, None, self._modal_overlay_style(True), children, class_name
 
-            return no_update, no_update, None
+            return no_update, None, no_update, no_update, no_update
 
-        # Render modal content as Dash components.
-        @self.app.callback(
-            Output("modal_body", "children"),
-            Output("modal_body", "className"),
-            Input("modal_state", "data"),
-            Input("model_snapshot", "data"),
-            Input("ui_view", "data"),
-            State("geo_data_dir_store", "data"),
-        )
-        def modal_renderer(modal_state: Any, snapshot: Any, ui_view: Any, geo_data_dir: Any):
-            state = self._ensure_dict(modal_state)
-            screen = state.get("screen")
-            payload = self._ensure_dict(state.get("payload"))
-            geo_path = str(geo_data_dir) if isinstance(geo_data_dir, str) else ""
-
-            def as_children(value: Any) -> list[Any]:
-                if value is None:
-                    return []
-                if isinstance(value, (list, tuple)):
-                    return list(value)
-                return [value]
-
-            def class_for_screen(name: str | None) -> str:
-                if name in {
-                    "menu_help",
-                    "menu_open_ports",
-                    "menu_unmapped",
-                    "menu_about",
-                    self.SCR_MISSING_GEO_DB,
-                }:
-                    return "modal-body mx-sticky-title"
-                return "modal-body"
-
-            if not screen:
-                return [], "modal-body"
-
-            if screen == self.SCR_MISSING_GEO_DB:
-                return as_children(self.modal_text.missing_geo_db(geo_path)), class_for_screen(
-                    screen
-                )
-
-            if screen == "map_click":
-                click_data = payload.get("click_data")
-                body = self.modal_text.for_click(click_data, ui_view)
-                if body is None:
-                    return [], "modal-body"
-                return as_children(body), "modal-body"
-
-            if isinstance(screen, str) and screen in self.MENU_SCREENS:
-                show_lan_local = bool(payload.get("show_lan_local", False))
-                body = self.modal_text.for_action(
-                    screen, snapshot=snapshot, show_lan_local=show_lan_local
-                )
-                return as_children(body), class_for_screen(screen)
-
-            return [], "modal-body"
-
-    # Manage application lifecycle.
     def run(self) -> None:
         """Start the Dash server and open the local UI."""
         host = "127.0.0.1"
