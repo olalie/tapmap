@@ -36,35 +36,107 @@ jobs:
         run: |
           python -m PyInstaller --noconfirm --clean tapmap.spec
 
-      - name: Ensure external data folder next to app
+      # Copy assets you still need next to the built app/bundle.
+      # Assumes you keep these in repo at: assets/styles.css and assets/keys.js
+      - name: Copy required assets into dist
         run: |
           python - << 'PY'
           from pathlib import Path
+          import shutil
 
-          app_dir = Path("dist") / "tapmap"
-          data_dir = app_dir / "data"
-          data_dir.mkdir(parents=True, exist_ok=True)
+          src_assets_dir = Path("assets")
+          dist_dir = Path("dist") / "tapmap"
+          dist_dir.mkdir(parents=True, exist_ok=True)
 
-          readme = data_dir / "README.txt"
-          if not readme.exists():
-              readme.write_text(
-                  "Place GeoIP .mmdb databases here.\n"
-                  "Required files:\n"
-                  "- GeoLite2-ASN.mmdb\n"
-                  "- GeoLite2-City.mmdb\n",
-                  encoding="utf-8",
-              )
+          wanted = [
+              ("styles.css", src_assets_dir / "styles.css"),
+              ("keys.js", src_assets_dir / "keys.js"),
+          ]
 
-          print(f"OK: {data_dir}")
+          copied = []
+          for name, src in wanted:
+              if src.exists():
+                  dst = dist_dir / name
+                  shutil.copy2(src, dst)
+                  copied.append(str(dst))
+              else:
+                  print(f"NOTE: Missing asset in repo: {src}")
+
+          print("Copied:", copied)
           PY
         shell: bash
 
-      - name: Create release zip (macOS)
+      # macOS: build a .pkg installer (unsigned by default)
+      - name: Build macOS pkg
         if: runner.os == 'macOS'
         run: |
-          TAG=${GITHUB_REF_NAME}
-          ditto -c -k --keepParent "dist/tapmap" "tapmap-${TAG}-macos.zip"
+          TAG="${GITHUB_REF_NAME}"
 
+          # Package the entire dist/tapmap directory to /Applications/TapMap
+          pkgbuild \
+            --root "dist/tapmap" \
+            --install-location "/Applications/TapMap" \
+            "tapmap-component.pkg"
+
+          # If you do not sign, omit --sign (productbuild will create an unsigned pkg)
+          productbuild \
+            --package "tapmap-component.pkg" \
+            "tapmap-${TAG}-macos.pkg"
+
+          rm -f "tapmap-component.pkg"
+
+      # Optional: Sign pkg (requires Apple Developer Program + Developer ID Installer cert)
+      - name: Sign macOS pkg (optional)
+        if: runner.os == 'macOS' && env.MACOS_INSTALLER_IDENTITY != '' && secrets.MACOS_CERT_P12 != '' && secrets.MACOS_CERT_PASSWORD != ''
+        env:
+          MACOS_INSTALLER_IDENTITY: ${{ secrets.MACOS_INSTALLER_IDENTITY }} # e.g. "Developer ID Installer: Your Name (TEAMID)"
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}                     # base64 of .p12
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}           # password for .p12
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+
+          echo "$MACOS_CERT_P12" | base64 --decode > cert.p12
+
+          security create-keychain -p "" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "" build.keychain
+          security import cert.p12 -k build.keychain -P "$MACOS_CERT_PASSWORD" -T /usr/bin/productbuild -T /usr/bin/pkgbuild -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+
+          # Rebuild signed pkg
+          pkgbuild \
+            --root "dist/tapmap" \
+            --install-location "/Applications/TapMap" \
+            "tapmap-component.pkg"
+
+          productbuild \
+            --sign "$MACOS_INSTALLER_IDENTITY" \
+            --timestamp \
+            --package "tapmap-component.pkg" \
+            "tapmap-${TAG}-macos.pkg"
+
+          rm -f cert.p12 "tapmap-component.pkg"
+
+      # Optional: Notarize pkg (recommended for smooth Gatekeeper experience)
+      # Requires Apple ID + Team ID + app-specific password (or App Store Connect API key)
+      - name: Notarize macOS pkg (optional)
+        if: runner.os == 'macOS' && secrets.MACOS_NOTARY_APPLE_ID != '' && secrets.MACOS_NOTARY_TEAM_ID != '' && secrets.MACOS_NOTARY_PASSWORD != ''
+        env:
+          MACOS_NOTARY_APPLE_ID: ${{ secrets.MACOS_NOTARY_APPLE_ID }}
+          MACOS_NOTARY_TEAM_ID: ${{ secrets.MACOS_NOTARY_TEAM_ID }}
+          MACOS_NOTARY_PASSWORD: ${{ secrets.MACOS_NOTARY_PASSWORD }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          xcrun notarytool submit "tapmap-${TAG}-macos.pkg" \
+            --apple-id "$MACOS_NOTARY_APPLE_ID" \
+            --team-id "$MACOS_NOTARY_TEAM_ID" \
+            --password "$MACOS_NOTARY_PASSWORD" \
+            --wait
+
+          # Staple ticket to the pkg
+          xcrun stapler staple "tapmap-${TAG}-macos.pkg"
+
+      # Windows/Linux: zip as before
       - name: Create release zip (Windows/Linux)
         if: runner.os != 'macOS'
         run: |
@@ -92,19 +164,24 @@ jobs:
           PY
         shell: bash
 
-      - name: Create SHA256
-        if: runner.os != 'Windows'
+      # Checksums
+      - name: Create SHA256 (macOS pkg)
+        if: runner.os == 'macOS'
         run: |
-          OS_NAME=$(echo "${RUNNER_OS}" | tr '[:upper:]' '[:lower:]')
-          FILE="tapmap-${GITHUB_REF_NAME}-${OS_NAME}.zip"
+          FILE="tapmap-${GITHUB_REF_NAME}-macos.pkg"
+          shasum -a 256 "$FILE" > "$FILE.sha256"
+
+      - name: Create SHA256 (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          FILE="tapmap-${GITHUB_REF_NAME}-linux.zip"
           shasum -a 256 "$FILE" > "$FILE.sha256"
 
       - name: Create SHA256 (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $os = $env:RUNNER_OS.ToLower()
-          $file = "tapmap-$($env:GITHUB_REF_NAME)-$os.zip"
+          $file = "tapmap-$($env:GITHUB_REF_NAME)-windows.zip"
           $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
           "$hash  $file" | Out-File -Encoding ascii "$file.sha256"
 
@@ -112,5 +189,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            tapmap-${{ github.ref_name }}-*.zip
-            tapmap-${{ github.ref_name }}-*.zip.sha256
+            tapmap-${{ github.ref_name }}-windows.zip
+            tapmap-${{ github.ref_name }}-windows.zip.sha256
+            tapmap-${{ github.ref_name }}-linux.zip
+            tapmap-${{ github.ref_name }}-linux.zip.sha256
+            tapmap-${{ github.ref_name }}-macos.pkg
+            tapmap-${{ github.ref_name }}-macos.pkg.sha256

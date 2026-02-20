@@ -110,7 +110,6 @@ body {
   white-space: nowrap;
 }
 
-/* Kept for other UI uses (not modal footer). */
 .mx-btn--floating {
   position: absolute;
   right: 48px;
@@ -132,6 +131,15 @@ body {
   inset: 0;
   z-index: 19;
   background: transparent;
+
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.mx-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .mx-panel {
@@ -145,6 +153,19 @@ body {
   border: 1px solid var(--mx-border);
   border-radius: var(--mx-radius-lg);
   box-shadow: var(--mx-shadow);
+
+  opacity: 0;
+  transform: scaleY(0.9);
+  transform-origin: top;
+  pointer-events: none;
+  transition: opacity 120ms ease, transform 120ms ease;
+  will-change: opacity, transform;
+}
+
+.mx-panel.is-open {
+  opacity: 1;
+  transform: scaleY(1);
+  pointer-events: auto;
 }
 
 .mx-panel__title {
@@ -152,11 +173,10 @@ body {
   color: var(--mx-green);
   font-size: 14px;
 }
-/* Grouping menu items with a bit of space */
+
 .mx-menu-group + .mx-menu-group {
   margin-top: 16px;
 }
-
 
 /* Modal */
 
@@ -168,6 +188,16 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.modal-overlay.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .modal-card {
@@ -195,6 +225,7 @@ body {
   line-height: 1.4;
   scrollbar-color: var(--mx-green) var(--mx-bg);
   scrollbar-width: thin;
+  scrollbar-gutter: stable;
 }
 
 .modal-body h1 {
@@ -231,8 +262,6 @@ body {
   white-space: pre-wrap;
 }
 
-/* Modal footer actions */
-
 .mx-modal-actions {
   display: flex;
   gap: 10px;
@@ -243,8 +272,6 @@ body {
   border-top: 1px solid var(--mx-border);
   background: var(--mx-bg);
 }
-
-/* Sticky title */
 
 .modal-body.mx-sticky-title {
   padding-top: 0;
@@ -285,7 +312,7 @@ body {
   max-width: 560px;
 }
 
-/* Scrollbar (modal body) */
+/* Scrollbar */
 
 .modal-body::-webkit-scrollbar {
   width: 10px;
@@ -305,7 +332,7 @@ body {
   background: var(--mx-green);
 }
 
-/* Controls inside headers */
+/* Header controls */
 
 .mx-h1-with-toggle {
   display: flex;
@@ -340,7 +367,7 @@ body {
   accent-color: var(--mx-green);
 }
 
-/* Links inside modal */
+/* Links */
 
 .modal-body a,
 .modal-body a:visited {
@@ -404,4 +431,17 @@ body {
   letter-spacing: 0.2px;
   opacity: 0.95;
   user-select: none;
+}
+
+/* Reduced motion */
+
+@media (prefers-reduced-motion: reduce) {
+  .mx-panel {
+    transition: none;
+    transform: none;
+  }
+
+  .mx-overlay {
+    transition: none;
+  }
 }

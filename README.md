@@ -1,6 +1,8 @@
 # TapMap
 
-**See who your computer is talking to, on a live world map.**
+![TapMap main view](docs/main-view.png)
+
+**See who your computer is connected to on a live world map.**
 
 TapMap combines local socket inspection, IP geolocation, and interactive map visualization.
 
@@ -10,16 +12,11 @@ It uses:
 - MaxMind GeoLite2 databases for IP geolocation
 - Dash and Plotly to render an interactive world map
 
-TapMap runs entirely on your own machine.
+Architecture: local socket scan → IP extraction → GeoIP lookup → map rendering.
 
+TapMap runs entirely on your own machine.  
 It is not a firewall or a full security suite.  
-Think of it as a live network overview.
-
----
-
-## Screenshot
-
-![TapMap main view](docs/main-view.png)
+It makes network connections instantly visible on a world map and easy to inspect with hover and click.
 
 ---
 
@@ -50,8 +47,6 @@ To start the program:
 1. Click **More info**.
 2. Click **Run anyway**.
 
-TapMap runs locally and does not install anything on your system.
-
 ---
 
 ## How it runs
@@ -60,7 +55,7 @@ TapMap runs locally and opens in your browser.
 
 The web interface runs on a local server at:
 
-http://127.0.0.1:8050/
+    http://127.0.0.1:8050/
 
 If it does not open automatically, enter the address manually in your browser.
 
@@ -71,7 +66,7 @@ If it does not open automatically, enter the address manually in your browser.
 TapMap uses local MaxMind GeoLite2 databases for geolocation.  
 The databases are not included in the download.
 
-TapMap can run without them, but map locations will be disabled.
+TapMap works without these files, but map locations will not be displayed.
 
 Required files:
 
@@ -80,7 +75,7 @@ Required files:
 
 Download is free from MaxMind, but requires an account and acceptance of license terms:
 
-https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
+    https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
 
 After downloading:
 
@@ -117,7 +112,7 @@ TapMap makes these connections visible within seconds.
 - Understand where traffic goes
 - Get a quick overview of network activity
 
-Unexpected connections may indicate misconfiguration or unwanted software.
+Unexpected connections may indicate misconfiguration, background services, or unwanted software.
 
 ---
 
@@ -186,15 +181,11 @@ Requirements:
 
 Install dependencies:
 
-```
-pip install -r requirements.txt
-```
+    pip install -r requirements.txt
 
 Run:
 
-```
-python tapmap.py
-```
+    python tapmap.py
 
 ---
 

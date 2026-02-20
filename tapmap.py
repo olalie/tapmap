@@ -103,6 +103,22 @@ class TapMap:
         self.app.layout = self._build_layout(start_fig)
         self._register_callbacks()
 
+    # ----------------------------
+    # Layout helpers (CSS classes)
+    # ----------------------------
+
+    @staticmethod
+    def _menu_panel_class(is_open: bool) -> str:
+        return "mx-panel is-open" if is_open else "mx-panel"
+
+    @staticmethod
+    def _menu_overlay_class(is_open: bool) -> str:
+        return "mx-overlay is-open" if is_open else "mx-overlay"
+
+    @staticmethod
+    def _modal_overlay_class(is_open: bool) -> str:
+        return "modal-overlay is-open" if is_open else "modal-overlay"
+
     def _build_layout(self, start_fig: Any) -> html.Div:
         geo_ready = bool(getattr(self.model.geoinfo, "city_enabled", False))
 
@@ -115,7 +131,6 @@ class TapMap:
             }
 
         initial_modal_open = bool(initial_modal_state)
-        initial_overlay_style = {"display": "flex"} if initial_modal_open else {"display": "none"}
 
         initial_body_children: list[Any] = []
         initial_body_class = "modal-body"
@@ -174,13 +189,11 @@ class TapMap:
                 html.Div(
                     id="menu_overlay",
                     n_clicks=0,
-                    className="mx-overlay",
-                    style={"display": "none"},
+                    className=self._menu_overlay_class(False),
                 ),
                 html.Nav(
                     id="menu_panel",
-                    className="mx-panel",
-                    style={"display": "none"},
+                    className=self._menu_panel_class(False),
                     children=[
                         html.Div("Actions", className="mx-panel__title"),
                         html.Div(
@@ -204,8 +217,7 @@ class TapMap:
                 ),
                 html.Div(
                     id="modal_overlay",
-                    className="modal-overlay",
-                    style=initial_overlay_style,
+                    className=self._modal_overlay_class(initial_modal_open),
                     children=[
                         html.Div(
                             className="modal-card",
@@ -438,10 +450,6 @@ class TapMap:
         return "modal-body"
 
     @staticmethod
-    def _modal_overlay_style(is_open: bool) -> dict[str, str]:
-        return {"display": "flex"} if is_open else {"display": "none"}
-
-    @staticmethod
     def _toggle_on(value: Any) -> bool:
         return isinstance(value, list) and "on" in value
 
@@ -653,13 +661,13 @@ class TapMap:
             )
 
         @self.app.callback(
-            Output("menu_panel", "style"),
-            Output("menu_overlay", "style"),
+            Output("menu_panel", "className"),
+            Output("menu_overlay", "className"),
             Input("menu_open", "data"),
         )
-        def show_hide_menu(is_open: Any) -> tuple[dict[str, str], dict[str, str]]:
-            display = "block" if bool(is_open) else "none"
-            return {"display": display}, {"display": display}
+        def show_hide_menu(is_open: Any) -> tuple[str, str]:
+            open_flag = bool(is_open)
+            return self._menu_panel_class(open_flag), self._menu_overlay_class(open_flag)
 
         @self.app.callback(
             Output("menu_open", "data"),
@@ -712,7 +720,7 @@ class TapMap:
         @self.app.callback(
             Output("modal_state", "data"),
             Output("ui_event", "data"),
-            Output("modal_overlay", "style"),
+            Output("modal_overlay", "className"),
             Output("modal_body", "children"),
             Output("modal_body", "className"),
             Input("tick_status", "n_intervals"),
@@ -769,12 +777,12 @@ class TapMap:
             ):
                 new_state = None
                 children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
-                return new_state, None, self._modal_overlay_style(False), children, class_name
+                return new_state, None, self._modal_overlay_class(False), children, class_name
 
             if trigger == "btn_close":
                 new_state = None
                 children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
-                return new_state, None, self._modal_overlay_style(False), children, class_name
+                return new_state, None, self._modal_overlay_class(False), children, class_name
 
             if trigger == "key_action" and isinstance(key_action, dict):
                 action = key_action.get("action")
@@ -783,7 +791,7 @@ class TapMap:
                     if is_open:
                         new_state = None
                         children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
-                        return new_state, None, self._modal_overlay_style(False), children, class_name
+                        return new_state, None, self._modal_overlay_class(False), children, class_name
                     return no_update, None, no_update, no_update, no_update
 
                 if not isinstance(action, str) or not action:
@@ -806,7 +814,7 @@ class TapMap:
                         payload["show_lan_local"] = show_lan_local
                     new_state = make_state(action, payload)
                     children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
-                    return new_state, None, self._modal_overlay_style(True), children, class_name
+                    return new_state, None, self._modal_overlay_class(True), children, class_name
 
                 return no_update, None, no_update, no_update, no_update
 
@@ -827,20 +835,24 @@ class TapMap:
                 return no_update, None, no_update, no_update, no_update
 
             if trigger == "toggle_unmapped_lan_local":
-                if not is_open or not isinstance(current_state, dict) or current_state.get("screen") != "menu_unmapped":
+                if (
+                    not is_open
+                    or not isinstance(current_state, dict)
+                    or current_state.get("screen") != "menu_unmapped"
+                ):
                     return no_update, None, no_update, no_update, no_update
                 new_state = make_state("menu_unmapped", {"show_lan_local": show_lan_local})
                 children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
-                return new_state, None, self._modal_overlay_style(True), children, class_name
+                return new_state, None, self._modal_overlay_class(True), children, class_name
 
             if trigger in {"menu_open_ports", "menu_unmapped", "menu_help", "menu_about"}:
                 screen = str(trigger)
-                payload: dict[str, Any] = {}
+                payload = {}
                 if screen == "menu_unmapped":
                     payload["show_lan_local"] = show_lan_local
                 new_state = make_state(screen, payload)
                 children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
-                return new_state, None, self._modal_overlay_style(True), children, class_name
+                return new_state, None, self._modal_overlay_class(True), children, class_name
 
             if trigger == "menu_recheck_geo":
                 return (
@@ -856,7 +868,7 @@ class TapMap:
                     return no_update, None, no_update, no_update, no_update
                 new_state = make_state("map_click", {"click_data": click_data})
                 children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
-                return new_state, None, self._modal_overlay_style(True), children, class_name
+                return new_state, None, self._modal_overlay_class(True), children, class_name
 
             return no_update, None, no_update, no_update, no_update
 
