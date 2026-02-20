@@ -4,8 +4,8 @@ HELP_CONTENT = [
     html.H1("Help"),
     html.H2("Quick start"),
     html.P(
-        "TapMap shows remote systems your computer is connected to, "
-        "where they are located, and which local programs are involved."
+        "TapMap shows the remote systems your computer is connected to, "
+        "their locations, and the local programs involved."
     ),
     html.Ul(
         [
@@ -53,7 +53,7 @@ HELP_CONTENT = [
         ]
     ),
     html.P(
-        "Yellow is only a visual hint. Zoom in or approach from another direction to "
+        "Yellow is a visual hint. Zoom in or change view direction to "
         "separate nearby endpoints."
     ),
     html.P(
@@ -103,14 +103,14 @@ HELP_CONTENT = [
     html.H2("Unmapped endpoints"),
     html.P(
         "The Unmapped endpoints window lists ESTABLISHED TCP connections not shown on the "
-        "map because geolocation is missing."
+        "map due to missing geolocation."
     ),
     html.P(
         "By default, only public endpoints are shown. Enable the toggle to include "
         "LAN and local endpoints."
     ),
     html.P(
-        "If a window is narrow, some fields may be truncated. Hover a cell to see the full value."
+        "In narrow windows, some fields may be truncated. Hover a cell to see the full value."
     ),
     html.H2("Open ports"),
     html.P(
@@ -118,16 +118,16 @@ HELP_CONTENT = [
         "bound to local ports."
     ),
     html.P(
-        "TCP LISTEN means a local process is waiting for incoming connections. "
+        "TCP LISTEN means a local process waits for incoming connections. "
         "UDP bound means a local process can receive datagrams on that port."
     ),
     html.P("This is a local view only. Remote endpoints are not shown."),
     html.H2("Show cache in terminal"),
-    html.P("Prints the current cache contents to the terminal where TapMap is running."),
+    html.P("Print the current cache contents to the terminal where TapMap is running."),
     html.H2("Status line"),
-    html.P("A snapshot is a point-in-time view of current network connections."),
+    html.P("A snapshot is a view of network connections at a specific moment."),
     html.P(
-        "Short status messages may appear temporarily after commands such as "
+        "Short status messages may appear after commands such as "
         "Clear cache, Show cache in terminal, or Recheck databases."
     ),
     html.H3("STATUS: WAIT | OK | OFFLINE | ERROR"),
@@ -216,9 +216,7 @@ HELP_CONTENT = [
     ),
     html.P("Update the databases regularly, for example monthly."),
     html.H2("Configuration (config.py)"),
-    html.P(
-        "TapMap reads settings from config.py. Python users can edit this file to adjust behaviour."
-    ),
+    html.P("TapMap reads settings from config.py. Edit this file to adjust behavior."),
     html.P("Common settings:"),
     html.Ul(
         [
@@ -250,8 +248,8 @@ HELP_CONTENT = [
     html.P("TapMap runs locally and reads local network connections."),
     html.P("Geolocation lookups are performed locally using the mmdb files."),
     html.P(
-        "If MY_LOCATION is set to 'auto', TapMap may query one or more external "
-        "services to detect the public IP address. It stops at the first valid result."
+        "If MY_LOCATION is set to 'auto', TapMap may query external services "
+        "to detect the public IP address. It stops after the first valid result."
     ),
     html.P(
         "To detect OFFLINE status, TapMap performs short connection checks to 1.1.1.1 and 8.8.8.8."

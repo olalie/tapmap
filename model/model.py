@@ -8,7 +8,7 @@ from typing import Any, Final, TypedDict
 
 
 class OpenPort(TypedDict):
-    """One row in the Open Ports modal table."""
+    """Define one row for the Open Ports modal table."""
 
     proto: str
     local_address: str
@@ -22,7 +22,7 @@ class OpenPort(TypedDict):
 
 
 class SnapshotPayload(TypedDict):
-    """Payload returned from Model.snapshot()."""
+    """Define the payload from Model.snapshot()."""
 
     error: bool
     stats: dict[str, Any]
@@ -34,7 +34,7 @@ class SnapshotPayload(TypedDict):
 class Model:
     """Build a live snapshot for the UI.
 
-    The model is stateless. All caching and aggregation over time happens in the UI.
+    Treat as stateless; caching and aggregation over time occur in the UI.
 
     Returned keys:
         stats:
@@ -60,7 +60,7 @@ class Model:
         self.logger = logging.getLogger(__name__)
 
     def snapshot(self) -> SnapshotPayload:
-        """Build and return a snapshot payload for the UI."""
+        """Return a snapshot payload for the UI."""
         now = datetime.now()
         geo_enabled = self._geoinfo_enabled()
 
@@ -153,12 +153,12 @@ class Model:
             }
 
     def _geoinfo_enabled(self) -> bool:
-        """Return True if geolocation enrichment should run."""
+        """Return True if geolocation enrichment is enabled."""
         return bool(getattr(self.geoinfo, "enabled", False))
 
     @staticmethod
     def _is_local_ip(ip: str) -> bool:
-        """Return True for IPs that should not be geolocated or mapped."""
+        """Return True for IPs excluded from geolocation and mapping."""
         try:
             addr = ipaddress.ip_address(ip)
             return addr.is_private or addr.is_loopback or addr.is_link_local
@@ -166,7 +166,7 @@ class Model:
             return False
 
     def _has_internet(self, timeout_s: float = 0.6) -> bool:
-        """Return True if at least one internet target is reachable."""
+        """Return True if at least one internet target is reachable within timeout_s."""
         for host, port in self.INTERNET_TARGETS:
             try:
                 with socket.create_connection((host, port), timeout=timeout_s):
@@ -177,7 +177,7 @@ class Model:
 
     @staticmethod
     def _get_scope(ip: str | None) -> str:
-        """Return a coarse exposure scope based on the bound local IP address.
+        """Return a coarse exposure scope from the bound local IP address.
 
         LOCAL: loopback only
         LAN: private or link-local
@@ -205,7 +205,7 @@ class Model:
 
     @staticmethod
     def _format_local_address(ip: str | None, port: int | None) -> str:
-        """Return a stable local address string for display."""
+        """Return a stable local address string for UI display."""
         ip_str = ip or ""
         if port is None:
             return ip_str
@@ -217,7 +217,7 @@ class Model:
 
     @staticmethod
     def _process_hint(conn: dict[str, Any]) -> str | None:
-        """Return a single-line hint (cmdline preferred, otherwise exe)."""
+        """Return a single-line hint from cmdline or exe."""
         cmdline = conn.get("cmdline")
         if isinstance(cmdline, list) and cmdline:
             text = " ".join(str(x) for x in cmdline if x is not None).strip()
@@ -229,7 +229,7 @@ class Model:
 
     @staticmethod
     def _service_name(port: int, proto: str) -> str:
-        """Return a well-known port service name, or 'Unknown'."""
+        """Return a well-known service name for port and proto, or 'Unknown'."""
         try:
             name = socket.getservbyport(int(port), proto.lower())
             return name if name else "Unknown"
@@ -237,12 +237,12 @@ class Model:
             return "Unknown"
 
     def _build_open_port(self, conn: dict[str, Any], *, proto: str) -> OpenPort | None:
-        """Build one OpenPort item for the modal table.
+        """Return one OpenPort item for the modal table.
 
-        Rules:
-            - process_label: name if available, otherwise process_status
-            - process_hint: full exe path if available, otherwise process_status
-            - service: best-effort well-known port name, never None
+        Fields:
+            process_label: name if available, otherwise process_status
+            process_hint: exe path if available, otherwise process_status
+            service: well-known port name, or 'Unknown'
         """
         l_ip = conn.get("laddr_ip")
         l_port_obj = conn.get("laddr_port")

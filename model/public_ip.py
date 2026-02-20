@@ -1,7 +1,7 @@
-"""Public IP lookup utilities.
+"""Provide public IP lookup utilities.
 
-This module resolves the machine's public IP address using small external
-services. The result is validated as an IPv4 or IPv6 address.
+Query external services for the host public IP address and validate the result
+as an IPv4 or IPv6 address.
 """
 
 from __future__ import annotations
@@ -30,13 +30,13 @@ IP_SERVICES: Final[tuple[str, ...]] = (
 
 
 def iter_public_ip_candidates(*, timeout_s: float = DEFAULT_TIMEOUT_S) -> Iterator[str]:
-    """Yield validated public IP candidates from multiple services.
+    """Yield validated public IP addresses from multiple services.
 
     Args:
         timeout_s: Request timeout in seconds.
 
     Yields:
-        Public IP addresses as strings (IPv4 or IPv6).
+        Public IP addresses as IPv4 or IPv6 strings.
     """
     context = ssl.create_default_context(cafile=certifi.where())
 
@@ -59,5 +59,5 @@ def iter_public_ip_candidates(*, timeout_s: float = DEFAULT_TIMEOUT_S) -> Iterat
 
 
 def get_public_ip(*, timeout_s: float = DEFAULT_TIMEOUT_S) -> str | None:
-    """Return the first validated public IP candidate, or None on failure."""
+    """Return the first validated public IP address, or None."""
     return next(iter_public_ip_candidates(timeout_s=timeout_s), None)

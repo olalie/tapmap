@@ -12,7 +12,7 @@ from ui.help_text import HELP_CONTENT
 class ModalTextBuilder:
     """Build modal content for menu actions and map clicks.
 
-    All methods return Dash components (not raw strings) to keep the UI safe.
+    All methods return Dash components, not raw strings.
     """
 
     def __init__(self, app_name: str, app_version: str, app_author: str) -> None:
@@ -36,15 +36,15 @@ class ModalTextBuilder:
         snapshot: Any | None = None,
         show_lan_local: bool = False,
     ) -> list[Any]:
-        """Return modal body content for a menu action.
+        """Build modal body content for a menu action.
 
         Args:
-            action: Menu action id.
+            action: Menu action ID.
             snapshot: Latest model snapshot (dict) or None.
-            show_lan_local: Used only by the Unmapped view toggle.
+            show_lan_local: Unmapped view toggle state.
 
         Returns:
-            List of Dash components to be placed inside modal_body.
+            Dash components for the modal body.
         """
         if action == "menu_help":
             return self._render_help()
@@ -66,10 +66,10 @@ class ModalTextBuilder:
 
         Args:
             click_data: Plotly clickData payload.
-            ui_view: Dash store content with "details" mapping.
+            ui_view: Dash store content with the "details" mapping.
 
         Returns:
-            html.Pre if valid click, otherwise None.
+            html.Pre for a valid click, otherwise None.
         """
         if not isinstance(click_data, dict):
             return None
@@ -105,11 +105,7 @@ class ModalTextBuilder:
 
     @staticmethod
     def _kv_table(rows: Iterable[tuple[str, str]]) -> html.Table:
-        """Render a simple two-column key/value table.
-
-        Each value is wrapped in a span with tooltip = full value.
-        Column widths are set with Colgroup to avoid CSS nth-child rules.
-        """
+        """Render a two-column key/value table with tooltips."""
         body: list[Any] = []
         for key, value in rows:
             v = "" if value is None else str(value)
@@ -135,9 +131,9 @@ class ModalTextBuilder:
 
     @staticmethod
     def _cell(text: str, title: str | None = None) -> html.Td:
-        """Render a table cell with consistent truncation + tooltip behaviour.
+        """Render a table cell with truncation and a tooltip.
 
-        Tooltip defaults to the full text unless explicitly overridden.
+        Use the full value as the default tooltip.
         """
         value = text or ""
         tooltip = title if title is not None else value
@@ -158,9 +154,9 @@ class ModalTextBuilder:
     # ---------- Help ----------
 
     def _render_help(self) -> list[Any]:
-        """Return Help content.
+        """Render Help content.
 
-        HELP_CONTENT is expected to start with H1. If not, add one.
+        Add an H1 when HELP_CONTENT does not start with one.
         """
         content = HELP_CONTENT
         items = content if isinstance(content, list) else [content]
@@ -175,8 +171,7 @@ class ModalTextBuilder:
     def _render_about(self, snapshot: Any | None = None) -> list[Any]:
         """Render the About view.
 
-        This view must not trigger network calls. It reads only snapshot["app_info"],
-        which is prepared by TapMap.
+        Read snapshot["app_info"] only and avoid network calls.
         """
         app_info: dict[str, Any] = {}
         if isinstance(snapshot, dict):
@@ -320,13 +315,13 @@ class ModalTextBuilder:
         public_ip_cached: str | None,
         auto_geo: dict[str, Any],
     ) -> list[tuple[str, str]]:
-        """Build the Location section rows based on MY_LOCATION mode.
+        """Build Location section rows for the MY_LOCATION mode.
 
         Modes:
-            OFF: show local marker disabled
-            FIXED: show fixed lon/lat
-            AUTO: show cached public IP + geo place/coord
-            AUTO (NO GEO): show cached public IP + "not available"
+            OFF: local marker disabled
+            FIXED: fixed lon/lat
+            AUTO: cached public IP and geo place and coordinates
+            AUTO (NO GEO): cached public IP and unavailable geo data
         """
         if myloc_mode == "OFF":
             return [("MY_LOCATION", "none (local marker hidden)")]
@@ -391,7 +386,7 @@ class ModalTextBuilder:
 
     @staticmethod
     def _strip_port(addr: str) -> str:
-        """Return address without trailing ':port'.
+        """Strip a trailing ':port' from an address.
 
         Examples:
             '127.0.0.1:8050' -> '127.0.0.1'
@@ -548,10 +543,10 @@ class ModalTextBuilder:
 
     @classmethod
     def _render_unmapped(cls, snapshot: Any | None, *, show_lan_local: bool) -> list[Any]:
-        """Render Unmapped endpoints.
+        """Render unmapped endpoints.
 
-        Unmapped means: ESTABLISHED TCP endpoints that are not shown on the map
-        because geolocation is missing (no lat/lon).
+        Unmapped endpoints are established TCP endpoints excluded from the map
+        due to missing geolocation (no lat/lon).
         Default: PUBLIC only. Toggle can include LAN and LOCAL.
         """
         snap = snapshot if isinstance(snapshot, dict) else {}
@@ -747,12 +742,12 @@ class ModalTextBuilder:
 
     @staticmethod
     def first_idx(customdata: Any) -> int | None:
-        """Extract endpoint index from Plotly customdata.
+        """Extract an endpoint index from Plotly customdata.
 
-        Supports:
+        Supported forms:
             - dict with keys {"kind", "idx"}
-            - plain integer
-            - nested list/tuple structures
+            - integer
+            - nested list or tuple structures
         """
         if isinstance(customdata, dict):
             if customdata.get("kind") in {"target", "line"}:

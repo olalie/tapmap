@@ -11,8 +11,11 @@ APP_NAME: Final[str] = "TapMap"
 README_TEXT: Final[str] = (
     "Place GeoIP .mmdb databases here.\n"
     "Required files:\n"
-    "- GeoLite2-ASN.mmdb\n"
     "- GeoLite2-City.mmdb\n"
+    "- GeoLite2-ASN.mmdb\n"
+    "\n"
+    "Download (free, account required):\n"
+    "https://dev.maxmind.com/geoip/geolite2-free-geolocation-data\n"
 )
 
 
@@ -34,13 +37,13 @@ def get_app_data_dir(app_name: str = APP_NAME) -> Path:
     if system == "Darwin":  # macOS
         return Path.home() / "Library" / "Application Support" / app_name
 
-    xdg = os.environ.get("XDG_DATA_HOME")  #
+    xdg = os.environ.get("XDG_DATA_HOME")
     base_dir = Path(xdg) if xdg else (Path.home() / ".local" / "share")
     return base_dir / app_name
 
 
 def ensure_app_data_dir(app_dir: Path) -> None:
-    """Ensure the application data directory exists and contains a README file."""
+    """Create the application data directory and README.txt file when missing."""
     app_dir.mkdir(parents=True, exist_ok=True)
     readme = app_dir / "README.txt"
     if not readme.exists():
@@ -48,17 +51,18 @@ def ensure_app_data_dir(app_dir: Path) -> None:
 
 
 def get_or_create_app_data_dir(app_name: str = APP_NAME) -> Path:
-    """Return the per-user app data directory and create it if needed."""
+    """Return the per-user application data directory, creating it when missing."""
     app_dir = get_app_data_dir(app_name)
     ensure_app_data_dir(app_dir)
     return app_dir
 
 
 def open_folder(path: Path) -> tuple[bool, str]:
-    """Open the given folder in the system file manager.
+    """Open a folder in the system file manager.
 
     Returns:
-        (ok, message)
+        ok: True on success.
+        message: Status message.
     """
     try:
         path.mkdir(parents=True, exist_ok=True)
@@ -76,4 +80,4 @@ def open_folder(path: Path) -> tuple[bool, str]:
         return True, f"Opened: {path}"
 
     except Exception as exc:
-        return False, f"Could not open folder: {path}. Error: {exc}"
+        return False, f"Failed to open folder: {path}. Error: {exc}"

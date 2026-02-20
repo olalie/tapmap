@@ -1,8 +1,8 @@
-"""Plotly map rendering for TapMap.
+"""Define Plotly map rendering for TapMap.
 
-Builds a dark themed world map with:
+Build a dark-themed world map with:
 - a base choropleth layer
-- connection lines from a "my location" marker (if enabled)
+- connection lines from a "my location" marker when enabled
 - target markers with hover summaries
 """
 
@@ -21,7 +21,7 @@ CustomData: TypeAlias = dict[str, object]
 
 
 class MapUI:
-    """Build Plotly figures for the TapMap Dash UI."""
+    """Build Plotly figures for the TapMap UI."""
 
     COUNTRY_CODES: Final[tuple[str, ...]] = (
         "AFG",
@@ -267,7 +267,7 @@ class MapUI:
 
     @staticmethod
     def _haversine_km(a: LonLat, b: LonLat, radius_km: float) -> float:
-        """Return great-circle distance between two (lon, lat) points in kilometers."""
+        """Compute great-circle distance between two (lon, lat) points in kilometers."""
         import math
 
         lon1, lat1 = a
@@ -293,8 +293,8 @@ class MapUI:
 
         Color rules:
             - MAGENTA: normal remote targets and lines
-            - YELLOW: targets and lines that have nearby neighbors (zoom recommended)
-            - CYAN: local marker (if enabled)
+            - YELLOW: targets and lines with nearby neighbors (zoom recommended)
+            - CYAN: local marker when enabled
         """
         summaries = summaries or {}
         targets, my_location = point_sets

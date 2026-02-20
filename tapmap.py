@@ -30,49 +30,39 @@ APP_META: Final[AppMeta] = AppMeta(name="TapMap", version="v1.0", author="Ola Li
 
 
 class TapMap:
-    """Dash controller and UI wiring.
+    """Wire Dash UI and callbacks to the model.
 
     Design goals:
-      - Keep callbacks thin and readable.
-      - Keep model state transitions in the polling callback.
-      - Use a simple UI event store for one off actions.
+      - Keep callbacks small.
+      - Perform model state transitions in the polling callback.
+      - Use a simple UI event store for one-off actions.
       - Split modal logic into routing (state) and rendering (HTML).
     """
 
-    # ---------------------------------------------------------------------
-    # Menu configuration
-    # ---------------------------------------------------------------------
-
+    # Define menu identifiers used by UI callbacks.
     MENU_SCREENS: ClassVar[frozenset[str]] = frozenset(
         {"menu_help", "menu_about", "menu_open_ports", "menu_unmapped"}
     )
     MENU_COMMANDS: ClassVar[frozenset[str]] = frozenset(
         {"menu_clear", "menu_cache_terminal", "menu_recheck_geo"}
     )
-    # ---------------------------------------------------------------------
-    # Debug and runtime flags
-    # ---------------------------------------------------------------------
 
+    # Configure debug behavior and runtime flags.
     DASH_DEBUG = False
     DEBUG_COORDS = False
     DEBUG_COORDS_EVERY_N_TICKS = 6
 
-    # ---------------------------------------------------------------------
-    # Timing configuration
-    # ---------------------------------------------------------------------
+    # Configure polling intervals and UI timing.
 
-    # Polling intervals (milliseconds)
-    MODEL_TICK_MS = 5000  # model polling (network, psutil, etc.)
-    UI_TICK_MS = 500  # UI updates (status flash timeout)
+    # Control polling cadence in milliseconds.
+    MODEL_TICK_MS = 5000  # Drive model polling cadence.
+    UI_TICK_MS = 500  # Drive UI refresh cadence.
 
-    # Status flash durations (seconds)
-    FLASH_SHORT_S = 1.5  # clear cache, show cache
-    FLASH_LONG_S = 3.0  # geo recheck result
+    # Control flash message lifetimes in seconds.
+    FLASH_SHORT_S = 1.5  # Use for short-lived status messages.
+    FLASH_LONG_S = 3.0  # Use for GeoIP reload outcomes.
 
-    # ---------------------------------------------------------------------
-    # Event and modal identifiers
-    # ---------------------------------------------------------------------
-
+    # Define event and modal identifiers used by the UI state machine.
     EVT_GEO_RECHECK = "geo_recheck"
     SCR_MISSING_GEO_DB = "missing_geo_db"
 
@@ -128,10 +118,7 @@ class TapMap:
         self.app.layout = self._build_layout(start_fig)
         self._register_callbacks()
 
-    # ---------------------------------------------------------------------
-    # Layout
-    # ---------------------------------------------------------------------
-
+    # Build the Dash layout tree.
     def _build_layout(self, start_fig: Any) -> html.Div:
         geo_ready = bool(getattr(self.model.geoinfo, "city_enabled", False))
 
@@ -261,10 +248,7 @@ class TapMap:
             label, id=btn_id, n_clicks=0, className="mx-btn mx-btn--menu", type="button"
         )
 
-    # ---------------------------------------------------------------------
-    # Helpers
-    # ---------------------------------------------------------------------
-
+    # Normalize values received from Dash stores and inputs.
     @staticmethod
     def _ensure_dict(value: object) -> dict[str, Any]:
         return value if isinstance(value, dict) else {}
@@ -302,10 +286,7 @@ class TapMap:
             return "AUTO" if self.my_location else "AUTO (NO GEO)"
         return "OFF"
 
-    # ---------------------------------------------------------------------
-    # My location resolution
-    # ---------------------------------------------------------------------
-
+    # Resolve the reference location used by the map view.
     def _resolve_my_location(self) -> list[LonLat]:
         if isinstance(MY_LOCATION, tuple):
             return [MY_LOCATION]
@@ -330,10 +311,7 @@ class TapMap:
 
         return []
 
-    # ---------------------------------------------------------------------
-    # About payload
-    # ---------------------------------------------------------------------
-
+    # Build the About payload exposed in the UI.
     def _build_app_info(self) -> dict[str, Any]:
         return {
             "version": self.ctx.meta.version,
@@ -354,10 +332,7 @@ class TapMap:
             "psutil": getattr(psutil, "__version__", "-"),
         }
 
-    # ---------------------------------------------------------------------
-    # Poll handlers
-    # ---------------------------------------------------------------------
-
+    # Handle polling actions and cache updates.
     def _handle_geo_recheck(self, status_cache: StatusCache) -> tuple[Any, Any, Any, Any, Any]:
         ok = bool(getattr(self.model.geoinfo, "reload", lambda: False)())
         city_ready = bool(getattr(self.model.geoinfo, "city_enabled", False))
@@ -433,10 +408,7 @@ class TapMap:
         view = self.view_builder.build_view_from_cache(updated_cache)
         return snap, updated_cache, status_cache.to_store(), view, no_update
 
-    # ---------------------------------------------------------------------
-    # Browser open
-    # ---------------------------------------------------------------------
-
+    # Open the local UI in a browser after server startup.
     def _open_browser(self, url: str, delay_s: float = 0.8) -> None:
         try:
             delay = float(delay_s)
@@ -453,14 +425,9 @@ class TapMap:
         timer.daemon = True
         timer.start()
 
-    # ---------------------------------------------------------------------
-    # Callbacks
-    # ---------------------------------------------------------------------
-
+    # Register Dash callbacks.
     def _register_callbacks(self) -> None:
-        # -----------------------------------------------------------------
-        # Keyboard capture (keys.js writes tokens into #key_capture)
-        # -----------------------------------------------------------------
+        # Capture keyboard tokens written by the client script.
         @self.app.callback(
             Output("key_action", "data"),
             Output("key_capture", "value"),
@@ -488,9 +455,7 @@ class TapMap:
                 return no_update, ""
             return {"action": action, "t": datetime.now().isoformat()}, ""
 
-        # -----------------------------------------------------------------
-        # Polling / state engine
-        # -----------------------------------------------------------------
+        # Drive the polling loop and apply one-off UI commands.
         @self.app.callback(
             Output("model_snapshot", "data"),
             Output("ui_cache", "data"),
@@ -521,19 +486,19 @@ class TapMap:
             status_cache = StatusCache.from_store(status_cache_data)
             ui_cache = self._ensure_dict(ui_cache_data)
 
-            # 1) One-off ui_event handling (dedupe)
+            # Process one-off UI events with signature-based deduplication.
             sig = self._event_signature(ui_event)
             if sig and sig != event_seen and isinstance(ui_event, dict):
                 if ui_event.get("type") == self.EVT_GEO_RECHECK:
                     snap, cache, sc_store, view, flash = self._handle_geo_recheck(status_cache)
                     return snap, cache, sc_store, view, flash, sig
 
-                # Unknown event: mark as seen so it won't re-run forever
+                # Mark unknown events as seen to avoid repeated execution.
                 return no_update, no_update, no_update, no_update, no_update, sig
 
             trigger = ctx.triggered_id
 
-            # 2) Keyboard commands handled here
+            # Handle keyboard-triggered commands.
             if trigger == "key_action" and isinstance(key_action, dict):
                 action = key_action.get("action")
 
@@ -545,7 +510,7 @@ class TapMap:
                     a, b, c, d, flash = self._handle_cache_terminal(status_cache, ui_cache)
                     return a, b, c, d, flash, event_seen
 
-            # 3) Menu commands handled here
+            # Handle menu-triggered commands.
             if trigger == "menu_clear":
                 snap, cache, sc_store, view, flash = self._handle_clear_cache(status_cache)
                 return snap, cache, sc_store, view, flash, event_seen
@@ -554,15 +519,13 @@ class TapMap:
                 a, b, c, d, flash = self._handle_cache_terminal(status_cache, ui_cache)
                 return a, b, c, d, flash, event_seen
 
-            # 4) Normal polling
+            # Perform the regular polling step.
             snap, cache, sc_store, view, flash = self._handle_normal_poll(
                 tick_n, status_cache, ui_cache
             )
             return snap, cache, sc_store, view, flash, event_seen
 
-        # -----------------------------------------------------------------
-        # Map rendering
-        # -----------------------------------------------------------------
+        # Render the map figure from the current UI view state.
         @self.app.callback(
             Output("map", "figure"),
             Input("ui_view", "data"),
@@ -573,9 +536,7 @@ class TapMap:
             summaries = self._ensure_dict(view.get("summaries"))
             return self.ui.create_figure((points, self.my_location), summaries=summaries)
 
-        # -----------------------------------------------------------------
-        # Status rendering
-        # -----------------------------------------------------------------
+        # Render the status bar text from model and cache state.
         @self.app.callback(
             Output("status_bar", "children"),
             Input("model_snapshot", "data"),
@@ -639,9 +600,7 @@ class TapMap:
                 f"MYLOC: {myloc}"
             )
 
-        # -----------------------------------------------------------------
-        # Menu panel visibility
-        # -----------------------------------------------------------------
+        # Toggle menu panel and overlay visibility.
         @self.app.callback(
             Output("menu_panel", "style"),
             Output("menu_overlay", "style"),
@@ -651,9 +610,7 @@ class TapMap:
             display = "block" if bool(is_open) else "none"
             return {"display": display}, {"display": display}
 
-        # -----------------------------------------------------------------
-        # Modal overlay visibility
-        # -----------------------------------------------------------------
+        # Toggle modal overlay visibility.
         @self.app.callback(
             Output("modal_overlay", "style"),
             Input("modal_open", "data"),
@@ -662,9 +619,7 @@ class TapMap:
         def show_hide_modal(modal_open: Any) -> dict[str, str]:
             return {"display": "flex"} if bool(modal_open) else {"display": "none"}
 
-        # -----------------------------------------------------------------
-        # Menu open/close controller
-        # -----------------------------------------------------------------
+        # Control menu open and close transitions.
         @self.app.callback(
             Output("menu_open", "data"),
             Input("btn_menu", "n_clicks"),
@@ -713,9 +668,7 @@ class TapMap:
 
             return no_update
 
-        # -----------------------------------------------------------------
-        # Modal routing (state machine + event emitter)
-        # -----------------------------------------------------------------
+        # Route UI actions into modal state changes and one-off UI events.
         @self.app.callback(
             Output("modal_open", "data"),
             Output("modal_state", "data"),
@@ -756,15 +709,15 @@ class TapMap:
             geo_data_dir: Any,
             snapshot: Any,
         ):
-            """Route UI actions into modal state changes and one-off ui_event commands.
+            """Route UI actions into modal state changes and one-off UI events.
 
             Rules:
-            - This callback is the only writer of modal_open and modal_state.
-            - MENU_SCREENS open modals.
-            - MENU_COMMANDS never open modals.
-            - Recheck databases always emits ui_event and is handled by poll_model.
-            - Auto-close missing geo modal when geolocation becomes enabled.
-            - snapshot is State (not Input) to avoid dependency cycles.
+            - Act as the single writer for modal_open and modal_state.
+            - Open modals for MENU_SCREENS.
+            - Do not open modals for MENU_COMMANDS.
+            - Emit a UI event for database recheck; poll_model processes it.
+            - Auto-close the missing GeoIP modal when geolocation becomes enabled.
+            - Keep snapshot as State to avoid callback dependency cycles.
             """
             trigger = ctx.triggered_id
             geo_path = str(geo_data_dir) if isinstance(geo_data_dir, str) else ""
@@ -786,9 +739,7 @@ class TapMap:
 
             show_lan_local = toggle_on(toggle_value)
 
-            # --------------------------------------------------------------
-            # 0) Auto-close the missing DB modal when geo becomes enabled
-            # --------------------------------------------------------------
+            # Auto-close the missing database modal when geolocation becomes enabled.
             if (
                 bool(modal_open)
                 and current_state.get("screen") == self.SCR_MISSING_GEO_DB
@@ -796,20 +747,16 @@ class TapMap:
             ):
                 return False, None, None
 
-            # --------------------------------------------------------------
-            # 1) Close modal button
-            # --------------------------------------------------------------
+            # Handle explicit modal close requests.
             if trigger == "btn_close":
                 return False, None, None
 
-            # --------------------------------------------------------------
-            # 2) Keyboard actions
-            # --------------------------------------------------------------
+            # Handle keyboard-driven modal and command actions.
             if trigger == "key_action" and isinstance(key_action, dict):
                 action = key_action.get("action")
 
                 if action == "escape":
-                    # Close only if a modal is open.
+                    # Close the modal only when one is open.
                     if bool(modal_open):
                         return False, None, None
                     return no_update, no_update, None
@@ -817,7 +764,7 @@ class TapMap:
                 if not isinstance(action, str) or not action:
                     return no_update, no_update, None
 
-                # Commands: do not open modal
+                # Process commands without opening a modal.
                 if action in self.MENU_COMMANDS:
                     if action == "menu_recheck_geo":
                         return (
@@ -825,10 +772,10 @@ class TapMap:
                             no_update,
                             {"type": self.EVT_GEO_RECHECK, "t": datetime.now().isoformat()},
                         )
-                    # menu_clear and menu_cache_terminal are handled by poll_model directly.
+                    # poll_model processes menu_clear and menu_cache_terminal.
                     return no_update, no_update, None
 
-                # Screens: open modal
+                # Open a modal for screen actions.
                 if action in self.MENU_SCREENS:
                     payload: dict[str, Any] = {}
                     if action == "menu_unmapped":
@@ -837,9 +784,7 @@ class TapMap:
 
                 return no_update, no_update, None
 
-            # --------------------------------------------------------------
-            # 3) Open data folder (button inside missing screen)
-            # --------------------------------------------------------------
+            # Open the GeoIP data directory from the missing database screen.
             if trigger == "btn_open_data":
                 if not geo_path:
                     return no_update, no_update, None
@@ -848,9 +793,7 @@ class TapMap:
                 open_folder(Path(geo_path))
                 return no_update, no_update, None
 
-            # --------------------------------------------------------------
-            # 4) Recheck databases button inside missing screen
-            # --------------------------------------------------------------
+            # Emit a database recheck event from the missing database screen.
             if trigger == "btn_check_databases":
                 if not isinstance(check_db_clicks, int) or check_db_clicks < 1:
                     return no_update, no_update, None
@@ -860,9 +803,7 @@ class TapMap:
                     {"type": self.EVT_GEO_RECHECK, "t": datetime.now().isoformat()},
                 )
 
-            # --------------------------------------------------------------
-            # 5) Toggle inside unmapped modal
-            # --------------------------------------------------------------
+            # Apply toggle changes within the unmapped modal.
             if trigger == "toggle_unmapped_lan_local":
                 if not bool(modal_open):
                     return no_update, no_update, None
@@ -870,9 +811,7 @@ class TapMap:
                     return no_update, no_update, None
                 return True, make_state("menu_unmapped", {"show_lan_local": show_lan_local}), None
 
-            # --------------------------------------------------------------
-            # 6) Menu screens that open modals
-            # --------------------------------------------------------------
+            # Open modals for menu screen items.
             if trigger in {"menu_open_ports", "menu_unmapped", "menu_help", "menu_about"}:
                 screen = str(trigger)
                 payload: dict[str, Any] = {}
@@ -880,9 +819,7 @@ class TapMap:
                     payload["show_lan_local"] = show_lan_local
                 return True, make_state(screen, payload), None
 
-            # --------------------------------------------------------------
-            # 7) Menu command: recheck databases (no modal)
-            # --------------------------------------------------------------
+            # Emit a database recheck event without opening a modal.
             if trigger == "menu_recheck_geo":
                 return (
                     no_update,
@@ -890,9 +827,7 @@ class TapMap:
                     {"type": self.EVT_GEO_RECHECK, "t": datetime.now().isoformat()},
                 )
 
-            # --------------------------------------------------------------
-            # 8) Map click opens click modal
-            # --------------------------------------------------------------
+            # Open a modal for map click details.
             if trigger == "map":
                 if click_data is None:
                     return no_update, no_update, None
@@ -900,9 +835,7 @@ class TapMap:
 
             return no_update, no_update, None
 
-        # -----------------------------------------------------------------
-        # Modal rendering (HTML only)
-        # -----------------------------------------------------------------
+        # Render modal content as Dash components.
         @self.app.callback(
             Output("modal_body", "children"),
             Output("modal_body", "className"),
@@ -959,12 +892,9 @@ class TapMap:
 
             return [], "modal-body"
 
-    # ---------------------------------------------------------------------
-    # Lifecycle
-    # ---------------------------------------------------------------------
-
+    # Manage application lifecycle.
     def run(self) -> None:
-        """Start the Dash server."""
+        """Start the Dash server and open the local UI."""
         host = "127.0.0.1"
         port = 8050
         url = f"http://{host}:{port}/"
@@ -978,7 +908,7 @@ class TapMap:
         )
 
     def close(self) -> None:
-        """Release resources held by the model."""
+        """Release model resources."""
         close_fn = getattr(self.model.geoinfo, "close", None)
         if callable(close_fn):
             close_fn()

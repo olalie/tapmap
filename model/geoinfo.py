@@ -1,11 +1,11 @@
-"""Enrich connection records with GeoIP and ASN information using MaxMind databases.
+"""Enrich connection records with GeoIP and ASN data from MaxMind databases.
 
 Expected files in the configured data_dir:
 - GeoLite2-City.mmdb
 - GeoLite2-ASN.mmdb
 
-If database files are missing or cannot be opened, GeoInfo runs in best-effort mode and
-returns None for unavailable fields.
+When database files are missing or cannot be opened, run in best-effort mode and
+return None for unavailable fields.
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ import maxminddb
 
 
 class GeoResult(TypedDict):
-    """Normalized lookup result used by the rest of the application."""
+    """Define a normalized lookup result for the application."""
 
     lat: float | None
     lon: float | None
@@ -41,19 +41,17 @@ _EMPTY_RESULT: Final[GeoResult] = {
 
 @dataclass(frozen=True)
 class GeoDbPaths:
-    """File paths to the MaxMind databases."""
+    """Store file paths for the MaxMind databases."""
 
     city_db: Path
     asn_db: Path
 
 
 class GeoInfo:
-    """Best-effort GeoIP enrichment for connection dictionaries.
+    """Enrich connection dictionaries with best-effort GeoIP and ASN data.
 
-    Design goals:
-      - Safe to run without databases.
-      - Cache lookup results per IP (LRU).
-      - Support hot-reload when .mmdb files are added while running.
+    Run without databases, cache lookups per IP (LRU), and support reload when
+    .mmdb files appear on disk.
     """
 
     CITY_DB_NAME: Final[str] = "GeoLite2-City.mmdb"
@@ -69,9 +67,9 @@ class GeoInfo:
         """Initialize GeoInfo.
 
         Args:
-            data_dir: Directory containing GeoLite2 mmdb files.
-            cache_size: Max number of IP lookup results to keep in memory.
-            silent: If False, raise on DB open errors.
+            data_dir: Directory containing GeoLite2 .mmdb files.
+            cache_size: Maximum number of IP lookup results kept in memory.
+            silent: When False, raise on database open errors.
         """
         self._cache_size = max(0, int(cache_size))
         self._silent = bool(silent)
@@ -90,38 +88,32 @@ class GeoInfo:
 
         self._open_readers()
 
-    # ---------------------------------------------------------------------
     # Properties
-    # ---------------------------------------------------------------------
 
     @property
     def paths(self) -> GeoDbPaths:
-        """Configured database file paths."""
+        """Return configured database file paths."""
         return self._paths
 
     @property
     def enabled(self) -> bool:
-        """True if at least one database is available."""
+        """Return True if at least one database is available."""
         return self.city_enabled or self.asn_enabled
 
     @property
     def city_enabled(self) -> bool:
-        """True when the City database is open (lat/lon, city, country)."""
+        """Return True when the City database is open (lat/lon, city, country)."""
         return self._city_reader is not None
 
     @property
     def asn_enabled(self) -> bool:
-        """True when the ASN database is open (asn, asn_org)."""
+        """Return True when the ASN database is open (asn, asn_org)."""
         return self._asn_reader is not None
 
-    # ---------------------------------------------------------------------
     # Lifecycle
-    # ---------------------------------------------------------------------
 
     def reload(self) -> bool:
         """Reopen database readers from disk.
-
-        Used when the user places the .mmdb files while the app is running.
 
         Returns:
             True if at least one database is available after reload.
@@ -140,16 +132,14 @@ class GeoInfo:
             self._asn_reader = None
 
     def __enter__(self) -> GeoInfo:
-        """Return self as a context manager."""
+        """Return self for use as a context manager."""
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
-        """Close database readers when leaving the context."""
+        """Close database readers on context exit."""
         self.close()
 
-    # ---------------------------------------------------------------------
     # Public API
-    # ---------------------------------------------------------------------
 
     def enrich(self, connections: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Enrich connection dictionaries in-place using raddr_ip.
@@ -185,10 +175,10 @@ class GeoInfo:
         return connections
 
     def lookup(self, ip: str) -> GeoResult:
-        """Lookup geo information for an IP address.
+        """Look up GeoIP and ASN data for an IP address.
 
         Returns:
-            GeoResult with None values for unavailable fields.
+            GeoResult with None for unavailable fields.
         """
         if not ip:
             return dict(_EMPTY_RESULT)
@@ -208,9 +198,7 @@ class GeoInfo:
         self._ip_cache_put(ip, result)
         return result
 
-    # ---------------------------------------------------------------------
     # Internal helpers
-    # ---------------------------------------------------------------------
 
     def _open_readers(self) -> None:
         """Open database readers if files exist."""
@@ -278,9 +266,7 @@ class GeoInfo:
         org = record.get("autonomous_system_organization")
         result["asn_org"] = org if isinstance(org, str) and org else None
 
-    # ---------------------------------------------------------------------
     # LRU cache
-    # ---------------------------------------------------------------------
 
     def _ip_cache_get(self, ip: str) -> GeoResult | None:
         """Return cached value and refresh LRU order."""
