@@ -30,7 +30,7 @@ APP_META: Final[AppMeta] = AppMeta(name="TapMap", version="v1.0", author="Ola Li
 
 
 class TapMap:
-    """Wire Dash UI callbacks to the model and view builders."""
+    """Coordinate Dash callbacks, model polling, and UI state."""
 
     MENU_SCREENS: ClassVar[frozenset[str]] = frozenset(
         {"menu_help", "menu_about", "menu_open_ports", "menu_unmapped"}
@@ -861,7 +861,7 @@ class TapMap:
             return no_update, None, no_update, no_update, no_update
 
     def run(self) -> None:
-        """Start the Dash server and open the local UI."""
+        """Start the Dash server and launch the local UI."""
         host = "127.0.0.1"
         port = 8050
         url = f"http://{host}:{port}/"
@@ -875,7 +875,7 @@ class TapMap:
         )
 
     def close(self) -> None:
-        """Release model resources."""
+        """Close model resources."""
         close_fn = getattr(self.model.geoinfo, "close", None)
         if callable(close_fn):
             close_fn()
