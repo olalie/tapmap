@@ -127,7 +127,7 @@ class TapMap:
             initial_modal_state = {
                 "screen": self.SCR_MISSING_GEO_DB,
                 "t": datetime.now().isoformat(),
-                "payload": {"geo_data_dir": str(self.ctx.geo_data_dir)},
+                "payload": {},
             }
 
         initial_modal_open = bool(initial_modal_state)
@@ -149,7 +149,6 @@ class TapMap:
                 dcc.Store(id="ui_cache", data={}),
                 dcc.Store(id="status_cache", data={}),
                 dcc.Store(id="ui_view", data={"points": [], "summaries": {}, "details": {}}),
-                dcc.Store(id="geo_data_dir_store", data=str(self.ctx.geo_data_dir)),
                 dcc.Store(id="ui_event", data=None),
                 dcc.Store(id="ui_event_seen", data=None),
                 dcc.Store(id="modal_state", data=initial_modal_state),
@@ -336,7 +335,8 @@ class TapMap:
             "auto_geo_cached": self._auto_geo_cached,
             "os": f"{platform.system()} {platform.release()}",
             "python": sys.version.split()[0],
-            "psutil": getattr(psutil, "__version__", "-"),
+            "net_backend": self.ctx.net_backend,
+            "net_backend_version": self.ctx.net_backend_version,
         }
 
     def _handle_geo_recheck(self, status_cache: StatusCache) -> tuple[Any, Any, Any, Any, Any]:
@@ -467,15 +467,13 @@ class TapMap:
         modal_state: dict[str, Any] | None,
         snapshot: Any,
         ui_view: Any,
-        geo_data_dir: Any,
+        geo_path: str,
     ) -> tuple[list[Any], str]:
         if not isinstance(modal_state, dict):
             return [], "modal-body"
 
         screen = modal_state.get("screen")
         payload = self._ensure_dict(modal_state.get("payload"))
-
-        geo_path = str(geo_data_dir) if isinstance(geo_data_dir, str) else ""
 
         if not isinstance(screen, str) or not screen:
             return [], "modal-body"
@@ -736,7 +734,6 @@ class TapMap:
             Input("btn_close", "n_clicks"),
             Input("key_action", "data"),
             State("modal_state", "data"),
-            State("geo_data_dir_store", "data"),
             State("model_snapshot", "data"),
             State("ui_view", "data"),
             prevent_initial_call=True,
@@ -755,12 +752,12 @@ class TapMap:
             _close_clicks: int,
             key_action: Any,
             modal_state_data: Any,
-            geo_data_dir: Any,
             snapshot: Any,
             ui_view: Any,
         ):
             trigger = ctx.triggered_id
-            geo_path = str(geo_data_dir) if isinstance(geo_data_dir, str) else ""
+            geo_path = str(self.ctx.geo_data_dir)
+
             current_state = modal_state_data if isinstance(modal_state_data, dict) else None
             is_open = current_state is not None
 
@@ -776,12 +773,12 @@ class TapMap:
                 and self._is_geo_enabled(snapshot)
             ):
                 new_state = None
-                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
+                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
                 return new_state, None, self._modal_overlay_class(False), children, class_name
 
             if trigger == "btn_close":
                 new_state = None
-                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
+                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
                 return new_state, None, self._modal_overlay_class(False), children, class_name
 
             if trigger == "key_action" and isinstance(key_action, dict):
@@ -790,7 +787,7 @@ class TapMap:
                 if action == "escape":
                     if is_open:
                         new_state = None
-                        children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
+                        children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
                         return new_state, None, self._modal_overlay_class(False), children, class_name
                     return no_update, None, no_update, no_update, no_update
 
@@ -813,13 +810,13 @@ class TapMap:
                     if action == "menu_unmapped":
                         payload["show_lan_local"] = show_lan_local
                     new_state = make_state(action, payload)
-                    children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
+                    children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
                     return new_state, None, self._modal_overlay_class(True), children, class_name
 
                 return no_update, None, no_update, no_update, no_update
 
             if trigger == "btn_open_data":
-                if geo_path and isinstance(open_data_clicks, int) and open_data_clicks >= 1:
+                if isinstance(open_data_clicks, int) and open_data_clicks >= 1:
                     open_folder(Path(geo_path))
                 return no_update, None, no_update, no_update, no_update
 
@@ -842,16 +839,16 @@ class TapMap:
                 ):
                     return no_update, None, no_update, no_update, no_update
                 new_state = make_state("menu_unmapped", {"show_lan_local": show_lan_local})
-                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
+                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
                 return new_state, None, self._modal_overlay_class(True), children, class_name
 
             if trigger in {"menu_open_ports", "menu_unmapped", "menu_help", "menu_about"}:
                 screen = str(trigger)
-                payload = {}
+                payload: dict[str, Any] = {}
                 if screen == "menu_unmapped":
                     payload["show_lan_local"] = show_lan_local
                 new_state = make_state(screen, payload)
-                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
+                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
                 return new_state, None, self._modal_overlay_class(True), children, class_name
 
             if trigger == "menu_recheck_geo":
@@ -867,7 +864,7 @@ class TapMap:
                 if click_data is None:
                     return no_update, None, no_update, no_update, no_update
                 new_state = make_state("map_click", {"click_data": click_data})
-                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_data_dir)
+                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
                 return new_state, None, self._modal_overlay_class(True), children, class_name
 
             return no_update, None, no_update, no_update, no_update

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import platform
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Final
@@ -30,11 +31,11 @@ def get_app_data_dir(app_name: str = APP_NAME) -> Path:
 
     if system == "Windows":
         base = os.environ.get("APPDATA")
-        if not base:
-            base = str(Path.home() / "AppData" / "Roaming")
-        return Path(base) / app_name
+        if base:
+            return Path(base) / app_name
+        return Path.home() / "AppData" / "Roaming" / app_name
 
-    if system == "Darwin":  # macOS
+    if system == "Darwin":
         return Path.home() / "Library" / "Application Support" / app_name
 
     xdg = os.environ.get("XDG_DATA_HOME")
@@ -44,7 +45,9 @@ def get_app_data_dir(app_name: str = APP_NAME) -> Path:
 
 def ensure_app_data_dir(app_dir: Path) -> None:
     """Create the application data directory and README.txt file when missing."""
+    app_dir = app_dir.expanduser()
     app_dir.mkdir(parents=True, exist_ok=True)
+
     readme = app_dir / "README.txt"
     if not readme.exists():
         readme.write_text(README_TEXT, encoding="utf-8")
@@ -62,12 +65,14 @@ def open_folder(path: Path) -> tuple[bool, str]:
 
     Returns:
         ok: True on success.
-        message: Status message.
+        message: Status message suitable for UI.
     """
     try:
+        path = path.expanduser()
         path.mkdir(parents=True, exist_ok=True)
 
         system = platform.system()
+
         if system == "Windows":
             subprocess.Popen(["explorer.exe", str(path)])
             return True, f"Opened: {path}"
@@ -76,8 +81,19 @@ def open_folder(path: Path) -> tuple[bool, str]:
             subprocess.Popen(["open", str(path)])
             return True, f"Opened: {path}"
 
-        subprocess.Popen(["xdg-open", str(path)])
-        return True, f"Opened: {path}"
+        xdg_open = shutil.which("xdg-open")
+        if not xdg_open:
+            return False, "xdg-open is not available on this system."
+
+        cp = subprocess.run([xdg_open, str(path)], capture_output=True, text=True, check=False)
+        if cp.returncode == 0:
+            return True, f"Opened: {path}"
+
+        detail = (cp.stderr or cp.stdout or "").strip()
+        msg = "xdg-open failed."
+        if detail:
+            msg += f" {detail}"
+        return False, msg
 
     except Exception as exc:
         return False, f"Failed to open folder: {path}. Error: {exc}"

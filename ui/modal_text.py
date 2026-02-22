@@ -203,7 +203,13 @@ class ModalTextBuilder:
 
         os_text = app_info.get("os") if isinstance(app_info.get("os"), str) else "-"
         py_text = app_info.get("python") if isinstance(app_info.get("python"), str) else "-"
-        psutil_text = str(app_info.get("psutil")) if app_info.get("psutil") is not None else "-"
+
+        net_backend = app_info.get("net_backend") if isinstance(app_info.get("net_backend"), str) else "-"
+        net_backend_version = (
+            app_info.get("net_backend_version")
+            if isinstance(app_info.get("net_backend_version"), str)
+            else "-"
+        )
 
         tapmap_rows: list[tuple[str, str]] = [
             ("Name", self.app_name),
@@ -229,7 +235,8 @@ class ModalTextBuilder:
         runtime_rows: list[tuple[str, str]] = [
             ("OS", os_text),
             ("Python", py_text),
-            ("psutil", psutil_text),
+            ("Network backend", net_backend),
+            ("Backend version", net_backend_version),
         ]
 
         return [
@@ -239,7 +246,7 @@ class ModalTextBuilder:
                 "and interactive map visualization."
             ),
             html.P(
-                "It uses psutil to read active network connections, "
+                "It reads active network connections using a platform specific backend, "
                 "MaxMind GeoLite2 databases for geolocation, "
                 "and Dash with Plotly for map rendering."
             ),
@@ -257,14 +264,14 @@ class ModalTextBuilder:
                     html.Pre(geo_data_dir, className="mx-path-box") if geo_data_dir else None,
                     html.Button(
                         "Open data folder",
-                        id="btn_open_data_about",
+                        id="btn_open_data",
                         n_clicks=0,
                         className="mx-btn mx-btn--primary mx-btn--nowrap",
                         type="button",
                     ),
                     html.Button(
                         "Recheck GeoIP databases",
-                        id="btn_check_databases_about",
+                        id="btn_check_databases",
                         n_clicks=0,
                         className="mx-btn mx-btn--primary mx-btn--nowrap",
                         type="button",
