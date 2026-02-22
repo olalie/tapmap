@@ -1,0 +1,66 @@
+name: Build Test (Artifacts)
+
+on:
+  pull_request:
+  push:
+    branches:
+      - "chore/**"
+      - "feature/**"
+      - "fix/**"
+      - "refactor/**"
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build (same as local)
+        run: |
+          python tools/build.py
+
+      - name: Package artifact
+        shell: bash
+        run: |
+          python - << 'PY'
+          import os
+          import zipfile
+          from pathlib import Path
+
+          os_name = os.environ["RUNNER_OS"].lower()
+          dist = Path("dist")
+          exe = dist / ("tapmap.exe" if os_name == "windows" else "tapmap")
+          if not exe.exists():
+              raise FileNotFoundError(f"Expected build output not found: {exe}")
+
+          out = Path(f"tapmap-artifact-{os_name}.zip")
+          with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+              zf.write(exe, exe.name)
+
+          print(out)
+          PY
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tapmap-${{ runner.os }}
+          path: tapmap-artifact-*.zip
+          if-no-files-found: error
