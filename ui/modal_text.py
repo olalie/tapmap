@@ -204,11 +204,11 @@ class ModalTextBuilder:
         os_text = app_info.get("os") if isinstance(app_info.get("os"), str) else "-"
         py_text = app_info.get("python") if isinstance(app_info.get("python"), str) else "-"
 
-        net_backend = app_info.get("net_backend") if isinstance(app_info.get("net_backend"), str) else "-"
+        net_backend_val = app_info.get("net_backend")
+        net_backend = net_backend_val if isinstance(net_backend_val, str) else "-"
+        net_backend_version_val = app_info.get("net_backend_version")
         net_backend_version = (
-            app_info.get("net_backend_version")
-            if isinstance(app_info.get("net_backend_version"), str)
-            else "-"
+            net_backend_version_val if isinstance(net_backend_version_val, str) else "-"
         )
 
         tapmap_rows: list[tuple[str, str]] = [
@@ -567,6 +567,7 @@ class ModalTextBuilder:
             lon = r.get("lon")
             return isinstance(lat, (int, float)) and isinstance(lon, (int, float))
 
+        # 1) Filter to "unmapped" candidates
         filtered: list[dict[str, Any]] = []
         for r in cleaned:
             ip = r.get("ip")
@@ -616,23 +617,76 @@ class ModalTextBuilder:
             hint = cls._safe_str(row.get("service_hint")) or None
             return service, hint
 
-        def sort_key(row: dict[str, Any]) -> tuple[int, str, int]:
-            ip = cls._safe_str(row.get("ip"))
+        # 2) Aggregate identical endpoints and count sockets
+        #    Key: (scope, ip, port, pid, process_label)
+        agg: dict[tuple[str, str, int, int, str], dict[str, Any]] = {}
+        for r in filtered:
+            ip = cls._safe_str(r.get("ip"))
+            port = cls._safe_int(r.get("port"), default=-1)
             scope = cls._remote_scope(ip)
-            port = cls._safe_int(row.get("port"))
-            return (cls._scope_rank(scope), ip, port)
+
+            pid_val = r.get("pid")
+            pid = cls._safe_int(pid_val) if pid_val is not None else -1
+
+            proc_label, proc_tip = process_text(r)
+            svc_val, svc_tip = service_text(r)
+
+            key = (scope, ip, port, pid, proc_label)
+            entry = agg.get(key)
+            if entry is None:
+                agg[key] = {
+                    "scope": scope,
+                    "ip": ip,
+                    "port": port,
+                    "service": svc_val,
+                    "service_tip": svc_tip,
+                    "pid": pid if pid != -1 else None,
+                    "process": proc_label,
+                    "process_tip": proc_tip,
+                    "count": 1,
+                }
+            else:
+                entry["count"] = int(entry.get("count") or 0) + 1
+                # Keep a non-empty tooltip if one appears later
+                if entry.get("process_tip") in {None, ""} and proc_tip:
+                    entry["process_tip"] = proc_tip
+                if entry.get("service_tip") in {None, ""} and svc_tip:
+                    entry["service_tip"] = svc_tip
+
+        aggregated = list(agg.values())
+
+        # 3) Sort "signal first"
+        interesting_ports = {443, 53, 80, 3478, 22, 3389}
+
+        def sort_key(row: dict[str, Any]) -> tuple[int, int, int, str, str]:
+            scope = cls._safe_str(row.get("scope"))
+            port = cls._safe_int(row.get("port"), default=-1)
+            proc = cls._safe_str(row.get("process"))
+            ip = cls._safe_str(row.get("ip"))
+            count = cls._safe_int(row.get("count"), default=0)
+
+            port_rank = 0 if port in interesting_ports else 1
+            # scope_rank: PUBLIC -> LAN -> LOCAL
+            return (cls._scope_rank(scope), port_rank, -count, proc.lower(), ip)
 
         body_rows: list[Any] = []
-        for row in sorted(filtered, key=sort_key):
+        for row in sorted(aggregated, key=sort_key):
+            scope = cls._safe_str(row.get("scope"))
             ip = cls._safe_str(row.get("ip"))
-            port = cls._safe_int(row.get("port"))
-            scope = cls._remote_scope(ip)
+            port = cls._safe_int(row.get("port"), default=-1)
 
-            svc_val, svc_tip = service_text(row)
-            proc_val, proc_tip = process_text(row)
+            service = cls._safe_str(row.get("service")) or "Unknown"
+            service_tip = row.get("service_tip")
+            service_tip = cls._safe_str(service_tip) or None
 
             pid_val = row.get("pid")
             pid_txt = str(cls._safe_int(pid_val)) if pid_val is not None else ""
+
+            proc = cls._safe_str(row.get("process"))
+            proc_tip = row.get("process_tip")
+            proc_tip = cls._safe_str(proc_tip) or None
+
+            count = cls._safe_int(row.get("count"), default=1)
 
             body_rows.append(
                 html.Tr(
@@ -640,20 +694,23 @@ class ModalTextBuilder:
                         cls._cell(scope),
                         cls._cell(ip or "-"),
                         cls._cell(str(port) if port > 0 else "-"),
-                        cls._cell(svc_val, title=svc_tip),
+                        cls._cell(service, title=service_tip),
+                        cls._cell(str(count)),
                         cls._cell(pid_txt),
-                        cls._cell(proc_val, title=proc_tip),
+                        cls._cell(proc, title=proc_tip),
                     ]
                 )
             )
+
         colgroup = html.Colgroup(
             [
-                html.Col(style={"width": "8%"}),  # Scope
-                html.Col(style={"width": "32%"}),  # Remote IP
-                html.Col(style={"width": "8%"}),  # Port
+                html.Col(style={"width": "8%"}),   # Scope
+                html.Col(style={"width": "28%"}),  # Remote IP
+                html.Col(style={"width": "8%"}),   # Port
                 html.Col(style={"width": "16%"}),  # Port service
-                html.Col(style={"width": "8%"}),  # PID
-                html.Col(style={"width": "28%"}),  # Process
+                html.Col(style={"width": "8%"}),   # Count
+                html.Col(style={"width": "8%"}),   # PID
+                html.Col(style={"width": "24%"}),  # Process
             ]
         )
 
@@ -668,6 +725,7 @@ class ModalTextBuilder:
                             html.Th("Remote IP"),
                             html.Th("Port"),
                             html.Th("Port service"),
+                            html.Th("Count"),
                             html.Th("PID"),
                             html.Th("Process"),
                         ]
