@@ -424,20 +424,33 @@ class ModalTextBuilder:
         return ip
 
     @classmethod
-    def _open_ports_sort_key(cls, row: dict[str, Any]) -> tuple[int, int, int, str, str]:
-        scope = cls._safe_str(row.get("scope"))
+    def _open_ports_sort_key(cls, row: dict[str, Any]) -> tuple[int, int, int, str, int]:
+        """Return sort key for Open Ports rows."""
+        scope = cls._safe_str(row.get("scope")).upper()
+        proto = cls._safe_str(row.get("proto")).upper()
         local_address = cls._safe_str(row.get("local_address"))
+
         port = cls._port_from_local(local_address)
-        proto = cls._safe_str(row.get("proto"))
 
-        service = cls._safe_str(row.get("service"))
-        process_label = cls._safe_str(row.get("process_label") or row.get("process_name"))
+        process_name = cls._safe_str(
+            row.get("process_label") or row.get("process_name")
+        ).lower()
 
-        return (cls._scope_rank(scope), port, cls._proto_rank(proto), service, process_label)
+        pid = cls._safe_int(row.get("pid"))
+
+        scope_order = {
+            "PUBLIC": 0,
+            "LAN": 1,
+            "LOCAL": 2,
+        }.get(scope, 3)
+
+        proto_order = 0 if proto == "TCP" else 1
+
+        return (scope_order, proto_order, port, process_name, pid)
 
     @classmethod
     def _render_open_ports(cls, snapshot: Any | None) -> list[Any]:
-        """Render the Open ports view."""
+        """Render the Open Ports modal content."""
         snap = snapshot if isinstance(snapshot, dict) else {}
         rows = snap.get("open_ports")
         rows_list = rows if isinstance(rows, list) else []
@@ -484,18 +497,15 @@ class ModalTextBuilder:
                 )
             )
 
-        # Column widths moved from CSS nth-child to Colgroup.
-        # Previous widths (sum is approx 100%):
-        # 1 6.7, 2 6.7, 3 6.7, 4 26.7, 5 20, 6 6.7, 7 26.7
         colgroup = html.Colgroup(
             [
-                html.Col(style={"width": "8.0%"}),  # Scope
-                html.Col(style={"width": "8.0%"}),  # Proto
-                html.Col(style={"width": "8.0%"}),  # Port
-                html.Col(style={"width": "24.0%"}),  # Local IP
-                html.Col(style={"width": "20.0%"}),  # Port service
-                html.Col(style={"width": "8.0%"}),  # PID
-                html.Col(style={"width": "24.0%"}),  # Process
+                html.Col(style={"width": "8.0%"}),   # scope
+                html.Col(style={"width": "8.0%"}),   # proto
+                html.Col(style={"width": "8.0%"}),   # port
+                html.Col(style={"width": "24.0%"}),  # local_ip
+                html.Col(style={"width": "20.0%"}),  # service
+                html.Col(style={"width": "8.0%"}),   # pid
+                html.Col(style={"width": "24.0%"}),  # process
             ]
         )
 
