@@ -1,13 +1,10 @@
 name: Build Test (Artifacts)
 
 on:
+  workflow_dispatch:
   pull_request:
-  push:
     branches:
-      - "chore/**"
-      - "feature/**"
-      - "fix/**"
-      - "refactor/**"
+      - main
 
 jobs:
   build:
