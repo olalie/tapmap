@@ -1,17 +1,16 @@
-name: Build and Release
+name: Build Test (Artifacts)
 
 on:
-  push:
-    tags:
-      - "v*"
-
-permissions:
-  contents: write
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+
     strategy:
       fail-fast: false
       matrix:
@@ -32,11 +31,11 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Build (same as local)
+      - name: Build
         run: |
           python tools/build.py
 
-      - name: Create release zip (Windows/Linux)
+      - name: Package artifact
         shell: bash
         run: |
           python - << 'PY'
@@ -45,40 +44,22 @@ jobs:
           from pathlib import Path
 
           os_name = os.environ["RUNNER_OS"].lower()
-          tag = os.environ["GITHUB_REF_NAME"]
-
           dist = Path("dist")
-          exe = dist / "tapmap.exe" if os_name == "windows" else dist / "tapmap"
+
+          exe = dist / ("tapmap.exe" if os_name == "windows" else "tapmap")
           if not exe.exists():
               raise FileNotFoundError(f"Expected build output not found: {exe}")
 
-          zip_name = f"tapmap-{tag}-{os_name}.zip"
+          zip_name = f"tapmap-artifact-{os_name}.zip"
           with zipfile.ZipFile(zip_name, "w", compression=zipfile.ZIP_DEFLATED) as zf:
               zf.write(exe, exe.name)
 
           print(zip_name)
           PY
 
-      - name: Create SHA256 (Linux)
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          FILE="tapmap-${GITHUB_REF_NAME}-linux.zip"
-          shasum -a 256 "$FILE" > "$FILE.sha256"
-
-      - name: Create SHA256 (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $file = "tapmap-$($env:GITHUB_REF_NAME)-windows.zip"
-          $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
-          "$hash  $file" | Out-File -Encoding ascii "$file.sha256"
-
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
         with:
-          files: |
-            tapmap-${{ github.ref_name }}-windows.zip
-            tapmap-${{ github.ref_name }}-windows.zip.sha256
-            tapmap-${{ github.ref_name }}-linux.zip
-            tapmap-${{ github.ref_name }}-linux.zip.sha256
+          name: tapmap-${{ runner.os }}
+          path: tapmap-artifact-*.zip
+          if-no-files-found: error

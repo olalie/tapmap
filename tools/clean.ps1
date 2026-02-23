@@ -4,8 +4,13 @@
 
 $root = Split-Path -Parent $PSScriptRoot
 
-Remove-Item -Recurse -Force "$root\build", "$root\dist", "$root\__pycache__" -ErrorAction SilentlyContinue
-
+Remove-Item -Recurse -Force `
+    "$root\build",
+    "$root\dist",
+    "$root\__pycache__",
+    "$root\.ruff_cache" `
+    -ErrorAction SilentlyContinue
+    
 Get-ChildItem -Path $root -Recurse -Directory -Filter "__pycache__" |
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 

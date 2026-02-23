@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 *.pyo
+.ruff_cache/
 
 # Virtual environments
 .venv/
@@ -19,3 +20,6 @@ Thumbs.db
 
 # GeoIP databases
 data/*.mmdb
+
+# Private notes (not committed)
+.private/
