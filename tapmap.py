@@ -152,6 +152,7 @@ class TapMap:
                 dcc.Store(id="ui_event", data=None),
                 dcc.Store(id="ui_event_seen", data=None),
                 dcc.Store(id="modal_state", data=initial_modal_state),
+                dcc.Store(id="open_ports_prefs", data={"show_system": False}),
                 dcc.Input(
                     id="key_capture",
                     type="text",
@@ -491,7 +492,13 @@ class TapMap:
 
         if screen in self.MENU_SCREENS:
             show_lan_local = bool(payload.get("show_lan_local", False))
-            body = self.modal_text.for_action(screen, snapshot=snapshot, show_lan_local=show_lan_local)
+            show_system = bool(payload.get("show_system", False))
+            body = self.modal_text.for_action(
+                screen,
+                snapshot=snapshot,
+                show_lan_local=show_lan_local,
+                show_system=show_system,
+            )
             return self._as_children(body), self._class_for_modal_screen(screen)
 
         return [], "modal-body"
@@ -728,6 +735,7 @@ class TapMap:
             Input("menu_help", "n_clicks"),
             Input("menu_recheck_geo", "n_clicks"),
             Input("toggle_unmapped_lan_local", "value", allow_optional=True),
+            Input("toggle_open_ports_system", "value", allow_optional=True),
             Input("map", "clickData"),
             Input("btn_open_data", "n_clicks", allow_optional=True),
             Input("btn_check_databases", "n_clicks", allow_optional=True),
@@ -736,6 +744,7 @@ class TapMap:
             State("modal_state", "data"),
             State("model_snapshot", "data"),
             State("ui_view", "data"),
+            State("open_ports_prefs", "data"),
             prevent_initial_call=True,
         )
         def modal_controller(
@@ -746,6 +755,7 @@ class TapMap:
             _help_clicks: int,
             _recheck_clicks: int,
             toggle_value: Any,
+            toggle_system_value: Any,
             click_data: Any,
             open_data_clicks: int | None,
             check_db_clicks: int | None,
@@ -754,6 +764,7 @@ class TapMap:
             modal_state_data: Any,
             snapshot: Any,
             ui_view: Any,
+            open_ports_prefs_data: Any,
         ):
             trigger = ctx.triggered_id
             geo_path = str(self.ctx.geo_data_dir)
@@ -765,6 +776,7 @@ class TapMap:
                 return {"screen": screen, "t": datetime.now().isoformat(), "payload": payload or {}}
 
             show_lan_local = self._toggle_on(toggle_value)
+            show_system = self._toggle_on(toggle_system_value)
 
             if (
                 is_open
@@ -842,11 +854,29 @@ class TapMap:
                 children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
                 return new_state, None, self._modal_overlay_class(True), children, class_name
 
+            if trigger == "toggle_open_ports_system":
+                if (
+                    not is_open
+                    or not isinstance(current_state, dict)
+                    or current_state.get("screen") != "menu_open_ports"
+                ):
+                    return no_update, None, no_update, no_update, no_update
+
+                new_state = make_state("menu_open_ports", {"show_system": show_system})
+                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
+                return new_state, None, self._modal_overlay_class(True), children, class_name
+
             if trigger in {"menu_open_ports", "menu_unmapped", "menu_help", "menu_about"}:
                 screen = str(trigger)
                 payload: dict[str, Any] = {}
+
                 if screen == "menu_unmapped":
                     payload["show_lan_local"] = show_lan_local
+
+                if screen == "menu_open_ports":
+                    prefs = open_ports_prefs_data if isinstance(open_ports_prefs_data, dict) else {}
+                    payload["show_system"] = bool(prefs.get("show_system", False))
+
                 new_state = make_state(screen, payload)
                 children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
                 return new_state, None, self._modal_overlay_class(True), children, class_name
@@ -868,6 +898,17 @@ class TapMap:
                 return new_state, None, self._modal_overlay_class(True), children, class_name
 
             return no_update, None, no_update, no_update, no_update
+        
+        @self.app.callback(
+            Output("open_ports_prefs", "data"),
+            Input("toggle_open_ports_system", "value"),
+            State("open_ports_prefs", "data"),
+            prevent_initial_call=True,
+        )
+        def open_ports_toggle(toggle_value: Any, prefs_data: Any):
+            prefs = prefs_data if isinstance(prefs_data, dict) else {}
+            prefs["show_system"] = isinstance(toggle_value, list) and "on" in toggle_value
+            return prefs
 
     def run(self) -> None:
         """Start the Dash server and launch the local UI."""
