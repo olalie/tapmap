@@ -34,7 +34,6 @@ class ModalTextBuilder:
         action: str,
         *,
         snapshot: Any | None = None,
-        show_lan_local: bool = False,
         show_system: bool = False,
     ) -> list[Any]:
         """Build modal body content for a menu action.
@@ -42,7 +41,6 @@ class ModalTextBuilder:
         Args:
             action: Menu action ID.
             snapshot: Latest model snapshot (dict) or None.
-            show_lan_local: Unmapped view toggle state.
             show_system: Open ports view toggle state.
 
         Returns:
@@ -55,7 +53,7 @@ class ModalTextBuilder:
             return self._render_open_ports(snapshot, show_system=show_system)
 
         if action == "menu_unmapped":
-            return self._render_unmapped(snapshot, show_lan_local=show_lan_local)
+            return self._render_unmapped(snapshot)
 
         if action == "menu_about":
             return self._render_about(snapshot)
@@ -600,12 +598,10 @@ class ModalTextBuilder:
         return "PUBLIC"
 
     @classmethod
-    def _render_unmapped(cls, snapshot: Any | None, *, show_lan_local: bool) -> list[Any]:
+    def _render_unmapped(cls, snapshot: Any | None) -> list[Any]:
         """Render unmapped endpoints.
 
-        Unmapped endpoints are established TCP endpoints excluded from the map
-        due to missing geolocation (no lat/lon).
-        Default: PUBLIC only. Toggle can include LAN and LOCAL.
+        Render established TCP endpoints with PUBLIC remote IPs and missing geolocation.
         """
         snap = snapshot if isinstance(snapshot, dict) else {}
         items = snap.get("cache_items")
@@ -618,35 +614,20 @@ class ModalTextBuilder:
             lon = r.get("lon")
             return isinstance(lat, (int, float)) and isinstance(lon, (int, float))
 
-        # 1) Filter to "unmapped" candidates
+        # 1) Filter to "unmapped" candidates (PUBLIC only)
         filtered: list[dict[str, Any]] = []
         for r in cleaned:
             ip = r.get("ip")
             scope = cls._remote_scope(ip)
             geo_ok = has_geo(r)
 
-            if scope == "PUBLIC":
-                if not geo_ok:
-                    filtered.append(r)
-                continue
-
-            if scope in {"LAN", "LOCAL"} and show_lan_local:
+            if scope == "PUBLIC" and not geo_ok:
                 filtered.append(r)
 
-        toggle = dcc.Checklist(
-            id="toggle_unmapped_lan_local",
-            options=[{"label": "Include LAN/LOCAL", "value": "on"}],
-            value=(["on"] if show_lan_local else []),
-            className="mx-title-toggle",
-        )
-
-        header = html.H1(
-            children=[html.Span("Unmapped endpoints (missing geolocation)"), toggle],
-            className="mx-h1-with-toggle",
-        )
+        header = html.H1("Unmapped public endpoints (missing geolocation)", className="mx-h1")
 
         if not filtered:
-            return [header, html.Pre("(no unmapped endpoints)")]
+            return [header, html.Pre("(no unmapped public endpoints)")]
 
         def process_text(row: dict[str, Any]) -> tuple[str, str | None]:
             label = cls._safe_str(row.get("process_name"))

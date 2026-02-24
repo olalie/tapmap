@@ -198,7 +198,7 @@ class TapMap:
                         html.Div("Actions", className="mx-panel__title"),
                         html.Div(
                             [
-                                self._menu_button("Show unmapped endpoints (U)", "menu_unmapped"),
+                                self._menu_button("Show unmapped public endpoints (U)", "menu_unmapped"),
                                 self._menu_button("Show open ports (O)", "menu_open_ports"),
                                 self._menu_button("Show cache in terminal (T)", "menu_cache_terminal"),
                                 self._menu_button("Clear cache (C)", "menu_clear"),
@@ -491,12 +491,10 @@ class TapMap:
             return self._as_children(body), "modal-body"
 
         if screen in self.MENU_SCREENS:
-            show_lan_local = bool(payload.get("show_lan_local", False))
             show_system = bool(payload.get("show_system", False))
             body = self.modal_text.for_action(
                 screen,
                 snapshot=snapshot,
-                show_lan_local=show_lan_local,
                 show_system=show_system,
             )
             return self._as_children(body), self._class_for_modal_screen(screen)
@@ -734,7 +732,6 @@ class TapMap:
             Input("menu_about", "n_clicks"),
             Input("menu_help", "n_clicks"),
             Input("menu_recheck_geo", "n_clicks"),
-            Input("toggle_unmapped_lan_local", "value", allow_optional=True),
             Input("toggle_open_ports_system", "value", allow_optional=True),
             Input("map", "clickData"),
             Input("btn_open_data", "n_clicks", allow_optional=True),
@@ -754,7 +751,6 @@ class TapMap:
             _info_clicks: int,
             _help_clicks: int,
             _recheck_clicks: int,
-            toggle_value: Any,
             toggle_system_value: Any,
             click_data: Any,
             open_data_clicks: int | None,
@@ -775,7 +771,6 @@ class TapMap:
             def make_state(screen: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
                 return {"screen": screen, "t": datetime.now().isoformat(), "payload": payload or {}}
 
-            show_lan_local = self._toggle_on(toggle_value)
             show_system = self._toggle_on(toggle_system_value)
 
             if (
@@ -818,10 +813,7 @@ class TapMap:
                     return no_update, None, no_update, no_update, no_update
 
                 if action in self.MENU_SCREENS:
-                    payload: dict[str, Any] = {}
-                    if action == "menu_unmapped":
-                        payload["show_lan_local"] = show_lan_local
-                    new_state = make_state(action, payload)
+                    new_state = make_state(action)
                     children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
                     return new_state, None, self._modal_overlay_class(True), children, class_name
 
@@ -843,17 +835,6 @@ class TapMap:
                     )
                 return no_update, None, no_update, no_update, no_update
 
-            if trigger == "toggle_unmapped_lan_local":
-                if (
-                    not is_open
-                    or not isinstance(current_state, dict)
-                    or current_state.get("screen") != "menu_unmapped"
-                ):
-                    return no_update, None, no_update, no_update, no_update
-                new_state = make_state("menu_unmapped", {"show_lan_local": show_lan_local})
-                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
-                return new_state, None, self._modal_overlay_class(True), children, class_name
-
             if trigger == "toggle_open_ports_system":
                 if (
                     not is_open
@@ -869,9 +850,6 @@ class TapMap:
             if trigger in {"menu_open_ports", "menu_unmapped", "menu_help", "menu_about"}:
                 screen = str(trigger)
                 payload: dict[str, Any] = {}
-
-                if screen == "menu_unmapped":
-                    payload["show_lan_local"] = show_lan_local
 
                 if screen == "menu_open_ports":
                     prefs = open_ports_prefs_data if isinstance(open_ports_prefs_data, dict) else {}
