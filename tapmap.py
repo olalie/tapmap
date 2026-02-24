@@ -33,7 +33,7 @@ class TapMap:
     """Coordinate Dash callbacks, model polling, and UI state."""
 
     MENU_SCREENS: ClassVar[frozenset[str]] = frozenset(
-        {"menu_help", "menu_about", "menu_open_ports", "menu_unmapped"}
+        {"menu_unmapped", "menu_lan_local", "menu_open_ports","menu_help", "menu_about"}
     )
     MENU_COMMANDS: ClassVar[frozenset[str]] = frozenset(
         {"menu_clear", "menu_cache_terminal", "menu_recheck_geo"}
@@ -199,6 +199,7 @@ class TapMap:
                         html.Div(
                             [
                                 self._menu_button("Show unmapped public endpoints (U)", "menu_unmapped"),
+                                self._menu_button("Show LAN/LOCAL connections (L)", "menu_lan_local"),
                                 self._menu_button("Show open ports (O)", "menu_open_ports"),
                                 self._menu_button("Show cache in terminal (T)", "menu_cache_terminal"),
                                 self._menu_button("Clear cache (C)", "menu_clear"),
@@ -441,9 +442,10 @@ class TapMap:
 
     def _class_for_modal_screen(self, screen: str | None) -> str:
         if screen in {
-            "menu_help",
-            "menu_open_ports",
             "menu_unmapped",
+            "menu_lan_local",
+            "menu_open_ports",
+            "menu_help",
             "menu_about",
             self.SCR_MISSING_GEO_DB,
         }:
@@ -514,13 +516,14 @@ class TapMap:
 
             token = value.split("|", 1)[0]
             key_map = {
-                "__o__": "menu_open_ports",
                 "__u__": "menu_unmapped",
+                "__l__": "menu_lan_local",
+                "__o__": "menu_open_ports",
                 "__t__": "menu_cache_terminal",
                 "__c__": "menu_clear",
+                "__r__": "menu_recheck_geo",
                 "__h__": "menu_help",
                 "__a__": "menu_about",
-                "__r__": "menu_recheck_geo",
                 "__esc__": "escape",
             }
 
@@ -679,6 +682,7 @@ class TapMap:
             Input("key_action", "data"),
             Input("menu_open_ports", "n_clicks"),
             Input("menu_unmapped", "n_clicks"),
+            Input("menu_lan_local", "n_clicks"),
             Input("menu_cache_terminal", "n_clicks"),
             Input("menu_about", "n_clicks"),
             Input("menu_help", "n_clicks"),
@@ -693,6 +697,7 @@ class TapMap:
             key_action: Any,
             _open_ports: int,
             _unmapped: int,
+            _lan_local: int,
             _cache_terminal: int,
             _info: int,
             _help: int,
@@ -729,6 +734,7 @@ class TapMap:
             Input("tick_status", "n_intervals"),
             Input("menu_open_ports", "n_clicks"),
             Input("menu_unmapped", "n_clicks"),
+            Input("menu_lan_local", "n_clicks"),
             Input("menu_about", "n_clicks"),
             Input("menu_help", "n_clicks"),
             Input("menu_recheck_geo", "n_clicks"),
@@ -748,7 +754,8 @@ class TapMap:
             _tick_n: int,
             _open_ports_clicks: int,
             _unmapped_clicks: int,
-            _info_clicks: int,
+            _lan_local_clicks: int,
+            _about_clicks: int,
             _help_clicks: int,
             _recheck_clicks: int,
             toggle_system_value: Any,
@@ -847,7 +854,7 @@ class TapMap:
                 children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
                 return new_state, None, self._modal_overlay_class(True), children, class_name
 
-            if trigger in {"menu_open_ports", "menu_unmapped", "menu_help", "menu_about"}:
+            if trigger in {"menu_unmapped", "menu_lan_local", "menu_open_ports", "menu_help", "menu_about"}:
                 screen = str(trigger)
                 payload: dict[str, Any] = {}
 
@@ -879,7 +886,7 @@ class TapMap:
         
         @self.app.callback(
             Output("open_ports_prefs", "data"),
-            Input("toggle_open_ports_system", "value"),
+            Input("toggle_open_ports_system", "value", allow_optional=True),
             State("open_ports_prefs", "data"),
             prevent_initial_call=True,
         )
