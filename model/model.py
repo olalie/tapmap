@@ -105,14 +105,6 @@ class Model:
 
                 proto = str(conn.get("proto") or "tcp").lower()
                 status = conn.get("status")
-                # TEMP: log UDP connections without raddr, which should be rare but cause missing cache items
-                if proto == "udp":
-                    r_ip = conn.get("raddr_ip")
-                    r_port = conn.get("raddr_port")
-                    if r_ip or (r_port is not None):
-                        print("UDP has raddr:", r_ip, r_port, conn)
-                    else:
-                        print("UDP no raddr:", conn)
 
                 if proto == "tcp":
                     live_con += 1
