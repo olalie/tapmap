@@ -79,7 +79,14 @@ HELP_CONTENT = [
                     html.Tr(
                         [
                             html.Td("U"),
-                            html.Td("Show unmapped endpoints (missing geolocation)"),
+                            html.Td("Show unmapped public endpoints (missing geolocation)"),
+                            html.Td("Window"),
+                        ]
+                    ),
+                    html.Tr(
+                        [
+                            html.Td("L"),
+                            html.Td("Show established LAN and LOCAL connections"),
                             html.Td("Window"),
                         ]
                     ),
@@ -100,17 +107,27 @@ HELP_CONTENT = [
             ),
         ],
     ),
-    html.H2("Unmapped endpoints"),
+    html.H2("Unmapped public endpoints"),
     html.P(
-        "The Unmapped endpoints window lists ESTABLISHED TCP connections not shown on the "
-        "map due to missing geolocation."
+        "The Unmapped window lists PUBLIC remote endpoints that are not shown on the map "
+        "because geolocation is missing."
     ),
+    html.P("LAN and LOCAL endpoints are excluded from this view."),
     html.P(
-        "By default, only public endpoints are shown. Enable the toggle to include "
-        "LAN and local endpoints."
+        "Count shows how many sockets were merged into the row for the latest snapshot. "
+        "Rows are grouped by scope, remote IP, port, PID and process."
     ),
     html.P(
         "In narrow windows, some fields may be truncated. Hover a cell to see the full value."
+    ),
+    html.H2("Established LAN/LOCAL connections"),
+    html.P(
+        "This window lists established TCP connections where the remote endpoint is LAN or LOCAL. "
+        "These endpoints are not shown on the map."
+    ),
+    html.P(
+        "Count shows how many sockets were merged into the row for the latest snapshot. "
+        "Rows are grouped by scope, remote IP, port, PID and process."
     ),
     html.H2("Open ports"),
     html.P(
@@ -122,6 +139,7 @@ HELP_CONTENT = [
         "UDP bound means a local process can receive datagrams on that port."
     ),
     html.P("This is a local view only. Remote endpoints are not shown."),
+    html.P("System processes are hidden by default. Use the toggle to include them."),
     html.H2("Show cache in terminal"),
     html.P("Print the current cache contents to the terminal where TapMap is running."),
     html.H2("Status line"),
@@ -140,39 +158,29 @@ HELP_CONTENT = [
         ]
     ),
     html.H3("LIVE"),
-    html.P("Shows values from the current snapshot."),
+    html.P("LIVE shows counters from the current snapshot."),
     html.Ul(
         [
-            html.Li("CON: Total TCP entries in all states."),
-            html.Li("EST: Connections in state ESTABLISHED."),
+            html.Li("TCP: Total TCP entries in the snapshot, across all TCP states."),
+            html.Li("EST: TCP entries in state ESTABLISHED."),
             html.Li("LST: Listening TCP sockets on the local machine."),
+            html.Li("UDP R: UDP entries that have a remote address available."),
+            html.Li("UDP B: UDP entries bound to a local port."),
         ]
     ),
-    html.P("CON includes all TCP states, for example TIME_WAIT, SYN_SENT, and CLOSE_WAIT."),
+    html.P("TCP includes states such as TIME_WAIT, SYN_SENT and CLOSE_WAIT."),
     html.H3("CACHE"),
-    html.P("Aggregated information since the last Clear cache or app start."),
-    html.P("Only ESTABLISHED connections with a remote endpoint are included."),
-    html.P("Format: EST - LOC - NON_GEO = GEO -> RIP -> RLOC"),
+    html.P("CACHE shows aggregated endpoint counters since the last Clear cache or app start."),
+    html.P(
+        "Counters are based on unique remote IP and port pairs. "
+        "They do not distinguish protocol or process."
+    ),
     html.Ul(
         [
-            html.Li(
-                "EST: Unique remote endpoints seen in ESTABLISHED connections, "
-                "defined as remote IP and port."
-            ),
-            html.Li(
-                "LOC: Endpoints where the remote IP is local, private, or loopback. "
-                "Not shown on the map."
-            ),
-            html.Li(
-                "NON_GEO: External endpoints without geolocation. "
-                "Not shown on the map but available via key U."
-            ),
-            html.Li("GEO: External endpoints with valid geolocation. GEO = EST - LOC - NON_GEO."),
-            html.Li("RIP: Unique remote IP addresses within GEO."),
-            html.Li(
-                "RLOC: Map locations within GEO after coordinate grouping. "
-                "Multiple IPs and ASNs may map to the same grouped location."
-            ),
+            html.Li("END: cached endpoints (ip, port)"),
+            html.Li("MAP: public endpoints with valid (lat, lon)"),
+            html.Li("UNM: public endpoints without (lat, lon)"),
+            html.Li("LOC: LAN and loopback endpoints"),
         ]
     ),
     html.H3("UPDATED"),
@@ -235,7 +243,7 @@ HELP_CONTENT = [
     html.H2("Network and location notes"),
     html.Ul(
         [
-            html.Li("IP-based geolocation is approximate."),
+            html.Li("IP based geolocation is approximate."),
             html.Li(
                 "ASN and ASN organization identify the network operator, not "
                 "necessarily the service owner."
