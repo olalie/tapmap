@@ -7,9 +7,29 @@ from datetime import datetime
 from typing import Any, Final, TypedDict
 
 
+class CacheItem(TypedDict):
+    """Define one cache item for the UI."""
+    proto: str
+    ip: str
+    port: int
+    service: str
+    service_hint: str | None
+    is_local: bool
+    lat: float | None
+    lon: float | None
+    pid: int | None
+    process_name: str | None
+    exe: str | None
+    cmdline: list[str] | None
+    process_status: str | None
+    city: str | None
+    country: str | None
+    asn: str | None
+    asn_org: str | None
+
+
 class OpenPort(TypedDict):
     """Define one row for the Open Ports modal table."""
-
     proto: str
     local_address: str
     service: str
@@ -23,11 +43,10 @@ class OpenPort(TypedDict):
 
 class SnapshotPayload(TypedDict):
     """Define the payload from Model.snapshot()."""
-
     error: bool
     stats: dict[str, Any]
-    cache_items: list[dict[str, Any]]
-    map_candidates: list[dict[str, Any]]
+    cache_items: list[CacheItem]
+    map_candidates: list[CacheItem]
     open_ports: list[OpenPort]
 
 
@@ -76,8 +95,8 @@ class Model:
             live_lst = 0
             dropped_missing_remote = 0
 
-            cache_items: list[dict[str, Any]] = []
-            map_candidates: list[dict[str, Any]] = []
+            cache_items: list[CacheItem] = []
+            map_candidates: list[CacheItem] = []
             open_ports: list[OpenPort] = []
 
             for conn in connections:
@@ -90,22 +109,9 @@ class Model:
                 if proto == "tcp":
                     live_con += 1
 
-                if proto == "tcp" and status == "LISTEN":
-                    live_lst += 1
-                    item = self._build_open_port(conn, proto="tcp")
-                    if item is not None:
-                        open_ports.append(item)
-                    continue
-
-                if proto == "udp":
-                    item = self._build_open_port(conn, proto="udp")
-                    if item is not None:
-                        open_ports.append(item)
-                    continue
-
                 if proto == "tcp" and status == "ESTABLISHED":
                     live_est += 1
-                    item = self._build_established_item(conn)
+                    item = self._build_remote_endpoint_item(conn, proto="tcp")
                     if item is None:
                         dropped_missing_remote += 1
                         continue
@@ -117,6 +123,30 @@ class Model:
                     has_geo = isinstance(lat, (int, float)) and isinstance(lon, (int, float))
                     if (not item["is_local"]) and has_geo:
                         map_candidates.append(item)
+                    continue               
+
+                if proto == "tcp" and status == "LISTEN":
+                    live_lst += 1
+                    item = self._build_open_port(conn, proto="tcp")
+                    if item is not None:
+                        open_ports.append(item)
+                    continue
+
+                if proto == "udp":
+                    item = self._build_remote_endpoint_item(conn, proto="udp")
+                    if item is not None:
+                        cache_items.append(item)
+
+                        lat = item.get("lat")
+                        lon = item.get("lon")
+                        has_geo = isinstance(lat, (int, float)) and isinstance(lon, (int, float))
+                        if (not item["is_local"]) and has_geo:
+                            map_candidates.append(item)
+                    else:
+                        open_item = self._build_open_port(conn, proto="udp")
+                        if open_item is not None:
+                            open_ports.append(open_item)
+                    continue
 
             return {
                 "error": False,
@@ -291,8 +321,15 @@ class Model:
             "scope": self._get_scope(l_ip),
         }
 
-    def _build_established_item(self, conn: dict[str, Any]) -> dict[str, Any] | None:
-        """Build one cache item from an ESTABLISHED TCP connection."""
+    def _build_remote_endpoint_item(
+        self,
+        conn: dict[str, Any],
+        *,
+        proto: str,
+    ) -> dict[str, Any] | None:
+        """Build one cache item from a remote endpoint."""
+        proto_norm = str(proto).lower() or "tcp"
+
         remote_ip = conn.get("raddr_ip")
         remote_port = conn.get("raddr_port")
         if not remote_ip or remote_port is None:
@@ -303,21 +340,26 @@ class Model:
         except (TypeError, ValueError):
             return None
 
-        service = self._service_name(port, "tcp")
+        service = self._service_name(port, proto_norm)
         service_hint = "Not in system service table" if service == "Unknown" else None
+
         is_local = self._is_local_ip(remote_ip)
+
         lat = conn.get("lat")
         lon = conn.get("lon")
         has_geo = isinstance(lat, (int, float)) and isinstance(lon, (int, float))
+        lat_value = float(lat) if has_geo else None
+        lon_value = float(lon) if has_geo else None
 
         return {
+            "proto": proto_norm,
             "ip": remote_ip,
             "port": port,
             "service": service,
             "service_hint": service_hint,
             "is_local": is_local,
-            "lat": float(lat) if has_geo else None,
-            "lon": float(lon) if has_geo else None,
+            "lat": lat_value,
+            "lon": lon_value,
             "pid": conn.get("pid"),
             "process_name": conn.get("process_label"),
             "exe": conn.get("exe"),
