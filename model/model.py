@@ -105,22 +105,17 @@ class Model:
 
                 proto = str(conn.get("proto") or "tcp").lower()
                 status = conn.get("status")
+                # TEMP: log UDP connections without raddr, which should be rare but cause missing cache items
+                if proto == "udp":
+                    r_ip = conn.get("raddr_ip")
+                    r_port = conn.get("raddr_port")
+                    if r_ip or (r_port is not None):
+                        print("UDP has raddr:", r_ip, r_port, conn)
+                    else:
+                        print("UDP no raddr:", conn)
 
                 if proto == "tcp":
                     live_con += 1
-
-                if proto == "tcp" and status == "LISTEN":
-                    live_lst += 1
-                    item = self._build_open_port(conn, proto="tcp")
-                    if item is not None:
-                        open_ports.append(item)
-                    continue
-
-                if proto == "udp":
-                    item = self._build_open_port(conn, proto="udp")
-                    if item is not None:
-                        open_ports.append(item)
-                    continue
 
                 if proto == "tcp" and status == "ESTABLISHED":
                     live_est += 1
@@ -136,6 +131,30 @@ class Model:
                     has_geo = isinstance(lat, (int, float)) and isinstance(lon, (int, float))
                     if (not item["is_local"]) and has_geo:
                         map_candidates.append(item)
+                    continue               
+
+                if proto == "tcp" and status == "LISTEN":
+                    live_lst += 1
+                    item = self._build_open_port(conn, proto="tcp")
+                    if item is not None:
+                        open_ports.append(item)
+                    continue
+
+                if proto == "udp":
+                    item = self._build_remote_endpoint_item(conn, proto="udp")
+                    if item is not None:
+                        cache_items.append(item)
+
+                        lat = item.get("lat")
+                        lon = item.get("lon")
+                        has_geo = isinstance(lat, (int, float)) and isinstance(lon, (int, float))
+                        if (not item["is_local"]) and has_geo:
+                            map_candidates.append(item)
+                    else:
+                        open_item = self._build_open_port(conn, proto="udp")
+                        if open_item is not None:
+                            open_ports.append(open_item)
+                    continue
 
             return {
                 "error": False,
