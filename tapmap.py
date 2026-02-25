@@ -9,7 +9,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar, Final
 
-import psutil
 from dash import Dash, Input, Output, State, ctx, dcc, html, no_update
 
 from app_dirs import open_folder
@@ -64,7 +63,10 @@ class TapMap:
         )
 
         self.ui = MapUI(debug=self.DEBUG_COORDS)
-        self.view_builder = CacheViewBuilder(coord_precision=COORD_PRECISION, debug=self.DEBUG_COORDS)
+        self.view_builder = CacheViewBuilder(
+            coord_precision=COORD_PRECISION,
+            debug=self.DEBUG_COORDS,
+        )
 
         self.modal_text = ModalTextBuilder(
             self.ctx.meta.name,
@@ -147,7 +149,7 @@ class TapMap:
                 dcc.Store(id="status_flash", data=None),
                 dcc.Store(id="model_snapshot", data=None),
                 dcc.Store(id="ui_cache", data={}),
-                dcc.Store(id="status_cache", data={}),
+                dcc.Store(id="status_cache", data=StatusCache().to_store()),
                 dcc.Store(id="ui_view", data={"points": [], "summaries": {}, "details": {}}),
                 dcc.Store(id="ui_event", data=None),
                 dcc.Store(id="ui_event_seen", data=None),
@@ -198,17 +200,27 @@ class TapMap:
                         html.Div("Actions", className="mx-panel__title"),
                         html.Div(
                             [
-                                self._menu_button("Show unmapped public endpoints (U)", "menu_unmapped"),
-                                self._menu_button("Show LAN/LOCAL connections (L)", "menu_lan_local"),
-                                self._menu_button("Show open ports (O)", "menu_open_ports"),
-                                self._menu_button("Show cache in terminal (T)", "menu_cache_terminal"),
+                                self._menu_button(
+                                    "Show unmapped public endpoints (U)", "menu_unmapped"
+                                ),
+                                self._menu_button(
+                                    "Show LAN/LOCAL connections (L)", "menu_lan_local"
+                                ),
+                                self._menu_button(
+                                    "Show open ports (O)", "menu_open_ports"
+                                ),
+                                self._menu_button(
+                                    "Show cache in terminal (T)", "menu_cache_terminal"
+                                ),
                                 self._menu_button("Clear cache (C)", "menu_clear"),
                             ],
                             className="mx-menu-group",
                         ),
                         html.Div(
                             [
-                                self._menu_button("Recheck GeoIP databases (R)", "menu_recheck_geo"),
+                                self._menu_button(
+                                    "Recheck GeoIP databases (R)", "menu_recheck_geo"
+                                ),
                                 self._menu_button("Help (H)", "menu_help"),
                                 self._menu_button("About (A)", "menu_about"),
                             ],
@@ -248,16 +260,24 @@ class TapMap:
                     id="status_bar",
                     className="status-bar",
                     children=(
-                        "STATUS: WAIT | LIVE: CON 0 EST 0 LST 0 | "
-                        "CACHE: EST 0 - LOC 0 - NON_GEO 0 = GEO 0 -> RIP 0 -> RLOC 0 | "
-                        "UPDATED: --:--:--"
+                        "STATUS: WAIT | "
+                        "LIVE: TCP 0 EST 0 LST 0 UDP R 0 B 0 | "
+                        "CACHE: END 0 MAP 0 UNM 0 LOC 0 | "
+                        "UPDATED: --:--:-- | "
+                        "MYLOC: --"
                     ),
                 ),
             ],
         )
 
     def _menu_button(self, label: str, btn_id: str) -> html.Button:
-        return html.Button(label, id=btn_id, n_clicks=0, className="mx-btn mx-btn--menu", type="button")
+        return html.Button(
+            label,
+            id=btn_id,
+            n_clicks=0,
+            className="mx-btn mx-btn--menu",
+            type="button",
+        )
 
     @staticmethod
     def _ensure_dict(value: object) -> dict[str, Any]:
@@ -590,7 +610,9 @@ class TapMap:
                 a, b, c, d, flash = self._handle_cache_terminal(status_cache, ui_cache)
                 return a, b, c, d, flash, event_seen
 
-            snap, cache, sc_store, view, flash = self._handle_normal_poll(tick_n, status_cache, ui_cache)
+            snap, cache, sc_store, view, flash = self._handle_normal_poll(
+                tick_n, status_cache, ui_cache
+            )
             return snap, cache, sc_store, view, flash, event_seen
 
         @self.app.callback(
@@ -630,15 +652,13 @@ class TapMap:
                     return message
 
             status_cache = StatusCache.from_store(status_cache_data)
+            cache_chain = status_cache.format_chain()
 
-            view = self._ensure_dict(ui_view)
-            points = self._ensure_list(view.get("points"))
-            rloc_map = len(points)
-            cache_chain = status_cache.format_chain(rloc_map=rloc_map)
-
-            live_con = 0
-            live_est = 0
-            live_lst = 0
+            live_tcp_total = 0
+            live_tcp_established = 0
+            live_tcp_listen = 0
+            live_udp_remote = 0
+            live_udp_bound = 0
             updated = "--:--:--"
             status = "WAIT"
             note = ""
@@ -652,15 +672,19 @@ class TapMap:
                     if isinstance(stats, dict):
                         online = bool(stats.get("online", True))
                         status = "OK" if online else "OFFLINE"
-                        live_con = self._to_int(stats.get("live_con"))
-                        live_est = self._to_int(stats.get("live_est"))
-                        live_lst = self._to_int(stats.get("live_lst"))
+                        live_tcp_total = self._to_int(stats.get("live_tcp_total"))
+                        live_tcp_established = self._to_int(stats.get("live_tcp_established"))
+                        live_tcp_listen = self._to_int(stats.get("live_tcp_listen"))
+                        live_udp_remote = self._to_int(stats.get("live_udp_remote"))
+                        live_udp_bound = self._to_int(stats.get("live_udp_bound"))
                         updated = stats.get("updated") or updated
 
             myloc = self._myloc_label()
             return (
                 f"STATUS: {status}{note} | "
-                f"LIVE: CON {live_con} EST {live_est} LST {live_lst} | "
+                f"LIVE: TCP {live_tcp_total} EST {live_tcp_established} "
+                f"LST {live_tcp_listen} UDP R {live_udp_remote} "
+                f"B {live_udp_bound} | "
                 f"CACHE: {cache_chain} | "
                 f"UPDATED: {updated} | "
                 f"MYLOC: {myloc}"
@@ -787,13 +811,24 @@ class TapMap:
                 and self._is_geo_enabled(snapshot)
             ):
                 new_state = None
-                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
-                return new_state, None, self._modal_overlay_class(False), children, class_name
+                children, class_name = self._render_modal(
+                    new_state, snapshot, ui_view, geo_path
+                )
+                overlay_class = self._modal_overlay_class(False)
+                return new_state, None, overlay_class, children, class_name
 
             if trigger == "btn_close":
                 new_state = None
-                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
-                return new_state, None, self._modal_overlay_class(False), children, class_name
+                children, class_name = self._render_modal(
+                    new_state, snapshot, ui_view, geo_path
+                )
+                return (
+                    new_state,
+                    None,
+                    self._modal_overlay_class(False),
+                    children,
+                    class_name,
+                )
 
             if trigger == "key_action" and isinstance(key_action, dict):
                 action = key_action.get("action")
@@ -801,8 +836,16 @@ class TapMap:
                 if action == "escape":
                     if is_open:
                         new_state = None
-                        children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
-                        return new_state, None, self._modal_overlay_class(False), children, class_name
+                        children, class_name = self._render_modal(
+                            new_state, snapshot, ui_view, geo_path
+                        )
+                        return (
+                            new_state,
+                            None,
+                            self._modal_overlay_class(False),
+                            children,
+                            class_name,
+                        )
                     return no_update, None, no_update, no_update, no_update
 
                 if not isinstance(action, str) or not action:
@@ -821,8 +864,16 @@ class TapMap:
 
                 if action in self.MENU_SCREENS:
                     new_state = make_state(action)
-                    children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
-                    return new_state, None, self._modal_overlay_class(True), children, class_name
+                    children, class_name = self._render_modal(
+                        new_state, snapshot, ui_view, geo_path
+                    )
+                    return (
+                        new_state,
+                        None,
+                        self._modal_overlay_class(True),
+                        children,
+                        class_name,
+                    )
 
                 return no_update, None, no_update, no_update, no_update
 
@@ -850,21 +901,47 @@ class TapMap:
                 ):
                     return no_update, None, no_update, no_update, no_update
 
-                new_state = make_state("menu_open_ports", {"show_system": show_system})
-                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
-                return new_state, None, self._modal_overlay_class(True), children, class_name
+                new_state = make_state(
+                    "menu_open_ports", {"show_system": show_system}
+                )
+                children, class_name = self._render_modal(
+                    new_state, snapshot, ui_view, geo_path
+                )
+                return (
+                    new_state,
+                    None,
+                    self._modal_overlay_class(True),
+                    children,
+                    class_name,
+                )
 
-            if trigger in {"menu_unmapped", "menu_lan_local", "menu_open_ports", "menu_help", "menu_about"}:
+            if trigger in (
+                self.MENU_SCREENS | self.MENU_COMMANDS
+            ) and trigger not in self.MENU_COMMANDS:
                 screen = str(trigger)
                 payload: dict[str, Any] = {}
 
                 if screen == "menu_open_ports":
-                    prefs = open_ports_prefs_data if isinstance(open_ports_prefs_data, dict) else {}
-                    payload["show_system"] = bool(prefs.get("show_system", False))
+                    prefs = (
+                        open_ports_prefs_data
+                        if isinstance(open_ports_prefs_data, dict)
+                        else {}
+                    )
+                    payload["show_system"] = bool(
+                        prefs.get("show_system", False)
+                    )
 
                 new_state = make_state(screen, payload)
-                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
-                return new_state, None, self._modal_overlay_class(True), children, class_name
+                children, class_name = self._render_modal(
+                    new_state, snapshot, ui_view, geo_path
+                )
+                return (
+                    new_state,
+                    None,
+                    self._modal_overlay_class(True),
+                    children,
+                    class_name,
+                )
 
             if trigger == "menu_recheck_geo":
                 return (
@@ -879,8 +956,16 @@ class TapMap:
                 if click_data is None:
                     return no_update, None, no_update, no_update, no_update
                 new_state = make_state("map_click", {"click_data": click_data})
-                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
-                return new_state, None, self._modal_overlay_class(True), children, class_name
+                children, class_name = self._render_modal(
+                    new_state, snapshot, ui_view, geo_path
+                )
+                return (
+                    new_state,
+                    None,
+                    self._modal_overlay_class(True),
+                    children,
+                    class_name,
+                )
 
             return no_update, None, no_update, no_update, no_update
         

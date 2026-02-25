@@ -57,13 +57,24 @@ class Model:
 
     Returned keys:
         stats:
-            Live counters for the status line: CON, EST, LST, online, updated.
-            LST counts TCP sockets in state LISTEN.
+            Live counters for the status line and snapshot metadata.
+            Keys:
+                online
+                live_tcp_total
+                live_tcp_established
+                live_tcp_listen
+                live_udp_remote
+                live_udp_bound
+                updated
+                dropped_missing_remote
+                geoinfo_enabled
         cache_items:
-            ESTABLISHED endpoints with a remote address (includes local and non-geo).
-            Used to build the CACHE chain and the Unknown modal.
+            Remote endpoints from the snapshot:
+                TCP: ESTABLISHED with remote address
+                UDP: remote peer present (if available in backend)
+            Includes local and non-geo endpoints.
         map_candidates:
-            Subset of cache_items: external endpoints with valid geolocation.
+            Subset of cache_items: public endpoints with valid geolocation.
         open_ports:
             Local open ports for the modal table.
             Includes TCP LISTEN sockets and UDP sockets bound to a local port.
@@ -90,9 +101,11 @@ class Model:
             if geo_enabled:
                 self.geoinfo.enrich(connections)
 
-            live_con = 0
-            live_est = 0
-            live_lst = 0
+            live_tcp_total = 0
+            live_tcp_established = 0
+            live_tcp_listen = 0
+            live_udp_remote = 0
+            live_udp_bound = 0
             dropped_missing_remote = 0
 
             cache_items: list[CacheItem] = []
@@ -107,54 +120,53 @@ class Model:
                 status = conn.get("status")
 
                 if proto == "tcp":
-                    live_con += 1
+                    live_tcp_total += 1
 
-                if proto == "tcp" and status == "ESTABLISHED":
-                    live_est += 1
-                    item = self._build_remote_endpoint_item(conn, proto="tcp")
-                    if item is None:
-                        dropped_missing_remote += 1
+                    if status == "ESTABLISHED":
+                        live_tcp_established += 1
+                        item = self._build_remote_endpoint_item(conn, proto="tcp")
+                        if item is None:
+                            dropped_missing_remote += 1
+                            continue
+
+                        cache_items.append(item)
+                        if self._is_map_candidate(item):
+                            map_candidates.append(item)
                         continue
 
-                    cache_items.append(item)
+                    if status == "LISTEN":
+                        live_tcp_listen += 1
+                        open_item = self._build_open_port(conn, proto="tcp")
+                        if open_item is not None:
+                            open_ports.append(open_item)
+                        continue
 
-                    lat = item.get("lat")
-                    lon = item.get("lon")
-                    has_geo = isinstance(lat, (int, float)) and isinstance(lon, (int, float))
-                    if (not item["is_local"]) and has_geo:
-                        map_candidates.append(item)
-                    continue               
-
-                if proto == "tcp" and status == "LISTEN":
-                    live_lst += 1
-                    item = self._build_open_port(conn, proto="tcp")
-                    if item is not None:
-                        open_ports.append(item)
                     continue
 
                 if proto == "udp":
                     item = self._build_remote_endpoint_item(conn, proto="udp")
                     if item is not None:
+                        live_udp_remote += 1
                         cache_items.append(item)
-
-                        lat = item.get("lat")
-                        lon = item.get("lon")
-                        has_geo = isinstance(lat, (int, float)) and isinstance(lon, (int, float))
-                        if (not item["is_local"]) and has_geo:
+                        if self._is_map_candidate(item):
                             map_candidates.append(item)
-                    else:
-                        open_item = self._build_open_port(conn, proto="udp")
-                        if open_item is not None:
-                            open_ports.append(open_item)
+                        continue
+
+                    live_udp_bound += 1
+                    open_item = self._build_open_port(conn, proto="udp")
+                    if open_item is not None:
+                        open_ports.append(open_item)
                     continue
 
             return {
                 "error": False,
                 "stats": {
                     "online": online,
-                    "live_con": live_con,
-                    "live_est": live_est,
-                    "live_lst": live_lst,
+                    "live_tcp_total": live_tcp_total,
+                    "live_tcp_established": live_tcp_established,
+                    "live_tcp_listen": live_tcp_listen,
+                    "live_udp_remote": live_udp_remote,
+                    "live_udp_bound": live_udp_bound,
                     "updated": now.strftime("%H:%M:%S"),
                     "dropped_missing_remote": dropped_missing_remote,
                     "geoinfo_enabled": geo_enabled,
@@ -170,9 +182,11 @@ class Model:
                 "error": True,
                 "stats": {
                     "online": False,
-                    "live_con": 0,
-                    "live_est": 0,
-                    "live_lst": 0,
+                    "live_tcp_total": 0,
+                    "live_tcp_established": 0,
+                    "live_tcp_listen": 0,
+                    "live_udp_remote": 0,
+                    "live_udp_bound": 0,
                     "updated": now.strftime("%H:%M:%S"),
                     "dropped_missing_remote": 0,
                     "geoinfo_enabled": geo_enabled,
@@ -194,6 +208,15 @@ class Model:
             return addr.is_private or addr.is_loopback or addr.is_link_local
         except ValueError:
             return False
+
+    @staticmethod
+    def _is_map_candidate(item: CacheItem) -> bool:
+        """Return True if the cache item is a public endpoint with valid geo."""
+        if item.get("is_local"):
+            return False
+        lat = item.get("lat")
+        lon = item.get("lon")
+        return isinstance(lat, (int, float)) and isinstance(lon, (int, float))
 
     def _has_internet(self, timeout_s: float = 0.6) -> bool:
         """Return True if at least one internet target is reachable within timeout_s."""
@@ -246,18 +269,6 @@ class Model:
         return f"{ip_str}:{int(port)}"
 
     @staticmethod
-    def _process_hint(conn: dict[str, Any]) -> str | None:
-        """Return a single-line hint from cmdline or exe."""
-        cmdline = conn.get("cmdline")
-        if isinstance(cmdline, list) and cmdline:
-            text = " ".join(str(x) for x in cmdline if x is not None).strip()
-            if text:
-                return text
-
-        exe = conn.get("exe")
-        return exe if isinstance(exe, str) and exe else None
-
-    @staticmethod
     def _service_name(port: int, proto: str) -> str:
         """Return a well-known service name for port and proto, or 'Unknown'."""
         try:
@@ -267,13 +278,7 @@ class Model:
             return "Unknown"
 
     def _build_open_port(self, conn: dict[str, Any], *, proto: str) -> OpenPort | None:
-        """Return one OpenPort item for the modal table.
-
-        Fields:
-            process_label: name if available, otherwise process_status
-            process_hint: exe path if available, otherwise process_status
-            service: well-known port name, or 'Unknown'
-        """
+        """Build one OpenPort item for the Open Ports modal table."""
         l_ip = conn.get("laddr_ip")
         l_port_obj = conn.get("laddr_port")
         if l_port_obj is None:
@@ -302,12 +307,7 @@ class Model:
         process_hint = exe or process_status
 
         service = self._service_name(l_port, proto)
-        if not isinstance(service, str) or not service:
-            service = "Unknown"
-
-        service_hint = None
-        if service == "Unknown":
-            service_hint = "Not in system service table"
+        service_hint = "Not in system service table" if service == "Unknown" else None
 
         return {
             "proto": proto,
@@ -321,13 +321,11 @@ class Model:
             "scope": self._get_scope(l_ip),
         }
 
-    def _build_remote_endpoint_item(
-        self,
-        conn: dict[str, Any],
-        *,
-        proto: str,
-    ) -> dict[str, Any] | None:
-        """Build one cache item from a remote endpoint."""
+    def _build_remote_endpoint_item(self, conn: dict[str, Any], *, proto: str) -> CacheItem | None:
+        """Build one cache item from a remote endpoint.
+
+        Returns None if the backend does not provide a remote peer.
+        """
         proto_norm = str(proto).lower() or "tcp"
 
         remote_ip = conn.get("raddr_ip")
@@ -371,8 +369,3 @@ class Model:
             "asn_org": conn.get("asn_org"),
         }
 
-    def _service_name(self, port: int, proto: str) -> str:
-        try:
-            return socket.getservbyport(int(port), proto.lower())
-        except OSError:
-            return "Unknown"
