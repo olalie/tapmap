@@ -4,13 +4,13 @@
 
 **See who your computer is connected to on a live world map.**
 
-TapMap combines local socket inspection, IP geolocation, and interactive map visualization.
+TapMap inspects local socket metadata, enriches remote IP addresses with geolocation, and visualizes the result on an interactive map.
 
 It uses:
 
-- `psutil` to read active network connections
-- MaxMind GeoLite2 databases for IP geolocation
-- Dash and Plotly to render an interactive world map
+- `psutil` to read active network connections  
+- MaxMind GeoLite2 databases for IP geolocation  
+- Dash and Plotly to render an interactive world map  
 
 Architecture: local socket scan → IP extraction → GeoIP lookup → map rendering.
 
@@ -28,12 +28,12 @@ Download the latest version from the
 Available builds:
 
 - Windows (zip)
-- macOS (zip)
-- Linux (zip)
+
+macOS and Linux support is under development.
 
 No installation required. Download, extract, and run.
 
-Tested on Windows 10/11, macOS, and Linux.
+Tested on Windows 11.
 
 ---
 
@@ -44,7 +44,7 @@ This is normal for new applications that are not digitally signed.
 
 To start the program:
 
-1. Click **More info**.
+1. Click **More info**.  
 2. Click **Run anyway**.
 
 ---
@@ -55,7 +55,9 @@ TapMap runs locally and opens in your browser.
 
 The web interface runs on a local server at:
 
-    http://127.0.0.1:8050/
+```
+http://127.0.0.1:8050/
+```
 
 If it does not open automatically, enter the address manually in your browser.
 
@@ -70,18 +72,20 @@ TapMap works without these files, but map locations will not be displayed.
 
 Required files:
 
-- GeoLite2-City.mmdb
-- GeoLite2-ASN.mmdb
+- GeoLite2-City.mmdb  
+- GeoLite2-ASN.mmdb  
 
 Download is free from MaxMind, but requires an account and acceptance of license terms:
 
-    https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
+```
+https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
+```
 
 After downloading:
 
-1. Start TapMap.
-2. Open the **data folder** from the app.
-3. Copy the `.mmdb` files into that folder.
+1. Start TapMap.  
+2. Open the **data folder** from the app.  
+3. Copy the `.mmdb` files into that folder.  
 4. Click **Recheck GeoIP databases**.
 
 Update recommendation: download updated databases regularly, for example monthly.  
@@ -91,11 +95,12 @@ Redistribution is subject to the MaxMind license terms.
 
 ## What TapMap shows
 
-- Remote endpoints your computer is connected to
-- Approximate locations on a world map
-- Nearby clusters highlighted visually
-- Unmapped endpoints with missing geolocation
-- Local open ports (TCP LISTEN and UDP bound)
+- Remote endpoints your computer is connected to  
+- Approximate locations on a world map  
+- Nearby clusters highlighted visually  
+- Unmapped public endpoints with missing geolocation  
+- Established LAN and LOCAL connections  
+- Local open ports (TCP LISTEN and UDP bound)  
 
 All data is collected locally on your machine.
 
@@ -108,9 +113,9 @@ You usually cannot see them.
 
 TapMap makes these connections visible within seconds.
 
-- See unexpected connections
-- Understand where traffic goes
-- Get a quick overview of network activity
+- See unexpected connections  
+- Understand where traffic goes  
+- Get a quick overview of network activity  
 
 Unexpected connections may indicate misconfiguration, background services, or unwanted software.
 
@@ -139,7 +144,8 @@ Unexpected connections may indicate misconfiguration, background services, or un
 
 | Key | Action |
 |-----|--------|
-| U   | Unmapped endpoints |
+| U   | Unmapped public endpoints |
+| L   | Established LAN/LOCAL connections |
 | O   | Open ports |
 | T   | Show cache in terminal |
 | C   | Clear cache |
@@ -152,10 +158,10 @@ Unexpected connections may indicate misconfiguration, background services, or un
 
 ## Privacy
 
-- TapMap runs locally.
-- No connection data is sent anywhere.
-- Geolocation uses local MaxMind databases.
-- If `MY_LOCATION = "auto"`, TapMap makes a small request to detect your public IP.
+- TapMap runs locally.  
+- No connection data is sent anywhere.  
+- Geolocation uses local MaxMind databases.  
+- If `MY_LOCATION = "auto"`, TapMap makes a small request to detect your public IP.  
 - To detect offline status, TapMap performs short connection checks to 1.1.1.1 and 8.8.8.8.
 
 ---
@@ -166,10 +172,10 @@ TapMap reads settings from `config.py`.
 
 Common settings:
 
-- `MY_LOCATION`
-- `POLL_INTERVAL_MS`
-- `COORD_PRECISION`
-- `ZOOM_NEAR_KM`
+- `MY_LOCATION`  
+- `POLL_INTERVAL_MS`  
+- `COORD_PRECISION`  
+- `ZOOM_NEAR_KM`  
 
 ---
 
@@ -181,11 +187,15 @@ Requirements:
 
 Install dependencies:
 
-    pip install -r requirements.txt
+```
+pip install -r requirements.txt
+```
 
 Run:
 
-    python tapmap.py
+```
+python tapmap.py
+```
 
 ---
 
