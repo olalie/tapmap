@@ -246,13 +246,13 @@ class ModalTextBuilder:
         return [
             self._h1(f"About {self.app_name}"),
             html.P(
-                "TapMap combines local socket inspection, IP geolocation, "
-                "and interactive map visualization."
+                "TapMap inspects local socket metadata, enriches remote IP addresses "
+                "with geolocation, and visualizes the result on an interactive map."
             ),
             html.P(
-                "It reads active network connections using a platform specific backend, "
-                "MaxMind GeoLite2 databases for geolocation, "
-                "and Dash with Plotly for map rendering."
+                "It reads active network connections using a platform-specific backend, "
+                "local MaxMind GeoLite2 databases for geolocation, "
+                "and Dash with Plotly for visualization."
             ),
             html.P("All processing is local. TapMap does not inspect traffic contents."),
             self._kv_table(tapmap_rows),
