@@ -439,9 +439,21 @@ body {
   border-color: rgba(0, 255, 102, 0.35);
   box-shadow: 0 1px 0 rgba(0, 255, 102, 0.12);
 }
-
 .modal-body.mx-sticky-title .mx-table thead th {
   top: var(--mx-sticky-top);
+}
+.mx-table.mx-kv td {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
+.mx-table.mx-kv td:first-child {
+  width: 90px;
+  white-space: nowrap;
+}
+.mx-table.mx-kv td:nth-child(2) {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* Status bar */

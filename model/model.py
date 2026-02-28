@@ -69,12 +69,12 @@ class Model:
                 dropped_missing_remote
                 geoinfo_enabled
         cache_items:
-            Remote endpoints from the snapshot:
+            Remote services from the snapshot:
                 TCP: ESTABLISHED with remote address
                 UDP: remote peer present (if available in backend)
-            Includes local and non-geo endpoints.
+            Includes LAN/LOCAL and unmapped services.
         map_candidates:
-            Subset of cache_items: public endpoints with valid geolocation.
+            Subset of cache_items: PUBLIC services with valid geolocation.
         open_ports:
             Local open ports for the modal table.
             Includes TCP LISTEN sockets and UDP sockets bound to a local port.
@@ -211,7 +211,7 @@ class Model:
 
     @staticmethod
     def _is_map_candidate(item: CacheItem) -> bool:
-        """Return True if the cache item is a public endpoint with valid geo."""
+        """Return True if the cache item is a PUBLIC service with valid geolocation."""
         if item.get("is_local"):
             return False
         lat = item.get("lat")
@@ -322,7 +322,7 @@ class Model:
         }
 
     def _build_remote_endpoint_item(self, conn: dict[str, Any], *, proto: str) -> CacheItem | None:
-        """Build one cache item from a remote endpoint.
+        """Build one cache item from a remote service.
 
         Returns None if the backend does not provide a remote peer.
         """

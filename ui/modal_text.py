@@ -21,8 +21,8 @@ class ModalTextBuilder:
         self.app_author = app_author
 
         self._label_map: dict[str, str] = {
-            "menu_unmapped": "Show unmapped endpoints",
-            "menu_lan_local": "Show LAN and LOCAL connections",
+            "menu_unmapped": "Show unmapped public services",
+            "menu_lan_local": "Show established LAN/LOCAL services",
             "menu_open_ports": "Show open ports",
             "menu_cache_terminal": "Show cache in terminal",
             "menu_clear": "Clear cache",
@@ -94,7 +94,7 @@ class ModalTextBuilder:
         details = view.get("details")
         details_map = details if isinstance(details, dict) else {}
 
-        detail = details_map.get(str(idx), f"Endpoint {idx}")
+        detail = details_map.get(str(idx), f"Location {idx}")
         lon = point0.get("lon")
         lat = point0.get("lat")
 
@@ -246,11 +246,11 @@ class ModalTextBuilder:
         return [
             self._h1(f"About {self.app_name}"),
             html.P(
-                "TapMap inspects local socket metadata, enriches remote IP addresses "
-                "with geolocation, and visualizes the result on an interactive map."
+                "TapMap inspects local socket data, enriches IP addresses "
+                "with geolocation, and visualizes their locations on an interactive map."
             ),
             html.P(
-                "It reads active network connections using a platform-specific backend, "
+                "It reads active socket data using a platform-specific backend, "
                 "local MaxMind GeoLite2 databases for geolocation, "
                 "and Dash with Plotly for visualization."
             ),
@@ -293,7 +293,7 @@ class ModalTextBuilder:
                     html.Li(
                         html.A(
                             "Project page on GitHub",
-                            href="https://github.com/olalie/",
+                            href="https://github.com/olalie/tapmap",
                             target="_blank",
                             rel="noopener noreferrer",
                         )
@@ -435,6 +435,8 @@ class ModalTextBuilder:
         local_address = cls._safe_str(row.get("local_address"))
 
         port = cls._port_from_local(local_address)
+        # Put invalid ports at the end
+        port = port if port >= 0 else 65536
 
         process_name = cls._safe_str(
             row.get("process_label") or row.get("process_name")
@@ -574,7 +576,7 @@ class ModalTextBuilder:
         )
         return [*header, table]
 
-    # ---------- Unmapped endpoints ----------
+    # ---------- Unmapped services ----------
 
     @staticmethod
     def _remote_scope(ip: str | None) -> str:
@@ -603,9 +605,9 @@ class ModalTextBuilder:
 
     @classmethod
     def _render_unmapped(cls, snapshot: Any | None) -> list[Any]:
-        """Render unmapped endpoints.
+        """Render unmapped services.
 
-        Render established TCP endpoints with PUBLIC remote IPs and missing geolocation.
+        Render established TCP services with PUBLIC remote IPs and missing geolocation.
         """
         snap = snapshot if isinstance(snapshot, dict) else {}
         items = snap.get("cache_items")
@@ -628,10 +630,10 @@ class ModalTextBuilder:
             if scope == "PUBLIC" and not geo_ok:
                 filtered.append(r)
 
-        header = html.H1("Unmapped public endpoints (missing geolocation)", className="mx-h1")
+        header = html.H1("Unmapped public services (missing geolocation)", className="mx-h1")
 
         if not filtered:
-            return [header, html.Pre("(no unmapped public endpoints)")]
+            return [header, html.Pre("(no unmapped public services)")]
 
         def process_text(row: dict[str, Any]) -> tuple[str, str | None]:
             label = cls._safe_str(row.get("process_name"))
@@ -653,7 +655,7 @@ class ModalTextBuilder:
             hint = cls._safe_str(row.get("service_hint")) or None
             return service, hint
 
-        # 2) Aggregate identical endpoints and count sockets
+        # 2) Aggregate identical services and count sockets
         #    Key: (scope, ip, port, pid, process_label)
         agg: dict[tuple[str, str, int, int, str], dict[str, Any]] = {}
         for r in filtered:
@@ -775,7 +777,7 @@ class ModalTextBuilder:
 
     @classmethod
     def _render_lan_local(cls, snapshot: Any | None) -> list[Any]:
-        """Render LAN and LOCAL established endpoints."""
+        """Render LAN and LOCAL established services."""
         snap = snapshot if isinstance(snapshot, dict) else {}
         items = snap.get("cache_items")
         rows = items if isinstance(items, list) else []
@@ -797,10 +799,10 @@ class ModalTextBuilder:
             if scope in {"LAN", "LOCAL"} and is_established_tcp(r):
                 filtered.append(r)
 
-        header = html.H1("Established LAN/LOCAL connections", className="mx-h1")
+        header = html.H1("Established LAN/LOCAL services", className="mx-h1")
 
         if not filtered:
-            return [header, html.Pre("(no LAN/LOCAL connections)")]
+            return [header, html.Pre("(no LAN/LOCAL services)")]
 
         def process_text(row: dict[str, Any]) -> tuple[str, str | None]:
             label = cls._safe_str(row.get("process_name"))
@@ -822,7 +824,7 @@ class ModalTextBuilder:
             hint = cls._safe_str(row.get("service_hint")) or None
             return service, hint
 
-        # Aggregate identical endpoints and count sockets
+        # Aggregate identical services and count sockets
         # Key: (scope, ip, port, pid, process_label)
         agg: dict[tuple[str, str, int, int, str], dict[str, Any]] = {}
         for r in filtered:
@@ -1007,7 +1009,7 @@ class ModalTextBuilder:
 
     @staticmethod
     def first_idx(customdata: Any) -> int | None:
-        """Extract an endpoint index from Plotly customdata.
+        """Extract a service index from Plotly customdata.
 
         Supported forms:
             - dict with keys {"kind", "idx"}

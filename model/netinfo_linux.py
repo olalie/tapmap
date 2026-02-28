@@ -15,7 +15,7 @@ class LinuxNetInfo:
 
     Notes:
         - Process details for other users often require root or capabilities.
-        - Missing remote endpoints are returned as None, matching psutil behavior.
+        - Missing remote addresses are returned as None, matching psutil behavior.
     """
 
     def __init__(self, allowed_statuses: set[str] | None = None) -> None:

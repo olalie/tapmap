@@ -201,10 +201,10 @@ class TapMap:
                         html.Div(
                             [
                                 self._menu_button(
-                                    "Show unmapped public endpoints (U)", "menu_unmapped"
+                                    "Show unmapped public services (U)", "menu_unmapped"
                                 ),
                                 self._menu_button(
-                                    "Show LAN/LOCAL connections (L)", "menu_lan_local"
+                                    "Show established LAN/LOCAL services (L)", "menu_lan_local"
                                 ),
                                 self._menu_button(
                                     "Show open ports (O)", "menu_open_ports"
@@ -262,7 +262,7 @@ class TapMap:
                     children=(
                         "STATUS: WAIT | "
                         "LIVE: TCP 0 EST 0 LST 0 UDP R 0 B 0 | "
-                        "CACHE: END 0 MAP 0 UNM 0 LOC 0 | "
+                        "CACHE: SOCK 0 SERV 0 MAP 0 UNM 0 LOC 0 | "
                         "UPDATED: --:--:-- | "
                         "MYLOC: --"
                     ),

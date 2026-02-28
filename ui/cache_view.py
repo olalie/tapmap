@@ -1,7 +1,7 @@
 """Define cache and view building for TapMap.
 
-Merge map candidates into a per-IP cache, group cached entries by rounded
-coordinates, and build hover summaries and click details for the UI.
+Merge map candidates into a per-service cache keyed by "ip|port", group cached
+entries by rounded coordinates, and build hover summaries and click details.
 """
 
 from __future__ import annotations
@@ -17,33 +17,71 @@ class CacheViewBuilder:
 
     def __init__(self, coord_precision: int = 3, debug: bool = False):
         self.coord_precision = int(coord_precision)
-        self.debug = debug
+        self.debug = bool(debug)
         self.logger = logging.getLogger(__name__)
+
+    @staticmethod
+    def _safe_str(value: Any) -> str:
+        return value.strip() if isinstance(value, str) else ""
+
+    @staticmethod
+    def _safe_int(value: Any) -> int | None:
+        try:
+            n = int(value)
+        except (TypeError, ValueError):
+            return None
+        return n if n > 0 else None
+
+    @staticmethod
+    def _service_key(ip: str, port: int) -> str:
+        return f"{ip}|{port}"
 
     def merge_map_candidates(
         self,
         ui_cache: dict[str, Any],
         map_candidates: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        """Merge map candidates into a per-IP cache.
+        """Merge map candidates into a per-service cache.
 
-        Key entries by IP and accumulate ports and process names across snapshots.
-        Store values in JSON-friendly lists.
+        Cache key format:
+            "ip|port"
+
+        Stored entry format:
+            {
+                "ip": str,
+                "port": int,
+                "lon": float | None,
+                "lat": float | None,
+                "city": str | None,
+                "country": str | None,
+                "asn": Any,
+                "asn_org": str | None,
+                "first_seen": "YYYY-MM-DD HH:MM:SS",
+                "processes": list[str],
+            }
         """
         cache = dict(ui_cache) if isinstance(ui_cache, dict) else {}
 
         for candidate in map_candidates:
-            ip = candidate.get("ip")
-            if not isinstance(ip, str) or not ip:
+            if not isinstance(candidate, dict):
                 continue
 
-            port = candidate.get("port")
-            process_name = candidate.get("process_name") or "Unknown"
+            ip = self._safe_str(candidate.get("ip"))
+            if not ip:
+                continue
 
-            entry = cache.get(ip)
+            port = self._safe_int(candidate.get("port"))
+            if port is None:
+                continue
+
+            process_name = self._safe_str(candidate.get("process_name")) or "Unknown"
+            key = self._service_key(ip, port)
+
+            entry = cache.get(key)
             if not isinstance(entry, dict):
                 entry = {
                     "ip": ip,
+                    "port": port,
                     "lon": candidate.get("lon"),
                     "lat": candidate.get("lat"),
                     "city": candidate.get("city"),
@@ -51,27 +89,18 @@ class CacheViewBuilder:
                     "asn": candidate.get("asn"),
                     "asn_org": candidate.get("asn_org"),
                     "first_seen": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "ports": [],
                     "processes": [],
                 }
-                cache[ip] = entry
+                cache[key] = entry
 
-            ports_set = set(entry.get("ports") or [])
-            procs_set = set(entry.get("processes") or [])
+            procs = entry.get("processes")
+            procs_set = set(procs) if isinstance(procs, list) else set()
+            procs_set.add(process_name)
+            entry["processes"] = sorted({p for p in procs_set if isinstance(p, str) and p.strip()})
 
-            if isinstance(port, int):
-                ports_set.add(port)
-
-            if isinstance(process_name, str) and process_name:
-                procs_set.add(process_name)
-
-            entry["ports"] = sorted(ports_set)
-            entry["processes"] = sorted(procs_set)
-
-            # Candidate updates may arrive after the initial cache entry.
-            for key in ("lon", "lat", "city", "country", "asn", "asn_org"):
-                if entry.get(key) is None and candidate.get(key) is not None:
-                    entry[key] = candidate.get(key)
+            for attr in ("lon", "lat", "city", "country", "asn", "asn_org"):
+                if entry.get(attr) is None and candidate.get(attr) is not None:
+                    entry[attr] = candidate.get(attr)
 
         return cache
 
@@ -96,21 +125,10 @@ class CacheViewBuilder:
         return f"{shown} +{len(cleaned) - max_items}"
 
     def build_view_from_cache(self, ui_cache: dict[str, Any]) -> dict[str, Any]:
-        """Group cached IP entries by rounded coordinates.
-
-        Collapse overlapping endpoints into one marker per coordinate group.
-
-        Result format:
-            {
-            "points": [(lon, lat), ...],
-            "summaries": {"0": "...", "1": "..."},
-            "details": {"0": "...", "1": "..."},
-            }
-        """
+        """Group cached entries by rounded coordinates and build map view data."""
         cache = ui_cache if isinstance(ui_cache, dict) else {}
 
         groups: dict[tuple[float, float], list[dict[str, Any]]] = defaultdict(list)
-
         for entry in cache.values():
             lon = entry.get("lon")
             lat = entry.get("lat")
@@ -132,14 +150,13 @@ class CacheViewBuilder:
             lon, lat = coord
             points.append((lon, lat))
 
-            # --- Place name ---
             cities = [e.get("city") for e in entries if e.get("city")]
             countries = [e.get("country") for e in entries if e.get("country")]
 
             city = Counter(cities).most_common(1)[0][0] if cities else None
             country = Counter(countries).most_common(1)[0][0] if countries else None
 
-            endpoint_count = len(entries)
+            service_count = len(entries)
 
             if city and country:
                 place = f"{city}, {country}"
@@ -148,9 +165,8 @@ class CacheViewBuilder:
             else:
                 place = "Unknown place name"
 
-            line1 = f"{place} ({endpoint_count} endpoints)" if endpoint_count > 1 else place
+            line1 = f"{place} ({service_count} services)" if service_count > 1 else place
 
-            # --- Networks ---
             unique_orgs = sorted({e.get("asn_org") for e in entries if e.get("asn_org")})
             if len(unique_orgs) == 1:
                 line2 = unique_orgs[0]
@@ -159,8 +175,9 @@ class CacheViewBuilder:
             else:
                 line2 = f"Multiple networks ({len(unique_orgs)})"
 
-            # --- Ports and processes (for summary) ---
-            unique_ports = sorted({int(p) for e in entries for p in (e.get("ports") or [])})
+            unique_ports = sorted(
+                {int(e.get("port")) for e in entries if isinstance(e.get("port"), int)}
+            )
             unique_procs = sorted({p for e in entries for p in (e.get("processes") or [])})
 
             ports_txt = self.format_list_compact([str(p) for p in unique_ports], max_items=3)
@@ -170,33 +187,53 @@ class CacheViewBuilder:
             key_str = str(idx)
             summaries[key_str] = f"{line1}<br>{line2}<br>{line3}"
 
-            # --- Detail section ---
-
-            # Unique counts
             unique_ips = sorted({e.get("ip") for e in entries if e.get("ip")})
             counts_line = (
-                f"Endpoints: {endpoint_count} | "
+                f"Services: {service_count} | "
                 f"Networks: {len(unique_orgs)} | "
                 f"IPs: {len(unique_ips)} | "
                 f"Ports: {len(unique_ports)} | "
                 f"Procs: {len(unique_procs)}"
             )
 
-            # Per-endpoint blocks
-            ip_lines: list[str] = []
-            for e in sorted(entries, key=lambda x: x.get("ip") or ""):
-                ip = e.get("ip") or "?"
-                e_org = e.get("asn_org") or "?"
-                e_ports = sorted({int(p) for p in (e.get("ports") or [])})
-                e_procs = sorted({p for p in (e.get("processes") or [])})
+            def safe_proto(value: Any) -> str:
+                p = str(value).strip().lower() if value else "tcp"
+                return p if p in {"tcp", "udp"} else "tcp"
 
-                ip_lines.append(
-                    f"{ip}  {e_org}\n"
-                    f"  Ports: {', '.join(str(p) for p in e_ports) if e_ports else '-'}\n"
-                    f"  Procs: {', '.join(e_procs) if e_procs else '-'}"
-                )
+            by_org: dict[str, list[dict[str, Any]]] = defaultdict(list)
+            for e in entries:
+                org = e.get("asn_org")
+                org_txt = org.strip() if isinstance(org, str) and org.strip() else "Unknown network"
+                by_org[org_txt].append(e)
 
-            details[key_str] = f"Location: {place}\n{counts_line}\n\n" + "\n\n".join(ip_lines)
+            org_blocks: list[str] = []
+            for org in sorted(by_org.keys(), key=str.lower):
+                org_entries = sorted(by_org[org], key=lambda x: (x.get("ip") or "", int(x.get("port") or 0)))
+
+                lines: list[str] = []
+                lines.append(org)
+
+                for e in org_entries:
+                    ip = e.get("ip") or "?"
+                    port = e.get("port")
+                    port_txt = str(int(port)) if isinstance(port, int) else "-"
+                    proto = safe_proto(e.get("proto"))
+                    procs = sorted({p for p in (e.get("processes") or []) if isinstance(p, str) and p.strip()})
+                    procs_txt = ", ".join(procs) if procs else "-"
+
+                    def fmt_ip_port(ip_text: str, port_text: str) -> str:
+                        if ":" in ip_text and not ip_text.startswith("["):
+                            return f"[{ip_text}]:{port_text}"
+                        return f"{ip_text}:{port_text}"
+
+                    addr = fmt_ip_port(ip, port_txt)
+                    lines.append(f"  {addr} ({proto})")
+                    lines.append(f"    Procs: {procs_txt}")
+                    lines.append("")
+
+                org_blocks.append("\n".join(lines))
+
+            details[key_str] = f"Location: {place}\n{counts_line}\n\n" + "\n\n".join(org_blocks)
 
         return {
             "points": points,
@@ -210,18 +247,26 @@ class CacheViewBuilder:
             return
 
         cache = ui_cache if isinstance(ui_cache, dict) else {}
+
         coords: list[tuple[float, float]] = []
         for entry in cache.values():
+            if not isinstance(entry, dict):
+                continue
+
             lon = entry.get("lon")
             lat = entry.get("lat")
             if lon is None or lat is None:
                 continue
-            coords.append(
-                (
-                    round(float(lon), self.coord_precision),
-                    round(float(lat), self.coord_precision),
+
+            try:
+                coords.append(
+                    (
+                        round(float(lon), self.coord_precision),
+                        round(float(lat), self.coord_precision),
+                    )
                 )
-            )
+            except (TypeError, ValueError):
+                continue
 
         total = len(coords)
         unique = len(set(coords))

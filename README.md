@@ -2,9 +2,9 @@
 
 ![TapMap main view](docs/main-view.png)
 
-**See who your computer is connected to on a live world map.**
+**See where your computer connects on a live world map.**
 
-TapMap inspects local socket metadata, enriches remote IP addresses with geolocation, and visualizes the result on an interactive map.
+TapMap inspects local socket data, enriches IP addresses with geolocation, and visualizes the locations on an interactive map.
 
 It uses:
 
@@ -16,7 +16,7 @@ Architecture: local socket scan → IP extraction → GeoIP lookup → map rende
 
 TapMap runs entirely on your own machine.  
 It is not a firewall or a full security suite.  
-It makes network connections instantly visible on a world map and easy to inspect with hover and click.
+It makes network activity visible on a world map and easy to inspect with hover and click.
 
 ---
 
@@ -95,11 +95,11 @@ Redistribution is subject to the MaxMind license terms.
 
 ## What TapMap shows
 
-- Remote endpoints your computer is connected to  
-- Approximate locations on a world map  
+- Services your computer connects to  
+- Their approximate locations on a world map  
 - Nearby clusters highlighted visually  
-- Unmapped public endpoints with missing geolocation  
-- Established LAN and LOCAL connections  
+- Unmapped public services with missing geolocation   
+- Established LAN and LOCAL services  
 - Local open ports (TCP LISTEN and UDP bound)  
 
 All data is collected locally on your machine.
@@ -129,8 +129,8 @@ Unexpected connections may indicate misconfiguration, background services, or un
 ### Actions menu
 ![Actions menu](docs/actions-menu.png)
 
-### Unmapped endpoints
-![Unmapped endpoints](docs/unmapped-endpoints.png)
+### Unmapped services
+![Unmapped services](docs/unmapped-services.png)
 
 ### Open ports
 ![Open ports](docs/open-ports.png)
@@ -144,8 +144,8 @@ Unexpected connections may indicate misconfiguration, background services, or un
 
 | Key | Action |
 |-----|--------|
-| U   | Unmapped public endpoints |
-| L   | Established LAN/LOCAL connections |
+| U   | Unmapped public services |
+| L   | Established LAN/LOCAL services |
 | O   | Open ports |
 | T   | Show cache in terminal |
 | C   | Clear cache |

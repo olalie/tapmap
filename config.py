@@ -25,10 +25,10 @@ MY_LOCATION: Final[tuple[float, float] | LocationMode] = "auto"
 # Interval between model snapshots and cache updates.
 POLL_INTERVAL_MS: Final[int] = 5_000
 
-# Decimal precision used when grouping endpoints on the map.
+# Decimal precision used when grouping services into map markers.
 # 3 corresponds to approximately 100 m precision.
 COORD_PRECISION: Final[int] = 3
 
-# Distance threshold in kilometers for marking endpoints as nearby.
-# Endpoints within this distance are shown in yellow.
+# Distance threshold in kilometers for marking locations as nearby.
+# Locations within this distance are shown in yellow.
 ZOOM_NEAR_KM: Final[float] = 25.0
