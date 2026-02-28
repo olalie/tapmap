@@ -6,7 +6,7 @@ from typing import Any
 from dash import dcc, html
 
 from ui.about_view import render_about
-from ui.help_text import HELP_CONTENT
+from ui.help_view import render_help
 
 
 class ModalTextBuilder:
@@ -57,7 +57,7 @@ class ModalTextBuilder:
             return self._render_open_ports(snapshot, show_system=show_system)
 
         if action == "menu_help":
-            return self._render_help()
+            return render_help()
 
         if action == "menu_about":
             return render_about(
@@ -165,22 +165,7 @@ class ModalTextBuilder:
         order = {"PUBLIC": 0, "LAN": 1, "LOCAL": 2}
         return order.get(scope.upper(), 9)
 
-    # ---------- Help ----------
-
-    def _render_help(self) -> list[Any]:
-        """Render Help content.
-
-        Add an H1 when HELP_CONTENT does not start with one.
-        """
-        content = HELP_CONTENT
-        items = content if isinstance(content, list) else [content]
-
-        if items and isinstance(items[0], html.H1):
-            return items
-
-        return [self._h1("Help"), *items]
-
-    # ---------- Open ports ----------
+       # ---------- Open ports ----------
 
     @staticmethod
     def _port_from_local(addr: str) -> int:

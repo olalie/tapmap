@@ -1,6 +1,17 @@
+from __future__ import annotations
+
+from typing import Any
+
 from dash import html
 
-HELP_CONTENT = [
+
+def render_help() -> list[Any]:
+    """Build Help modal content.
+
+    Returns a list of Dash components representing the Help window.
+    No side effects. Pure view construction.
+    """
+    return [
     html.H1("Help"),
     html.P(
         [
