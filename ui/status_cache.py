@@ -17,7 +17,7 @@ import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, NotRequired, TypedDict
+from typing import Any, TypedDict
 
 Proto = str
 Ip = str
@@ -93,11 +93,13 @@ class StatusCache:
             socket_key: SocketKey = (proto, ip, port, owner)
             self.sock.add(socket_key)
 
-            scope = item.get("service_scope")
-            scope_u = scope.upper().strip() if isinstance(scope, str) else "UNKNOWN"
+            scope_u = self._normalize_scope(item.get("service_scope"))
 
             if scope_u in {"LAN", "LOCAL"}:
                 self.loc.add(service_key)
+                continue
+
+            if scope_u == "UNKNOWN":
                 continue
 
             if scope_u != "PUBLIC":
@@ -146,6 +148,11 @@ class StatusCache:
     def _normalize_proto(value: Any) -> str:
         p = str(value).lower().strip() if value else "tcp"
         return p if p in {"tcp", "udp"} else "tcp"
+
+    @staticmethod
+    def _normalize_scope(value: Any) -> str:
+        s = str(value).upper().strip() if isinstance(value, str) else ""
+        return s if s in {"PUBLIC", "LAN", "LOCAL"} else "UNKNOWN"
 
     @staticmethod
     def _has_geo(lat: Any, lon: Any) -> bool:

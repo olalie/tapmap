@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ipaddress
 from collections.abc import Iterable
 from typing import Any
 
@@ -154,6 +153,11 @@ class ModalTextBuilder:
             return int(value)
         except (TypeError, ValueError):
             return default
+
+    @staticmethod
+    def _scope_rank(scope: str) -> int:
+        order = {"PUBLIC": 0, "LAN": 1, "LOCAL": 2}
+        return order.get(scope.upper(), 9)
 
     # ---------- Help ----------
 
@@ -375,20 +379,6 @@ class ModalTextBuilder:
     # ---------- Open ports ----------
 
     @staticmethod
-    def _scope_rank(scope: str) -> int:
-        order = {"PUBLIC": 0, "LAN": 1, "LOCAL": 2}
-        return order.get(scope.upper(), 9)
-
-    @staticmethod
-    def _proto_rank(proto: str) -> int:
-        p = proto.lower()
-        if p == "tcp":
-            return 0
-        if p == "udp":
-            return 1
-        return 9
-
-    @staticmethod
     def _port_from_local(addr: str) -> int:
         try:
             return int(addr.rsplit(":", 1)[-1])
@@ -430,7 +420,7 @@ class ModalTextBuilder:
     @classmethod
     def _open_ports_sort_key(cls, row: dict[str, Any]) -> tuple[int, int, int, str, int]:
         """Return sort key for Open Ports rows."""
-        scope = cls._safe_str(row.get("scope")).upper()
+        bind_scope = cls._safe_str(row.get("bind_scope")).upper()
         proto = cls._safe_str(row.get("proto")).upper()
         local_address = cls._safe_str(row.get("local_address"))
 
@@ -444,7 +434,7 @@ class ModalTextBuilder:
             "PUBLIC": 0,
             "LAN": 1,
             "LOCAL": 2,
-        }.get(scope, 3)
+        }.get(bind_scope, 3)
 
         proto_order = 0 if proto == "TCP" else 1
 
@@ -527,7 +517,7 @@ class ModalTextBuilder:
             body_rows.append(
                 html.Tr(
                     [
-                        cls._cell(cls._safe_str(r.get("scope"))),
+                        cls._cell(cls._safe_str(r.get("bind_scope"))),
                         cls._cell(cls._safe_str(r.get("proto"))),
                         cls._cell(str(cls._port_from_local(full_local))),
                         cls._cell(ip_display, title=full_local),
@@ -540,13 +530,13 @@ class ModalTextBuilder:
 
         colgroup = html.Colgroup(
             [
-                html.Col(style={"width": "8.0%"}),
-                html.Col(style={"width": "8.0%"}),
-                html.Col(style={"width": "8.0%"}),
-                html.Col(style={"width": "24.0%"}),
-                html.Col(style={"width": "20.0%"}),
-                html.Col(style={"width": "8.0%"}),
-                html.Col(style={"width": "24.0%"}),
+                html.Col(style={"width": "8.0%"}),   # Bind scope
+                html.Col(style={"width": "8.0%"}),   # Proto
+                html.Col(style={"width": "8.0%"}),   # Port
+                html.Col(style={"width": "24.0%"}),  # Local IP
+                html.Col(style={"width": "20.0%"}),  # Port service
+                html.Col(style={"width": "8.0%"}),   # PID
+                html.Col(style={"width": "24.0%"}),  # Process
             ]
         )
 
@@ -557,7 +547,7 @@ class ModalTextBuilder:
                 html.Thead(
                     html.Tr(
                         [
-                            html.Th("Scope"),
+                            html.Th("Bind scope"),
                             html.Th("Proto"),
                             html.Th("Port"),
                             html.Th("Local IP"),
@@ -572,38 +562,21 @@ class ModalTextBuilder:
         )
         return [*header, table]
 
-    # ---------- Unmapped services ----------
+    # ---------- Service scope helpers ----------
 
     @staticmethod
-    def _service_scope(ip: str | None) -> str:
-        """Classify a remote service IP for the Unmapped and LAN/LOCAL tables.
+    def _service_scope(row: dict[str, Any]) -> str:
+        scope = row.get("service_scope")
+        scope_u = scope.upper().strip() if isinstance(scope, str) else "UNKNOWN"
+        return scope_u if scope_u in {"PUBLIC", "LAN", "LOCAL"} else "UNKNOWN"
 
-        LOCAL: loopback
-        LAN: private or link-local
-        PUBLIC: everything else
-        UNKNOWN: missing/invalid
-        """
-        if not ip:
-            return "UNKNOWN"
-
-        try:
-            addr = ipaddress.ip_address(ip)
-        except ValueError:
-            return "UNKNOWN"
-
-        if addr.is_loopback:
-            return "LOCAL"
-
-        if addr.is_private or addr.is_link_local:
-            return "LAN"
-
-        return "PUBLIC"
+    # ---------- Unmapped services ----------
 
     @classmethod
     def _render_unmapped(cls, snapshot: Any | None) -> list[Any]:
         """Render unmapped services.
 
-        Render established TCP services with PUBLIC remote IPs and missing geolocation.
+        Render established TCP services with PUBLIC service_scope and missing geolocation.
         """
         snap = snapshot if isinstance(snapshot, dict) else {}
         items = snap.get("cache_items")
@@ -618,11 +591,9 @@ class ModalTextBuilder:
 
         filtered: list[dict[str, Any]] = []
         for r in cleaned:
-            ip = r.get("ip")
-            scope = cls._safe_str(r.get("service_scope")) or cls._service_scope(ip)
+            scope = cls._service_scope(r)
             geo_ok = has_geo(r)
-
-            if scope.upper() == "PUBLIC" and not geo_ok:
+            if scope == "PUBLIC" and not geo_ok:
                 filtered.append(r)
 
         header = html.H1("Unmapped public services (missing geolocation)", className="mx-h1")
@@ -654,7 +625,7 @@ class ModalTextBuilder:
         for r in filtered:
             ip = cls._safe_str(r.get("ip"))
             port = cls._safe_int(r.get("port"), default=-1)
-            scope = cls._safe_str(r.get("service_scope")) or cls._service_scope(ip)
+            scope = cls._service_scope(r)
 
             pid_val = r.get("pid")
             pid = cls._safe_int(pid_val) if pid_val is not None else -1
@@ -704,13 +675,15 @@ class ModalTextBuilder:
             port = cls._safe_int(row.get("port"), default=-1)
 
             service = cls._safe_str(row.get("service")) or "Unknown"
-            service_tip = cls._safe_str(row.get("service_tip")) or None
+            service_tip = row.get("service_tip")
+            service_tip = cls._safe_str(service_tip) or None
 
             pid_val = row.get("pid")
             pid_txt = str(cls._safe_int(pid_val)) if pid_val is not None else ""
 
             proc = cls._safe_str(row.get("process"))
-            proc_tip = cls._safe_str(row.get("process_tip")) or None
+            proc_tip = row.get("process_tip")
+            proc_tip = cls._safe_str(proc_tip) or None
 
             count = cls._safe_int(row.get("count"), default=1)
 
@@ -730,13 +703,13 @@ class ModalTextBuilder:
 
         colgroup = html.Colgroup(
             [
-                html.Col(style={"width": "8%"}),
-                html.Col(style={"width": "28%"}),
-                html.Col(style={"width": "8%"}),
-                html.Col(style={"width": "16%"}),
-                html.Col(style={"width": "8%"}),
-                html.Col(style={"width": "8%"}),
-                html.Col(style={"width": "24%"}),
+                html.Col(style={"width": "8%"}),   # Scope
+                html.Col(style={"width": "28%"}),  # Remote IP
+                html.Col(style={"width": "8%"}),   # Port
+                html.Col(style={"width": "16%"}),  # Port service
+                html.Col(style={"width": "8%"}),   # Count
+                html.Col(style={"width": "8%"}),   # PID
+                html.Col(style={"width": "24%"}),  # Process
             ]
         )
 
@@ -782,9 +755,8 @@ class ModalTextBuilder:
 
         filtered: list[dict[str, Any]] = []
         for r in cleaned:
-            ip = r.get("ip")
-            scope = cls._safe_str(r.get("service_scope")) or cls._service_scope(ip)
-            if scope.upper() in {"LAN", "LOCAL"} and is_established_tcp(r):
+            scope = cls._service_scope(r)
+            if scope in {"LAN", "LOCAL"} and is_established_tcp(r):
                 filtered.append(r)
 
         header = html.H1("Established LAN/LOCAL services", className="mx-h1")
@@ -816,7 +788,7 @@ class ModalTextBuilder:
         for r in filtered:
             ip = cls._safe_str(r.get("ip"))
             port = cls._safe_int(r.get("port"), default=-1)
-            scope = cls._safe_str(r.get("service_scope")) or cls._service_scope(ip)
+            scope = cls._service_scope(r)
 
             pid_val = r.get("pid")
             pid = cls._safe_int(pid_val) if pid_val is not None else -1
@@ -892,13 +864,13 @@ class ModalTextBuilder:
 
         colgroup = html.Colgroup(
             [
-                html.Col(style={"width": "8%"}),
-                html.Col(style={"width": "28%"}),
-                html.Col(style={"width": "8%"}),
-                html.Col(style={"width": "16%"}),
-                html.Col(style={"width": "8%"}),
-                html.Col(style={"width": "8%"}),
-                html.Col(style={"width": "24%"}),
+                html.Col(style={"width": "8%"}),   # Scope
+                html.Col(style={"width": "28%"}),  # Remote IP
+                html.Col(style={"width": "8%"}),   # Port
+                html.Col(style={"width": "16%"}),  # Port service
+                html.Col(style={"width": "8%"}),   # Count
+                html.Col(style={"width": "8%"}),   # PID
+                html.Col(style={"width": "24%"}),  # Process
             ]
         )
 
@@ -986,7 +958,9 @@ class ModalTextBuilder:
                     ".",
                 ]
             ),
-            html.P("Update recommendation: download updated databases regularly (for example monthly)."),
+            html.P(
+                "Update recommendation: download updated databases regularly (for example monthly)."
+            ),
         ]
 
     # ---------- Click helpers ----------
