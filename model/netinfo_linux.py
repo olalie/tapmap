@@ -4,8 +4,8 @@ import os
 import re
 import subprocess
 from typing import Any
-from .netinfo import ProcessInfo
 
+from .netinfo import ProcessInfo
 
 _PROC_RE = re.compile(r'users:\(\("(?P<name>[^"]+)",pid=(?P<pid>\d+),fd=\d+\)\)')
 
@@ -246,7 +246,7 @@ class LinuxNetInfo:
         def safe_read_text(path: str) -> str | None:
             nonlocal access_denied
             try:
-                with open(path, "r", encoding="utf-8", errors="replace") as f:
+                with open(path, encoding="utf-8", errors="replace") as f:
                     return f.read()
             except PermissionError:
                 access_denied = True

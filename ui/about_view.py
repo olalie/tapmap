@@ -27,13 +27,19 @@ def render_about(
     near_km = app_info.get("zoom_near_km")
 
     geoinfo_enabled = bool(app_info.get("geoinfo_enabled", False))
-    geo_data_dir = app_info.get("geo_data_dir") if isinstance(app_info.get("geo_data_dir"), str) else ""
+    geo_data_dir_val = app_info.get("geo_data_dir")
+    geo_data_dir = geo_data_dir_val if isinstance(geo_data_dir_val, str) else ""
 
-    myloc_mode = app_info.get("myloc_mode") if isinstance(app_info.get("myloc_mode"), str) else "OFF"
+    myloc_mode_val = app_info.get("myloc_mode")
+    myloc_mode = myloc_mode_val if isinstance(myloc_mode_val, str) else "OFF"
     my_location = app_info.get("my_location")
 
     public_ip_cached = app_info.get("public_ip_cached")
-    public_ip_cached = public_ip_cached if isinstance(public_ip_cached, str) and public_ip_cached else None
+    public_ip_cached = (
+        public_ip_cached
+        if isinstance(public_ip_cached, str) and public_ip_cached
+        else None
+    )
 
     auto_geo_cached = app_info.get("auto_geo_cached")
     auto_geo = auto_geo_cached if isinstance(auto_geo_cached, dict) else {}
@@ -44,7 +50,11 @@ def render_about(
     net_backend_val = app_info.get("net_backend")
     net_backend = net_backend_val if isinstance(net_backend_val, str) else "-"
     net_backend_version_val = app_info.get("net_backend_version")
-    net_backend_version = net_backend_version_val if isinstance(net_backend_version_val, str) else "-"
+    net_backend_version = (
+        net_backend_version_val
+        if isinstance(net_backend_version_val, str)
+        else "-"
+    )
 
     tapmap_rows: list[tuple[str, str]] = [
         ("Name", app_name),

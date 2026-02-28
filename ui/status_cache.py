@@ -29,6 +29,7 @@ ServiceKey = tuple[Proto, Ip, Port]
 
 
 class StatusCacheItem(TypedDict, total=False):
+    """Socket/service fields used by StatusCache.update()."""
     ip: str
     port: int
     proto: str
@@ -269,7 +270,8 @@ class StatusCache:
 
             processes = entry.get("processes")
             if isinstance(processes, list):
-                procs_txt = ", ".join(sorted({safe_str(x) for x in processes if safe_str(x)})) or "-"
+                proc_set = {safe_str(x) for x in processes if safe_str(x)}
+                procs_txt = ", ".join(sorted(proc_set)) or "-"
             else:
                 procs_txt = "-"
 

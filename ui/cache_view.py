@@ -208,7 +208,9 @@ class CacheViewBuilder:
 
             org_blocks: list[str] = []
             for org in sorted(by_org.keys(), key=str.lower):
-                org_entries = sorted(by_org[org], key=lambda x: (x.get("ip") or "", int(x.get("port") or 0)))
+                def sort_key(x: dict[str, Any]) -> tuple[str, int]:
+                    return (x.get("ip") or "", int(x.get("port") or 0))
+                org_entries = sorted(by_org[org], key=sort_key)
 
                 lines: list[str] = []
                 lines.append(org)
@@ -218,7 +220,12 @@ class CacheViewBuilder:
                     port = e.get("port")
                     port_txt = str(int(port)) if isinstance(port, int) else "-"
                     proto = safe_proto(e.get("proto"))
-                    procs = sorted({p for p in (e.get("processes") or []) if isinstance(p, str) and p.strip()})
+                    procs = sorted(
+                        {
+                            p for p in (e.get("processes") or [])
+                            if isinstance(p, str) and p.strip()
+                        }
+                    )
                     procs_txt = ", ".join(procs) if procs else "-"
 
                     def fmt_ip_port(ip_text: str, port_text: str) -> str:

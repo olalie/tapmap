@@ -1,5 +1,4 @@
-"""
-Build TapMap (onefile) using PyInstaller.
+"""Build TapMap (onefile) using PyInstaller.
 
 Run from project root:
     python tools/build.py
