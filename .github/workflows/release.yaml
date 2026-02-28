@@ -1,6 +1,16 @@
 name: Build and Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build packages but do not upload a GitHub Release"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
   push:
     tags:
       - "v*"
@@ -15,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        os: [windows-latest]
 
     steps:
       - name: Checkout
@@ -60,25 +70,7 @@ jobs:
           print("OK: assets copied to dist/tapmap")
           PY
 
-      - name: Build macOS pkg
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          TAG="${GITHUB_REF_NAME}"
-
-          pkgbuild \
-            --root "dist/tapmap" \
-            --install-location "/Applications/TapMap" \
-            "tapmap-component.pkg"
-
-          productbuild \
-            --package "tapmap-component.pkg" \
-            "tapmap-${TAG}-macos.pkg"
-
-          rm -f "tapmap-component.pkg"
-
-      - name: Create release zip (Windows/Linux)
-        if: runner.os != 'macOS'
+      - name: Create release zip (Windows)
         shell: bash
         run: |
           python - << 'PY'
@@ -87,10 +79,10 @@ jobs:
           from pathlib import Path
 
           os_name = os.environ["RUNNER_OS"].lower()
-          tag = os.environ["GITHUB_REF_NAME"]
+          ref_name = os.environ["GITHUB_REF_NAME"]
 
           src_dir = Path("dist") / "tapmap"
-          zip_name = f"tapmap-{tag}-{os_name}.zip"
+          zip_name = f"tapmap-{ref_name}-{os_name}.zip"
           zip_path = Path(zip_name)
 
           def add_dir(zf: zipfile.ZipFile, folder: Path):
@@ -104,22 +96,7 @@ jobs:
           print(zip_name)
           PY
 
-      - name: Create SHA256 (macOS pkg)
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          FILE="tapmap-${GITHUB_REF_NAME}-macos.pkg"
-          shasum -a 256 "$FILE" > "$FILE.sha256"
-
-      - name: Create SHA256 (Linux)
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          FILE="tapmap-${GITHUB_REF_NAME}-linux.zip"
-          shasum -a 256 "$FILE" > "$FILE.sha256"
-
       - name: Create SHA256 (Windows)
-        if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $file = "tapmap-$($env:GITHUB_REF_NAME)-windows.zip"
@@ -127,12 +104,9 @@ jobs:
           "$hash  $file" | Out-File -Encoding ascii "$file.sha256"
 
       - name: Upload to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') && (github.event_name != 'workflow_dispatch' || inputs.dry_run != 'true')
         uses: softprops/action-gh-release@v2
         with:
           files: |
             tapmap-${{ github.ref_name }}-windows.zip
             tapmap-${{ github.ref_name }}-windows.zip.sha256
-            tapmap-${{ github.ref_name }}-linux.zip
-            tapmap-${{ github.ref_name }}-linux.zip.sha256
-            tapmap-${{ github.ref_name }}-macos.pkg
-            tapmap-${{ github.ref_name }}-macos.pkg.sha256
