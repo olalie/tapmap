@@ -14,9 +14,10 @@ SERV is derived from SOCK by ignoring PID and process.
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, NotRequired, TypedDict
 
 Proto = str
 Ip = str
@@ -25,6 +26,17 @@ Owner = str
 
 SocketKey = tuple[Proto, Ip, Port, Owner]
 ServiceKey = tuple[Proto, Ip, Port]
+
+
+class StatusCacheItem(TypedDict, total=False):
+    ip: str
+    port: int
+    proto: str
+    pid: int
+    process_name: str
+    service_scope: str
+    lat: float
+    lon: float
 
 
 @dataclass
@@ -45,7 +57,7 @@ class StatusCache:
         self.unm.clear()
         self.loc.clear()
 
-    def update(self, cache_items: list[dict[str, Any]]) -> None:
+    def update(self, cache_items: Sequence[StatusCacheItem]) -> None:
         """Merge snapshot cache_items into the cache.
 
         Required keys:
@@ -56,7 +68,7 @@ class StatusCache:
             proto: 'tcp' or 'udp' (default 'tcp')
             pid: int
             process_name: str
-            is_local: truthy for LAN or loopback
+            service_scope: 'PUBLIC', 'LAN', 'LOCAL', or 'UNKNOWN'
             lat, lon: numeric coordinates for PUBLIC services
         """
         for item in cache_items:
@@ -81,8 +93,14 @@ class StatusCache:
             socket_key: SocketKey = (proto, ip, port, owner)
             self.sock.add(socket_key)
 
-            if item.get("is_local"):
+            scope = item.get("service_scope")
+            scope_u = scope.upper().strip() if isinstance(scope, str) else "UNKNOWN"
+
+            if scope_u in {"LAN", "LOCAL"}:
                 self.loc.add(service_key)
+                continue
+
+            if scope_u != "PUBLIC":
                 continue
 
             if self._has_geo(item.get("lat"), item.get("lon")):
@@ -248,6 +266,8 @@ class StatusCache:
             else:
                 procs_txt = "-"
 
-            lines.append(f"{ip:<40}  {asn_org}  place={place}  port={port_txt}  procs={procs_txt}")
+            lines.append(
+                f"{ip:<40}  {asn_org}  place={place}  port={port_txt}  procs={procs_txt}"
+            )
 
         logger.info("\n".join(lines))
