@@ -86,6 +86,11 @@ HELP_CONTENT = [
             ),
         ],
     ),
+    html.P([
+        "Scope describes where an address belongs:", 
+        html.Br(),
+        "external internet (PUBLIC), your local network (LAN), or your own machine (LOCAL).",
+    ]),
     html.H3("Scope"),
     html.Table(
         className="mx-table mx-kv",
@@ -205,10 +210,13 @@ HELP_CONTENT = [
         "The Unmapped window lists PUBLIC services that are not shown on the map because "
         "geolocation is missing."
     ),
-    html.P("LAN and LOCAL services are excluded from this view."),
+    html.P(
+        "Scope in this window describes where the service address belongs. "
+        "LAN and LOCAL services are excluded from this view."
+    ),
     html.P(
         "Count shows how many sockets were merged into the row for the latest snapshot. "
-        "Rows are grouped by scope, protocol, IP, port, PID, and process for the other side."
+        "Rows are grouped by scope, protocol, IP, port, PID, and process."
     ),
     html.P("In narrow windows, some fields may be truncated. Hover a cell to see the full value."),
     html.H2("Established LAN/LOCAL services"),
@@ -220,6 +228,9 @@ HELP_CONTENT = [
         "Count shows how many sockets were merged into the row for the latest snapshot. "
         "Rows are grouped by scope, protocol, IP, port, PID, and process for the other side."
     ),
+    html.P(
+        "Scope in this window describes where the service address belongs."
+    ),
     html.H2("Open ports"),
     html.P(
         "The Open ports window lists local TCP sockets in LISTEN state and UDP sockets bound to "
@@ -230,6 +241,10 @@ HELP_CONTENT = [
         "UDP bound means a local process can receive datagrams on that port."
     ),
     html.P("This is a local view only. Services on the other side are not shown."),
+    html.P(
+        "Scope in this window describes how the local process is bound: "
+        "loopback only, LAN only, or all interfaces."
+    ),
     html.P("System processes are hidden by default. Use the toggle to include them."),
     html.H2("Show cache in terminal"),
     html.P("Print the current cache contents to the terminal where TapMap is running."),
