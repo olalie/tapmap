@@ -334,21 +334,6 @@ class MapUI:
                     zoom_flags[i] = True
                     zoom_flags[j] = True
 
-        if my_lon is not None and my_lat is not None:
-            fig.add_trace(
-                go.Scattergeo(
-                    lon=[my_lon],
-                    lat=[my_lat],
-                    mode="markers",
-                    marker=dict(size=14, color=self.COLOR_ME, symbol="circle", opacity=1.0),
-                    hoverinfo="skip",
-                    hovertemplate=None,
-                    showlegend=False,
-                    customdata=[self._cd_me()],
-                    name="me",
-                )
-            )
-
         if targets and my_lon is not None and my_lat is not None:
             for i, (lon, lat) in enumerate(targets):
                 line_color = self.COLOR_ZOOM if zoom_flags[i] else self.COLOR_NORMAL
@@ -394,6 +379,22 @@ class MapUI:
                     text=texts,
                     customdata=[self._cd_target(i) for i in range(len(targets))],
                     name="targets",
+                )
+            )
+
+
+        if my_lon is not None and my_lat is not None:
+            fig.add_trace(
+                go.Scattergeo(
+                    lon=[my_lon],
+                    lat=[my_lat],
+                    mode="markers",
+                    marker=dict(size=10, color=self.COLOR_ME, symbol="circle", opacity=1.0),
+                    hoverinfo="skip",
+                    hovertemplate=None,
+                    showlegend=False,
+                    customdata=[self._cd_me()],
+                    name="me",
                 )
             )
 
