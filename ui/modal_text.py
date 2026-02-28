@@ -562,16 +562,7 @@ class ModalTextBuilder:
         )
         return [*header, table]
 
-    # ---------- Service scope helpers ----------
-
-    @staticmethod
-    def _service_scope(row: dict[str, Any]) -> str:
-        scope = row.get("service_scope")
-        scope_u = scope.upper().strip() if isinstance(scope, str) else "UNKNOWN"
-        return scope_u if scope_u in {"PUBLIC", "LAN", "LOCAL"} else "UNKNOWN"
-
-    # ---------- Unmapped services ----------
-
+    # Unmapped services
     @classmethod
     def _render_unmapped(cls, snapshot: Any | None) -> list[Any]:
         """Render unmapped services.
@@ -591,7 +582,7 @@ class ModalTextBuilder:
 
         filtered: list[dict[str, Any]] = []
         for r in cleaned:
-            scope = cls._service_scope(r)
+            scope = cls._safe_str(r.get("service_scope")) or "UNKNOWN"
             geo_ok = has_geo(r)
             if scope == "PUBLIC" and not geo_ok:
                 filtered.append(r)
@@ -625,7 +616,7 @@ class ModalTextBuilder:
         for r in filtered:
             ip = cls._safe_str(r.get("ip"))
             port = cls._safe_int(r.get("port"), default=-1)
-            scope = cls._service_scope(r)
+            scope = cls._safe_str(r.get("service_scope")) or "UNKNOWN"
 
             pid_val = r.get("pid")
             pid = cls._safe_int(pid_val) if pid_val is not None else -1
@@ -755,7 +746,7 @@ class ModalTextBuilder:
 
         filtered: list[dict[str, Any]] = []
         for r in cleaned:
-            scope = cls._service_scope(r)
+            scope = cls._safe_str(r.get("service_scope")) or "UNKNOWN"
             if scope in {"LAN", "LOCAL"} and is_established_tcp(r):
                 filtered.append(r)
 
@@ -788,7 +779,7 @@ class ModalTextBuilder:
         for r in filtered:
             ip = cls._safe_str(r.get("ip"))
             port = cls._safe_int(r.get("port"), default=-1)
-            scope = cls._service_scope(r)
+            scope = cls._safe_str(r.get("service_scope")) or "UNKNOWN"
 
             pid_val = r.get("pid")
             pid = cls._safe_int(pid_val) if pid_val is not None else -1
