@@ -20,12 +20,8 @@ permissions:
 
 jobs:
   build:
-    name: Build on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest]
+    name: Build on windows-latest
+    runs-on: windows-latest
 
     steps:
       - name: Checkout
@@ -42,35 +38,11 @@ jobs:
           pip install -r requirements.txt
           pip install pyinstaller
 
-      - name: Build with PyInstaller spec
+      - name: Build (same as local)
         run: |
-          python -m PyInstaller --noconfirm --clean tapmap.spec
+          python tools/build.py
 
-      - name: Copy required assets into dist
-        shell: bash
-        run: |
-          python - << 'PY'
-          from pathlib import Path
-          import shutil
-
-          dist_dir = Path("dist") / "tapmap"
-          dist_dir.mkdir(parents=True, exist_ok=True)
-
-          assets_dir = Path("assets")
-          wanted = [
-              ("styles.css", assets_dir / "styles.css"),
-              ("keys.js", assets_dir / "keys.js"),
-          ]
-
-          for name, src in wanted:
-              if not src.exists():
-                  raise FileNotFoundError(f"Missing required asset: {src}")
-              shutil.copy2(src, dist_dir / name)
-
-          print("OK: assets copied to dist/tapmap")
-          PY
-
-      - name: Create release zip (Windows)
+      - name: Package artifact (same as build-test)
         shell: bash
         run: |
           python - << 'PY'
@@ -81,27 +53,36 @@ jobs:
           os_name = os.environ["RUNNER_OS"].lower()
           ref_name = os.environ["GITHUB_REF_NAME"]
 
-          src_dir = Path("dist") / "tapmap"
-          zip_name = f"tapmap-{ref_name}-{os_name}.zip"
-          zip_path = Path(zip_name)
+          dist = Path("dist")
+          exe = dist / ("tapmap.exe" if os_name == "windows" else "tapmap")
+          if not exe.exists():
+              raise FileNotFoundError(f"Expected build output not found: {exe}")
 
-          def add_dir(zf: zipfile.ZipFile, folder: Path):
-              for p in folder.rglob("*"):
-                  if p.is_file():
-                      zf.write(p, p.relative_to(folder))
+          out = Path(f"tapmap-{ref_name}-{os_name}.zip")
+          with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+              zf.write(exe, exe.name)
 
-          with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-              add_dir(zf, src_dir)
-
-          print(zip_name)
+          print(out)
           PY
 
       - name: Create SHA256 (Windows)
         shell: pwsh
         run: |
           $file = "tapmap-$($env:GITHUB_REF_NAME)-windows.zip"
+          if (!(Test-Path $file)) {
+            throw "Missing expected zip: $file"
+          }
           $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
           "$hash  $file" | Out-File -Encoding ascii "$file.sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tapmap-release-${{ runner.os }}
+          path: |
+            tapmap-${{ github.ref_name }}-windows.zip
+            tapmap-${{ github.ref_name }}-windows.zip.sha256
+          if-no-files-found: error
 
       - name: Upload to GitHub Release
         if: startsWith(github.ref, 'refs/tags/v') && (github.event_name != 'workflow_dispatch' || inputs.dry_run != 'true')
