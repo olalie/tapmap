@@ -318,38 +318,23 @@ class ModalTextBuilder:
                 )
             )
 
-        colgroup = html.Colgroup(
-            [
-                html.Col(style={"width": "8.0%"}),   # Bind scope
-                html.Col(style={"width": "8.0%"}),   # Proto
-                html.Col(style={"width": "8.0%"}),   # Port
-                html.Col(style={"width": "24.0%"}),  # Local IP
-                html.Col(style={"width": "20.0%"}),  # Port service
-                html.Col(style={"width": "8.0%"}),   # PID
-                html.Col(style={"width": "24.0%"}),  # Process
-            ]
+        columns = [
+            ColumnSpec("Bind scope", "8.0%"),
+            ColumnSpec("Proto", "8.0%"),
+            ColumnSpec("Port", "8.0%"),
+            ColumnSpec("Local IP", "24.0%"),
+            ColumnSpec("Port service", "20.0%"),
+            ColumnSpec("PID", "8.0%"),
+            ColumnSpec("Process", "24.0%"),
+        ]
+
+        table = build_table(
+            class_name="mx-table mx-open-ports",
+            columns=columns,
+            header_cells=[c.header for c in columns],
+            body_rows=body_rows,
         )
 
-        table = html.Table(
-            className="mx-table mx-open-ports",
-            children=[
-                colgroup,
-                html.Thead(
-                    html.Tr(
-                        [
-                            html.Th("Bind scope"),
-                            html.Th("Proto"),
-                            html.Th("Port"),
-                            html.Th("Local IP"),
-                            html.Th("Port service"),
-                            html.Th("PID"),
-                            html.Th("Process"),
-                        ]
-                    )
-                ),
-                html.Tbody(body_rows),
-            ],
-        )
         return [*header, table]
 
     # Unmapped services
@@ -626,7 +611,7 @@ class ModalTextBuilder:
                     ]
                 )
             )
-            
+
         columns = [
             ColumnSpec("Scope", "8%"),
             ColumnSpec("Remote IP", "28%"),
