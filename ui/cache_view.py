@@ -25,7 +25,6 @@ class CacheViewBuilder:
         self.debug = bool(debug)
         self.logger = logging.getLogger(__name__)
 
-    # Safe conversions
     @staticmethod
     def _safe_str(value: Any) -> str:
         return value.strip() if isinstance(value, str) else ""
@@ -38,7 +37,6 @@ class CacheViewBuilder:
             return None
         return n if n > 0 else None
 
-    # Keys and formats
     @staticmethod
     def _service_key(ip: str, port: int) -> str:
         return f"{ip}|{port}"
@@ -46,7 +44,7 @@ class CacheViewBuilder:
     @staticmethod
     def _fmt_ip_port(ip: str, port: int) -> str:
         ip_text = ip or "?"
-        port_text = str(int(port)) if isinstance(port, int) else "-"
+        port_text = str(port) if port > 0 else "-"
         if ":" in ip_text and not ip_text.startswith("["):
             return f"[{ip_text}]:{port_text}"
         return f"{ip_text}:{port_text}"
@@ -80,33 +78,12 @@ class CacheViewBuilder:
         shown = ", ".join(cleaned[:max_items])
         return f"{shown} +{len(cleaned) - max_items}"
 
-    # Cache merge
     def merge_map_candidates(
         self,
         ui_cache: dict[str, Any],
         map_candidates: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        """Merge map candidates into a per-service cache.
-
-        Cache key format:
-            "ip|port"
-
-        Stored entry format:
-            {
-                "ip": str,
-                "port": int,
-                "proto": str | None,
-                "lon": float | None,
-                "lat": float | None,
-                "city": str | None,
-                "country": str | None,
-                "asn": Any,
-                "asn_org": str | None,
-                "first_seen": "YYYY-MM-DD HH:MM:SS",
-                "processes": list[str],
-                "proc_pids": dict[str, list[int]],
-            }
-        """
+        """Merge map candidates into a per-service cache."""
         cache = dict(ui_cache) if isinstance(ui_cache, dict) else {}
 
         for candidate in map_candidates:
@@ -190,7 +167,6 @@ class CacheViewBuilder:
         pid_set.add(pid)
         proc_pids_map[process_name] = sorted(pid_set)
 
-    # View building
     def build_view_from_cache(self, ui_cache: dict[str, Any]) -> dict[str, Any]:
         """Group cached entries by rounded coordinates and build map view data."""
         cache = ui_cache if isinstance(ui_cache, dict) else {}
@@ -206,18 +182,27 @@ class CacheViewBuilder:
             points.append((lon, lat))
 
             place = self._pick_place(entries)
-            orgs = self._unique_network_orgs(entries)
+            unique_orgs = self._unique_network_orgs(entries)
             service_count = len(entries)
 
-            hover = self._build_hover_summary(place, service_count, entries, orgs)
             key_str = str(idx)
-            summaries[key_str] = hover
-
-            details[key_str] = self._build_click_details(place, entries, orgs)
+            summaries[key_str] = self._build_hover_summary(
+                place=place,
+                service_count=service_count,
+                entries=entries,
+                unique_orgs=unique_orgs,
+            )
+            details[key_str] = self._build_click_details(
+                place=place,
+                entries=entries,
+                unique_orgs=unique_orgs,
+            )
 
         return {"points": points, "summaries": summaries, "details": details}
 
-    def _group_by_coord(self, cache: dict[str, Any]) -> dict[tuple[float, float], list[dict[str, Any]]]:
+    def _group_by_coord(
+        self, cache: dict[str, Any]
+    ) -> dict[tuple[float, float], list[dict[str, Any]]]:
         groups: dict[tuple[float, float], list[dict[str, Any]]] = defaultdict(list)
 
         for raw in cache.values():
@@ -230,7 +215,10 @@ class CacheViewBuilder:
                 continue
 
             try:
-                key = (round(float(lon), self.coord_precision), round(float(lat), self.coord_precision))
+                key = (
+                    round(float(lon), self.coord_precision),
+                    round(float(lat), self.coord_precision),
+                )
             except (TypeError, ValueError):
                 continue
 
@@ -240,6 +228,7 @@ class CacheViewBuilder:
 
     def _build_hover_summary(
         self,
+        *,
         place: str,
         service_count: int,
         entries: list[dict[str, Any]],
@@ -263,7 +252,13 @@ class CacheViewBuilder:
 
         return f"{line1}<br>{line2}<br>{line3}"
 
-    def _build_click_details(self, place: str, entries: list[dict[str, Any]], unique_orgs: list[str]) -> str:
+    def _build_click_details(
+        self,
+        *,
+        place: str,
+        entries: list[dict[str, Any]],
+        unique_orgs: list[str],
+    ) -> str:
         unique_ips = self._unique_ips(entries)
         unique_ports = self._unique_ports(entries)
         unique_procs = self._unique_processes(entries)
@@ -279,7 +274,6 @@ class CacheViewBuilder:
         org_blocks = self._build_org_blocks(entries)
         return f"Location: {place}\n{counts_line}\n\n" + "\n\n".join(org_blocks)
 
-    # Aggregation helpers
     @staticmethod
     def _pick_place(entries: list[dict[str, Any]]) -> str:
         cities = [e.get("city") for e in entries if e.get("city")]
@@ -295,9 +289,21 @@ class CacheViewBuilder:
         return "Unknown place name"
 
     @staticmethod
-    def _unique_network_orgs(entries: list[dict[str, Any]]) -> list[str]:
-        orgs = {e.get("asn_org") for e in entries if isinstance(e.get("asn_org"), str) and e.get("asn_org")}
-        return sorted({o.strip() for o in orgs if isinstance(o, str) and o.strip()}, key=str.lower)
+    def _unique_str_field(entries: list[dict[str, Any]], key: str) -> list[str]:
+        out: set[str] = set()
+        for e in entries:
+            v = e.get(key)
+            if isinstance(v, str):
+                s = v.strip()
+                if s:
+                    out.add(s)
+        return sorted(out, key=str.lower)
+
+    def _unique_network_orgs(self, entries: list[dict[str, Any]]) -> list[str]:
+        return self._unique_str_field(entries, "asn_org")
+
+    def _unique_ips(self, entries: list[dict[str, Any]]) -> list[str]:
+        return self._unique_str_field(entries, "ip")
 
     @staticmethod
     def _unique_ports(entries: list[dict[str, Any]]) -> list[int]:
@@ -305,13 +311,8 @@ class CacheViewBuilder:
         for e in entries:
             p = e.get("port")
             if isinstance(p, int) and p > 0:
-                ports.add(int(p))
+                ports.add(p)
         return sorted(ports)
-
-    @staticmethod
-    def _unique_ips(entries: list[dict[str, Any]]) -> list[str]:
-        ips = {e.get("ip") for e in entries if isinstance(e.get("ip"), str) and e.get("ip")}
-        return sorted({ip.strip() for ip in ips if isinstance(ip, str) and ip.strip()}, key=str.lower)
 
     @staticmethod
     def _unique_processes(entries: list[dict[str, Any]]) -> list[str]:
@@ -321,15 +322,21 @@ class CacheViewBuilder:
             if not isinstance(procs, list):
                 continue
             for p in procs:
-                if isinstance(p, str) and p.strip():
-                    out.add(p.strip())
+                if isinstance(p, str):
+                    s = p.strip()
+                    if s:
+                        out.add(s)
         return sorted(out, key=str.lower)
 
     def _build_org_blocks(self, entries: list[dict[str, Any]]) -> list[str]:
         by_org: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for e in entries:
             org_val = e.get("asn_org")
-            org = org_val.strip() if isinstance(org_val, str) and org_val.strip() else "Unknown network"
+            org = (
+                org_val.strip()
+                if isinstance(org_val, str) and org_val.strip()
+                else "Unknown network"
+            )
             by_org[org].append(e)
 
         blocks: list[str] = []
@@ -352,11 +359,11 @@ class CacheViewBuilder:
 
         for e in org_entries:
             ip = self._safe_str(e.get("ip")) or "?"
-            port = e.get("port")
-            port_i = int(port) if isinstance(port, int) and port > 0 else 0
+            port_val = e.get("port")
+            port = port_val if isinstance(port_val, int) else 0
 
             proto = self._safe_proto(e.get("proto"))
-            addr = self._fmt_ip_port(ip, port_i)
+            addr = self._fmt_ip_port(ip, port)
             procs_txt = self._format_procs_with_pids(e)
 
             lines.append(f"  {addr} ({proto})")
@@ -366,32 +373,28 @@ class CacheViewBuilder:
         return "\n".join(lines)
 
     def _format_procs_with_pids(self, entry: dict[str, Any]) -> str:
-        procs_raw = entry.get("processes")
-        procs = (
-            sorted({p.strip() for p in procs_raw if isinstance(p, str) and p.strip()}, key=str.lower)
-            if isinstance(procs_raw, list)
-            else []
-        )
+        processes = entry.get("processes")
+        procs = processes if isinstance(processes, list) else []
+        proc_names = [p.strip() for p in procs if isinstance(p, str) and p.strip()]
 
         proc_pids_raw = entry.get("proc_pids")
         proc_pids: dict[str, list[int]] = proc_pids_raw if isinstance(proc_pids_raw, dict) else {}
 
         parts: list[str] = []
-        for p in procs:
-            pids_raw = proc_pids.get(p)
+        for name in proc_names:
+            pids_raw = proc_pids.get(name)
             pids = (
                 sorted({int(x) for x in pids_raw if isinstance(x, int) and x > 0})
                 if isinstance(pids_raw, list)
                 else []
             )
             if pids:
-                parts.append(f"{p} (pid {', '.join(str(x) for x in pids)})")
+                parts.append(f"{name} (pid {', '.join(str(x) for x in pids)})")
             else:
-                parts.append(p)
+                parts.append(name)
 
         return ", ".join(parts) if parts else "-"
 
-    # Debug helpers
     def debug_coords(self, ui_cache: dict[str, Any], *, top_n: int = 10) -> None:
         """Log coordinate collision statistics."""
         if not self.debug:
@@ -410,7 +413,12 @@ class CacheViewBuilder:
                 continue
 
             try:
-                coords.append((round(float(lon), self.coord_precision), round(float(lat), self.coord_precision)))
+                coords.append(
+                    (
+                        round(float(lon), self.coord_precision),
+                        round(float(lat), self.coord_precision),
+                    )
+                )
             except (TypeError, ValueError):
                 continue
 
