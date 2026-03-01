@@ -15,7 +15,7 @@ from ui.formatting import (
     strip_port,
 )
 from ui.help_view import render_help
-from ui.modal_tables import ColumnSpec, build_table, cell
+from ui.tables import ColumnSpec, build_table, cell
 
 
 class ModalTextBuilder:

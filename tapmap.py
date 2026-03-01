@@ -19,8 +19,8 @@ from model.netinfo import NetInfo
 from model.public_ip import iter_public_ip_candidates
 from runtime import AppMeta, RuntimeContext, build_runtime
 from ui.cache_view import CacheViewBuilder
-from ui.map_ui import MapUI
-from ui.modal_text import ModalTextBuilder
+from ui.map_view import MapUI
+from ui.modal_view import ModalTextBuilder
 from ui.status_cache import StatusCache
 
 LonLat = tuple[float, float]

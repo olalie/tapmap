@@ -4,7 +4,7 @@ from typing import Any
 
 from dash import html
 
-from .modal_tables import kv_table
+from .tables import kv_table
 
 
 def render_about(
