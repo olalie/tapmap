@@ -50,3 +50,29 @@ def build_table(
         className=class_name,
         children=[colgroup, thead, tbody],
     )
+
+def kv_table(rows: Iterable[tuple[str, str]]) -> html.Table:
+    """Build a two column key/value table with tooltips."""
+    body: list[Any] = []
+    for key, value in rows:
+        v = "" if value is None else str(value)
+        body.append(
+            html.Tr(
+                [
+                    html.Td(key),
+                    html.Td(html.Span(v, title=v if v else None)),
+                ]
+            )
+        )
+
+    colgroup = html.Colgroup(
+        [
+            html.Col(style={"width": "180px"}),
+            html.Col(),
+        ]
+    )
+
+    return html.Table(
+        className="mx-table mx-info-table",
+        children=[colgroup, html.Tbody(body)],
+    )

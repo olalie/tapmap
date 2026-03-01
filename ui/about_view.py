@@ -4,6 +4,8 @@ from typing import Any
 
 from dash import html
 
+from .modal_tables import kv_table
+
 
 def render_about(
     *,
@@ -96,13 +98,13 @@ def render_about(
             "and Dash with Plotly for visualization."
         ),
         html.P("All processing is local. TapMap does not inspect traffic contents."),
-        _kv_table(tapmap_rows),
+        kv_table(tapmap_rows),
         html.H2("Geolocation"),
         html.P(
             "Geolocation is based on local MaxMind GeoLite2 .mmdb databases. "
             "The databases are not included."
         ),
-        _kv_table(geo_rows),
+        kv_table(geo_rows),
         html.Div(
             className="mx-path-row",
             children=[
@@ -124,9 +126,9 @@ def render_about(
             ],
         ),
         html.H2("Location"),
-        _kv_table(location_rows),
+        kv_table(location_rows),
         html.H2("Runtime"),
-        _kv_table(runtime_rows),
+        kv_table(runtime_rows),
         html.H2("Project"),
         html.P("TapMap is free and open source."),
         html.Ul(
@@ -158,34 +160,6 @@ def render_about(
             ]
         ),
     ]
-
-
-def _kv_table(rows: list[tuple[str, str]]) -> html.Table:
-    """Render two-column key/value table with tooltips."""
-    body: list[Any] = []
-    for key, value in rows:
-        v = "" if value is None else str(value)
-        body.append(
-            html.Tr(
-                [
-                    html.Td(key),
-                    html.Td(html.Span(v, title=v if v else None)),
-                ]
-            )
-        )
-
-    colgroup = html.Colgroup(
-        [
-            html.Col(style={"width": "180px"}),
-            html.Col(),
-        ]
-    )
-
-    return html.Table(
-        className="mx-table mx-info-table",
-        children=[colgroup, html.Tbody(body)],
-    )
-
 
 def _build_location_rows(
     *,
