@@ -6,8 +6,16 @@ from typing import Any
 from dash import dcc, html
 
 from ui.about_view import render_about
+from ui.formatting import (
+    port_from_local,
+    pretty_bind_ip,
+    safe_int,
+    safe_str,
+    scope_rank,
+    strip_port,
+)
 from ui.help_view import render_help
-from ui.modal_tables import ColumnSpec, build_table, cell
+from ui.modal_tables import ColumnSpec, build_table
 
 
 class ModalTextBuilder:
@@ -150,75 +158,18 @@ class ModalTextBuilder:
         tooltip = tooltip if tooltip else None
         return html.Td(html.Span(value, className="mx-cell-text", title=tooltip))
 
-    @staticmethod
-    def _safe_str(value: Any) -> str:
-        return "" if value is None else str(value)
-
-    @staticmethod
-    def _safe_int(value: Any, default: int = -1) -> int:
-        try:
-            return int(value)
-        except (TypeError, ValueError):
-            return default
-
-    @staticmethod
-    def _scope_rank(scope: str) -> int:
-        order = {"PUBLIC": 0, "LAN": 1, "LOCAL": 2}
-        return order.get(scope.upper(), 9)
-
-       # ---------- Open ports ----------
-
-    @staticmethod
-    def _port_from_local(addr: str) -> int:
-        try:
-            return int(addr.rsplit(":", 1)[-1])
-        except (ValueError, TypeError):
-            return -1
-
-    @staticmethod
-    def _strip_port(addr: str) -> str:
-        """Strip a trailing ':port' from an address.
-
-        Examples:
-            '127.0.0.1:8050' -> '127.0.0.1'
-            '[::1]:49870'    -> '::1'
-            '[::]:53'        -> '::'
-            '0.0.0.0:80'     -> '0.0.0.0'
-        """
-        if not addr:
-            return ""
-
-        s = addr.strip()
-
-        if s.startswith("["):
-            end = s.find("]")
-            return s[1:end].strip() if end != -1 else s
-
-        if s.count(":") == 1:
-            return s.rsplit(":", 1)[0].strip()
-
-        return s
-
-    @staticmethod
-    def _pretty_bind_ip(ip: str) -> str:
-        if ip == "0.0.0.0":
-            return "ALL (IPv4)"
-        if ip == "::":
-            return "ALL (IPv6)"
-        return ip
-
     @classmethod
     def _open_ports_sort_key(cls, row: dict[str, Any]) -> tuple[int, int, int, str, int]:
         """Return sort key for Open Ports rows."""
-        bind_scope = cls._safe_str(row.get("bind_scope")).upper()
-        proto = cls._safe_str(row.get("proto")).upper()
-        local_address = cls._safe_str(row.get("local_address"))
+        bind_scope = safe_str(row.get("bind_scope")).upper()
+        proto = safe_str(row.get("proto")).upper()
+        local_address = safe_str(row.get("local_address"))
 
-        port = cls._port_from_local(local_address)
+        port = port_from_local(local_address)
         port = port if port >= 0 else 65536
 
-        process_name = cls._safe_str(row.get("process_label") or row.get("process_name")).lower()
-        pid = cls._safe_int(row.get("pid"))
+        process_name = safe_str(row.get("process_label") or row.get("process_name")).lower()
+        pid = safe_int(row.get("pid"))
 
         scope_order = {
             "PUBLIC": 0,
@@ -259,7 +210,7 @@ class ModalTextBuilder:
         if not show_system:
             filtered: list[dict[str, Any]] = []
             for r in cleaned:
-                process_name = cls._safe_str(r.get("process_name") or r.get("process_label"))
+                process_name = safe_str(r.get("process_name") or r.get("process_label"))
                 if cls._is_system_process(process_name):
                     continue
                 filtered.append(r)
@@ -286,15 +237,15 @@ class ModalTextBuilder:
 
         body_rows: list[Any] = []
         for r in cleaned:
-            full_local = cls._safe_str(r.get("local_address"))
-            ip_display = cls._pretty_bind_ip(cls._strip_port(full_local))
+            full_local = safe_str(r.get("local_address"))
+            ip_display = pretty_bind_ip(strip_port(full_local))
 
-            service = cls._safe_str(r.get("service"))
-            service_hint = cls._safe_str(r.get("service_hint")) or None
+            service = safe_str(r.get("service"))
+            service_hint = safe_str(r.get("service_hint")) or None
 
-            process_label = cls._safe_str(r.get("process_label") or r.get("process_name"))
-            process_hint = cls._safe_str(r.get("process_hint")) or None
-            process_status = cls._safe_str(r.get("process_status")) or None
+            process_label = safe_str(r.get("process_label") or r.get("process_name"))
+            process_hint = safe_str(r.get("process_hint")) or None
+            process_status = safe_str(r.get("process_status")) or None
 
             if not process_label:
                 process_label = process_status or "Unavailable"
@@ -302,14 +253,14 @@ class ModalTextBuilder:
                 process_hint = process_status
 
             pid_value = r.get("pid")
-            pid_text = str(cls._safe_int(pid_value)) if pid_value is not None else ""
+            pid_text = str(safe_int(pid_value)) if pid_value is not None else ""
 
             body_rows.append(
                 html.Tr(
                     [
-                        cls._cell(cls._safe_str(r.get("bind_scope"))),
-                        cls._cell(cls._safe_str(r.get("proto"))),
-                        cls._cell(str(cls._port_from_local(full_local))),
+                        cls._cell(safe_str(r.get("bind_scope"))),
+                        cls._cell(safe_str(r.get("proto"))),
+                        cls._cell(str(port_from_local(full_local))),
                         cls._cell(ip_display, title=full_local),
                         cls._cell(service, title=service_hint),
                         cls._cell(pid_text),
@@ -357,7 +308,7 @@ class ModalTextBuilder:
 
         filtered: list[dict[str, Any]] = []
         for r in cleaned:
-            scope = cls._safe_str(r.get("service_scope")) or "UNKNOWN"
+            scope = safe_str(r.get("service_scope")) or "UNKNOWN"
             geo_ok = has_geo(r)
             if scope == "PUBLIC" and not geo_ok:
                 filtered.append(r)
@@ -368,9 +319,9 @@ class ModalTextBuilder:
             return [header, html.Pre("(no unmapped public services)")]
 
         def process_text(row: dict[str, Any]) -> tuple[str, str | None]:
-            label = cls._safe_str(row.get("process_name"))
+            label = safe_str(row.get("process_name"))
             if not label:
-                label = cls._safe_str(row.get("process_status")) or "Unavailable"
+                label = safe_str(row.get("process_status")) or "Unavailable"
 
             exe = row.get("exe")
             if isinstance(exe, str) and exe.strip():
@@ -383,18 +334,18 @@ class ModalTextBuilder:
             return label, None
 
         def service_text(row: dict[str, Any]) -> tuple[str, str | None]:
-            service = cls._safe_str(row.get("service")) or "Unknown"
-            hint = cls._safe_str(row.get("service_hint")) or None
+            service = safe_str(row.get("service")) or "Unknown"
+            hint = safe_str(row.get("service_hint")) or None
             return service, hint
 
         agg: dict[tuple[str, str, int, int, str], dict[str, Any]] = {}
         for r in filtered:
-            ip = cls._safe_str(r.get("ip"))
-            port = cls._safe_int(r.get("port"), default=-1)
-            scope = cls._safe_str(r.get("service_scope")) or "UNKNOWN"
+            ip = safe_str(r.get("ip"))
+            port = safe_int(r.get("port"), default=-1)
+            scope = safe_str(r.get("service_scope")) or "UNKNOWN"
 
             pid_val = r.get("pid")
-            pid = cls._safe_int(pid_val) if pid_val is not None else -1
+            pid = safe_int(pid_val) if pid_val is not None else -1
 
             proc_label, proc_tip = process_text(r)
             svc_val, svc_tip = service_text(r)
@@ -425,33 +376,33 @@ class ModalTextBuilder:
         interesting_ports = {443, 53, 80, 3478, 22, 3389}
 
         def sort_key(row: dict[str, Any]) -> tuple[int, int, int, str, str]:
-            scope = cls._safe_str(row.get("scope"))
-            port = cls._safe_int(row.get("port"), default=-1)
-            proc = cls._safe_str(row.get("process"))
-            ip = cls._safe_str(row.get("ip"))
-            count = cls._safe_int(row.get("count"), default=0)
+            scope = safe_str(row.get("scope"))
+            port = safe_int(row.get("port"), default=-1)
+            proc = safe_str(row.get("process"))
+            ip = safe_str(row.get("ip"))
+            count = safe_int(row.get("count"), default=0)
 
             port_rank = 0 if port in interesting_ports else 1
-            return (cls._scope_rank(scope), port_rank, -count, proc.lower(), ip)
+            return (scope_rank(scope), port_rank, -count, proc.lower(), ip)
 
         body_rows: list[Any] = []
         for row in sorted(aggregated, key=sort_key):
-            scope = cls._safe_str(row.get("scope"))
-            ip = cls._safe_str(row.get("ip"))
-            port = cls._safe_int(row.get("port"), default=-1)
+            scope = safe_str(row.get("scope"))
+            ip = safe_str(row.get("ip"))
+            port = safe_int(row.get("port"), default=-1)
 
-            service = cls._safe_str(row.get("service")) or "Unknown"
+            service = safe_str(row.get("service")) or "Unknown"
             service_tip = row.get("service_tip")
-            service_tip = cls._safe_str(service_tip) or None
+            service_tip = safe_str(service_tip) or None
 
             pid_val = row.get("pid")
-            pid_txt = str(cls._safe_int(pid_val)) if pid_val is not None else ""
+            pid_txt = str(safe_int(pid_val)) if pid_val is not None else ""
 
-            proc = cls._safe_str(row.get("process"))
+            proc = safe_str(row.get("process"))
             proc_tip = row.get("process_tip")
-            proc_tip = cls._safe_str(proc_tip) or None
+            proc_tip = safe_str(proc_tip) or None
 
-            count = cls._safe_int(row.get("count"), default=1)
+            count = safe_int(row.get("count"), default=1)
 
             body_rows.append(
                 html.Tr(
@@ -505,7 +456,7 @@ class ModalTextBuilder:
 
         filtered: list[dict[str, Any]] = []
         for r in cleaned:
-            scope = cls._safe_str(r.get("service_scope")) or "UNKNOWN"
+            scope = safe_str(r.get("service_scope")) or "UNKNOWN"
             if scope in {"LAN", "LOCAL"} and is_established_tcp(r):
                 filtered.append(r)
 
@@ -515,9 +466,9 @@ class ModalTextBuilder:
             return [header, html.Pre("(no LAN/LOCAL services)")]
 
         def process_text(row: dict[str, Any]) -> tuple[str, str | None]:
-            label = cls._safe_str(row.get("process_name"))
+            label = safe_str(row.get("process_name"))
             if not label:
-                label = cls._safe_str(row.get("process_status")) or "Unavailable"
+                label = safe_str(row.get("process_status")) or "Unavailable"
 
             exe = row.get("exe")
             if isinstance(exe, str) and exe.strip():
@@ -530,18 +481,18 @@ class ModalTextBuilder:
             return label, None
 
         def service_text(row: dict[str, Any]) -> tuple[str, str | None]:
-            service = cls._safe_str(row.get("service")) or "Unknown"
-            hint = cls._safe_str(row.get("service_hint")) or None
+            service = safe_str(row.get("service")) or "Unknown"
+            hint = safe_str(row.get("service_hint")) or None
             return service, hint
 
         agg: dict[tuple[str, str, int, int, str], dict[str, Any]] = {}
         for r in filtered:
-            ip = cls._safe_str(r.get("ip"))
-            port = cls._safe_int(r.get("port"), default=-1)
-            scope = cls._safe_str(r.get("service_scope")) or "UNKNOWN"
+            ip = safe_str(r.get("ip"))
+            port = safe_int(r.get("port"), default=-1)
+            scope = safe_str(r.get("service_scope")) or "UNKNOWN"
 
             pid_val = r.get("pid")
-            pid = cls._safe_int(pid_val) if pid_val is not None else -1
+            pid = safe_int(pid_val) if pid_val is not None else -1
 
             proc_label, proc_tip = process_text(r)
             svc_val, svc_tip = service_text(r)
@@ -572,31 +523,31 @@ class ModalTextBuilder:
         interesting_ports = {443, 53, 80, 3478, 22, 3389}
 
         def sort_key(row: dict[str, Any]) -> tuple[int, int, int, str, str]:
-            scope = cls._safe_str(row.get("scope"))
-            port = cls._safe_int(row.get("port"), default=-1)
-            proc = cls._safe_str(row.get("process"))
-            ip = cls._safe_str(row.get("ip"))
-            count = cls._safe_int(row.get("count"), default=0)
+            scope = safe_str(row.get("scope"))
+            port = safe_int(row.get("port"), default=-1)
+            proc = safe_str(row.get("process"))
+            ip = safe_str(row.get("ip"))
+            count = safe_int(row.get("count"), default=0)
 
             port_rank = 0 if port in interesting_ports else 1
-            return (cls._scope_rank(scope), port_rank, -count, proc.lower(), ip)
+            return (scope_rank(scope), port_rank, -count, proc.lower(), ip)
 
         body_rows: list[Any] = []
         for row in sorted(aggregated, key=sort_key):
-            scope = cls._safe_str(row.get("scope"))
-            ip = cls._safe_str(row.get("ip"))
-            port = cls._safe_int(row.get("port"), default=-1)
+            scope = safe_str(row.get("scope"))
+            ip = safe_str(row.get("ip"))
+            port = safe_int(row.get("port"), default=-1)
 
-            service = cls._safe_str(row.get("service")) or "Unknown"
-            service_tip = cls._safe_str(row.get("service_tip")) or None
+            service = safe_str(row.get("service")) or "Unknown"
+            service_tip = safe_str(row.get("service_tip")) or None
 
             pid_val = row.get("pid")
-            pid_txt = str(cls._safe_int(pid_val)) if pid_val is not None else ""
+            pid_txt = str(safe_int(pid_val)) if pid_val is not None else ""
 
-            proc = cls._safe_str(row.get("process"))
-            proc_tip = cls._safe_str(row.get("process_tip")) or None
+            proc = safe_str(row.get("process"))
+            proc_tip = safe_str(row.get("process_tip")) or None
 
-            count = cls._safe_int(row.get("count"), default=1)
+            count = safe_int(row.get("count"), default=1)
 
             body_rows.append(
                 html.Tr(

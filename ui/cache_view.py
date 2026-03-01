@@ -16,6 +16,8 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from typing import Any
 
+from ui.formatting import safe_int, safe_str
+
 
 class CacheViewBuilder:
     """Build UI cache and map view data."""
@@ -24,18 +26,6 @@ class CacheViewBuilder:
         self.coord_precision = int(coord_precision)
         self.debug = bool(debug)
         self.logger = logging.getLogger(__name__)
-
-    @staticmethod
-    def _safe_str(value: Any) -> str:
-        return value.strip() if isinstance(value, str) else ""
-
-    @staticmethod
-    def _safe_int(value: Any) -> int | None:
-        try:
-            n = int(value)
-        except (TypeError, ValueError):
-            return None
-        return n if n > 0 else None
 
     @staticmethod
     def _service_key(ip: str, port: int) -> str:
@@ -90,17 +80,17 @@ class CacheViewBuilder:
             if not isinstance(candidate, dict):
                 continue
 
-            ip = self._safe_str(candidate.get("ip"))
+            ip = safe_str(candidate.get("ip"))
             if not ip:
                 continue
 
-            port = self._safe_int(candidate.get("port"))
+            port = safe_int(candidate.get("port"))
             if port is None:
                 continue
 
-            proto = self._safe_str(candidate.get("proto")) or None
-            process_name = self._safe_str(candidate.get("process_name")) or "Unknown"
-            pid = self._safe_int(candidate.get("pid"))
+            proto = safe_str(candidate.get("proto")) or None
+            process_name = safe_str(candidate.get("process_name")) or "Unknown"
+            pid = safe_int(candidate.get("pid"))
 
             key = self._service_key(ip, port)
             entry = cache.get(key)
@@ -358,7 +348,7 @@ class CacheViewBuilder:
         lines: list[str] = [org]
 
         for e in org_entries:
-            ip = self._safe_str(e.get("ip")) or "?"
+            ip = safe_str(e.get("ip")) or "?"
             port_val = e.get("port")
             port = port_val if isinstance(port_val, int) else 0
 
