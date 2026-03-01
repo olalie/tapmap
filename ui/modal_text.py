@@ -15,7 +15,7 @@ from ui.formatting import (
     strip_port,
 )
 from ui.help_view import render_help
-from ui.modal_tables import ColumnSpec, build_table
+from ui.modal_tables import ColumnSpec, build_table, cell
 
 
 class ModalTextBuilder:
@@ -147,17 +147,6 @@ class ModalTextBuilder:
             children=[colgroup, html.Tbody(body)],
         )
 
-    @staticmethod
-    def _cell(text: str, title: str | None = None) -> html.Td:
-        """Render a table cell with truncation and a tooltip.
-
-        Use the full value as the default tooltip.
-        """
-        value = text or ""
-        tooltip = title if title is not None else value
-        tooltip = tooltip if tooltip else None
-        return html.Td(html.Span(value, className="mx-cell-text", title=tooltip))
-
     @classmethod
     def _open_ports_sort_key(cls, row: dict[str, Any]) -> tuple[int, int, int, str, int]:
         """Return sort key for Open Ports rows."""
@@ -258,13 +247,13 @@ class ModalTextBuilder:
             body_rows.append(
                 html.Tr(
                     [
-                        cls._cell(safe_str(r.get("bind_scope"))),
-                        cls._cell(safe_str(r.get("proto"))),
-                        cls._cell(str(port_from_local(full_local))),
-                        cls._cell(ip_display, title=full_local),
-                        cls._cell(service, title=service_hint),
-                        cls._cell(pid_text),
-                        cls._cell(process_label, title=process_hint),
+                        cell(safe_str(r.get("bind_scope"))),
+                        cell(safe_str(r.get("proto"))),
+                        cell(str(port_from_local(full_local))),
+                        cell(ip_display, title=full_local),
+                        cell(service, title=service_hint),
+                        cell(pid_text),
+                        cell(process_label, title=process_hint),
                     ]
                 )
             )
@@ -407,13 +396,13 @@ class ModalTextBuilder:
             body_rows.append(
                 html.Tr(
                     [
-                        cls._cell(scope),
-                        cls._cell(ip or "-"),
-                        cls._cell(str(port) if port > 0 else "-"),
-                        cls._cell(service, title=service_tip),
-                        cls._cell(str(count)),
-                        cls._cell(pid_txt),
-                        cls._cell(proc, title=proc_tip),
+                        cell(scope),
+                        cell(ip or "-"),
+                        cell(str(port) if port > 0 else "-"),
+                        cell(service, title=service_tip),
+                        cell(str(count)),
+                        cell(pid_txt),
+                        cell(proc, title=proc_tip),
                     ]
                 )
             )
@@ -552,13 +541,13 @@ class ModalTextBuilder:
             body_rows.append(
                 html.Tr(
                     [
-                        cls._cell(scope),
-                        cls._cell(ip or "-"),
-                        cls._cell(str(port) if port > 0 else "-"),
-                        cls._cell(service, title=service_tip),
-                        cls._cell(str(count)),
-                        cls._cell(pid_txt),
-                        cls._cell(proc, title=proc_tip),
+                        cell(scope),
+                        cell(ip or "-"),
+                        cell(str(port) if port > 0 else "-"),
+                        cell(service, title=service_tip),
+                        cell(str(count)),
+                        cell(pid_txt),
+                        cell(proc, title=proc_tip),
                     ]
                 )
             )
