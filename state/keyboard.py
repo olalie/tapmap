@@ -1,0 +1,29 @@
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any
+
+
+def build_key_action(value: str) -> dict[str, Any] | None:
+    """Build key action payload from capture value."""
+    if not value:
+        return None
+
+    token = value.split("|", 1)[0]
+    key_map = {
+        "__u__": "menu_unmapped",
+        "__l__": "menu_lan_local",
+        "__o__": "menu_open_ports",
+        "__t__": "menu_cache_terminal",
+        "__c__": "menu_clear",
+        "__r__": "menu_recheck_geo",
+        "__h__": "menu_help",
+        "__a__": "menu_about",
+        "__esc__": "escape",
+    }
+
+    action = key_map.get(token)
+    if not action:
+        return None
+
+    return {"action": action, "t": datetime.now().isoformat()}

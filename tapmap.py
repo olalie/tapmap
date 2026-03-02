@@ -18,6 +18,8 @@ from model.model import Model
 from model.netinfo import NetInfo
 from model.public_ip import iter_public_ip_candidates
 from runtime import AppMeta, RuntimeContext, build_runtime
+from state.keyboard import build_key_action
+from state.status_line import render_status_text
 from ui.cache_view import CacheViewBuilder
 from ui.map_view import MapUI
 from ui.modal_view import ModalTextBuilder
@@ -531,26 +533,10 @@ class TapMap:
             prevent_initial_call=True,
         )
         def on_key(value: str) -> tuple[Any, str]:
-            if not value:
+            action = build_key_action(value)
+            if action is None:
                 return no_update, ""
-
-            token = value.split("|", 1)[0]
-            key_map = {
-                "__u__": "menu_unmapped",
-                "__l__": "menu_lan_local",
-                "__o__": "menu_open_ports",
-                "__t__": "menu_cache_terminal",
-                "__c__": "menu_clear",
-                "__r__": "menu_recheck_geo",
-                "__h__": "menu_help",
-                "__a__": "menu_about",
-                "__esc__": "escape",
-            }
-
-            action = key_map.get(token)
-            if not action:
-                return no_update, ""
-            return {"action": action, "t": datetime.now().isoformat()}, ""
+            return action, ""
 
         @self.app.callback(
             Output("model_snapshot", "data"),
@@ -640,54 +626,13 @@ class TapMap:
             ui_view: Any,
             _tick_ui: int,
         ) -> str:
-            if isinstance(status_flash, dict):
-                message = status_flash.get("message")
-                until = status_flash.get("until")
-                if (
-                    isinstance(message, str)
-                    and message
-                    and isinstance(until, (int, float))
-                    and datetime.now().timestamp() < float(until)
-                ):
-                    return message
-
-            status_cache = StatusCache.from_store(status_cache_data)
-            cache_chain = status_cache.format_chain()
-
-            live_tcp_total = 0
-            live_tcp_established = 0
-            live_tcp_listen = 0
-            live_udp_remote = 0
-            live_udp_bound = 0
-            updated = "--:--:--"
-            status = "WAIT"
-            note = ""
-
-            if isinstance(snapshot, dict):
-                if snapshot.get("error"):
-                    status = "ERROR"
-                    note = " (see terminal)"
-                else:
-                    stats = snapshot.get("stats")
-                    if isinstance(stats, dict):
-                        online = bool(stats.get("online", True))
-                        status = "OK" if online else "OFFLINE"
-                        live_tcp_total = self._to_int(stats.get("live_tcp_total"))
-                        live_tcp_established = self._to_int(stats.get("live_tcp_established"))
-                        live_tcp_listen = self._to_int(stats.get("live_tcp_listen"))
-                        live_udp_remote = self._to_int(stats.get("live_udp_remote"))
-                        live_udp_bound = self._to_int(stats.get("live_udp_bound"))
-                        updated = stats.get("updated") or updated
-
-            myloc = self._myloc_label()
-            return (
-                f"STATUS: {status}{note} | "
-                f"LIVE: TCP {live_tcp_total} EST {live_tcp_established} "
-                f"LST {live_tcp_listen} UDP R {live_udp_remote} "
-                f"B {live_udp_bound} | "
-                f"CACHE: {cache_chain} | "
-                f"UPDATED: {updated} | "
-                f"MYLOC: {myloc}"
+            return render_status_text(
+                snapshot=snapshot,
+                status_cache_data=status_cache_data,
+                status_flash=status_flash,
+                now=datetime.now(),
+                myloc_label=self._myloc_label(),
+                to_int=self._to_int,
             )
 
         @self.app.callback(
