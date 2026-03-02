@@ -20,6 +20,7 @@ from model.public_ip import iter_public_ip_candidates
 from runtime import AppMeta, RuntimeContext, build_runtime
 from state.keyboard import build_key_action
 from state.menu import compute_menu_open_state
+from state.modal import decide_close
 from state.open_ports_prefs import set_show_system_pref
 from state.status_line import render_status_text
 from ui.cache_view import CacheViewBuilder
@@ -736,87 +737,44 @@ class TapMap:
         ):
             trigger = ctx.triggered_id
             geo_path = str(self.ctx.geo_data_dir)
-
-            current_state = modal_state_data if isinstance(modal_state_data, dict) else None
+            current_state = (
+                modal_state_data if isinstance(modal_state_data, dict) else None
+            )
             is_open = current_state is not None
+            current_screen = (
+                current_state.get("screen")
+                if isinstance(current_state, dict)
+                else None
+            )
+            action = None
 
+            if trigger == "key_action" and isinstance(key_action, dict):
+                action = key_action.get("action")            
+            
             def make_state(screen: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
                 return {"screen": screen, "t": datetime.now().isoformat(), "payload": payload or {}}
 
             show_system = self._toggle_on(toggle_system_value)
 
-            if (
-                is_open
-                and isinstance(current_state, dict)
-                and current_state.get("screen") == self.SCR_MISSING_GEO_DB
-                and self._is_geo_enabled(snapshot)
-            ):
-                new_state = None
-                children, class_name = self._render_modal(
-                    new_state, snapshot, ui_view, geo_path
-                )
-                overlay_class = self._modal_overlay_class(False)
-                return new_state, None, overlay_class, children, class_name
+            close_decision = decide_close(
+                trigger=trigger,
+                is_open=is_open,
+                current_screen=current_screen if isinstance(current_screen, str) else None,
+                action=action,
+                is_geo_enabled=self._is_geo_enabled(snapshot),
+                missing_geo_screen=self.SCR_MISSING_GEO_DB,
+            )
 
-            if trigger == "btn_close":
-                new_state = None
-                children, class_name = self._render_modal(
-                    new_state, snapshot, ui_view, geo_path
-                )
+            if close_decision is not None:
+                new_state = close_decision.modal_state
+                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
                 return (
                     new_state,
-                    None,
+                    close_decision.ui_event,
                     self._modal_overlay_class(False),
                     children,
                     class_name,
                 )
-
-            if trigger == "key_action" and isinstance(key_action, dict):
-                action = key_action.get("action")
-
-                if action == "escape":
-                    if is_open:
-                        new_state = None
-                        children, class_name = self._render_modal(
-                            new_state, snapshot, ui_view, geo_path
-                        )
-                        return (
-                            new_state,
-                            None,
-                            self._modal_overlay_class(False),
-                            children,
-                            class_name,
-                        )
-                    return no_update, None, no_update, no_update, no_update
-
-                if not isinstance(action, str) or not action:
-                    return no_update, None, no_update, no_update, no_update
-
-                if action in self.MENU_COMMANDS:
-                    if action == "menu_recheck_geo":
-                        return (
-                            no_update,
-                            {"type": self.EVT_GEO_RECHECK, "t": datetime.now().isoformat()},
-                            no_update,
-                            no_update,
-                            no_update,
-                        )
-                    return no_update, None, no_update, no_update, no_update
-
-                if action in self.MENU_SCREENS:
-                    new_state = make_state(action)
-                    children, class_name = self._render_modal(
-                        new_state, snapshot, ui_view, geo_path
-                    )
-                    return (
-                        new_state,
-                        None,
-                        self._modal_overlay_class(True),
-                        children,
-                        class_name,
-                    )
-
-                return no_update, None, no_update, no_update, no_update
 
             if trigger == "btn_open_data":
                 if isinstance(open_data_clicks, int) and open_data_clicks >= 1:
