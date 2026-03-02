@@ -19,6 +19,7 @@ from model.netinfo import NetInfo
 from model.public_ip import iter_public_ip_candidates
 from runtime import AppMeta, RuntimeContext, build_runtime
 from state.keyboard import build_key_action
+from state.open_ports_prefs import set_show_system_pref
 from state.status_line import render_status_text
 from ui.cache_view import CacheViewBuilder
 from ui.map_view import MapUI
@@ -920,10 +921,8 @@ class TapMap:
             State("open_ports_prefs", "data"),
             prevent_initial_call=True,
         )
-        def open_ports_toggle(toggle_value: Any, prefs_data: Any):
-            prefs = prefs_data if isinstance(prefs_data, dict) else {}
-            prefs["show_system"] = isinstance(toggle_value, list) and "on" in toggle_value
-            return prefs
+        def open_ports_toggle(toggle_value: Any, prefs_data: Any) -> dict[str, Any]:
+            return set_show_system_pref(toggle_value=toggle_value, prefs_data=prefs_data)
 
     def run(self) -> None:
         """Start the Dash server and launch the local UI."""
