@@ -19,6 +19,7 @@ from model.netinfo import NetInfo
 from model.public_ip import iter_public_ip_candidates
 from runtime import AppMeta, RuntimeContext, build_runtime
 from state.keyboard import build_key_action
+from state.menu import compute_menu_open_state
 from state.open_ports_prefs import set_show_system_pref
 from state.status_line import render_status_text
 from ui.cache_view import CacheViewBuilder
@@ -677,23 +678,17 @@ class TapMap:
         ) -> Any:
             trigger = ctx.triggered_id
 
-            if trigger == "btn_menu":
-                return not bool(menu_open)
-            if trigger == "menu_overlay":
-                return False
+            next_state = compute_menu_open_state(
+                trigger=trigger,
+                menu_open=menu_open,
+                key_action=key_action,
+                menu_screens=self.MENU_SCREENS,
+                menu_commands=self.MENU_COMMANDS,
+            )
 
-            if (
-                trigger == "key_action"
-                and isinstance(key_action, dict)
-                and key_action.get("action") == "escape"
-                and bool(menu_open)
-            ):
-                return False
-
-            if trigger in (self.MENU_SCREENS | self.MENU_COMMANDS):
-                return False
-
-            return no_update
+            if next_state is None:
+                return no_update
+            return next_state
 
         @self.app.callback(
             Output("modal_state", "data"),
