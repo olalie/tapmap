@@ -20,7 +20,7 @@ from model.public_ip import iter_public_ip_candidates
 from runtime import AppMeta, RuntimeContext, build_runtime
 from state.keyboard import build_key_action
 from state.menu import compute_menu_open_state
-from state.modal import decide_close
+from state.modal import decide_close, decide_screen_change
 from state.open_ports_prefs import set_show_system_pref
 from state.status_line import render_status_text
 from ui.cache_view import CacheViewBuilder
@@ -775,6 +775,36 @@ class TapMap:
                     children,
                     class_name,
                 )
+            
+            screen_change = decide_screen_change(
+                trigger=trigger,
+                is_open=is_open,
+                current_screen=current_screen if isinstance(current_screen, str) else None,
+                show_system=show_system,
+                action=action,
+                menu_screens=self.MENU_SCREENS,
+                menu_commands=self.MENU_COMMANDS,
+                open_ports_prefs=(
+                    open_ports_prefs_data
+                    if isinstance(open_ports_prefs_data, dict)
+                    else None
+                ),
+            )
+
+            if screen_change is not None:
+                new_state = {
+                    "screen": screen_change["screen"],
+                    "t": datetime.now().isoformat(),
+                    "payload": screen_change.get("payload", {}),
+                }
+                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
+                return (
+                    new_state,
+                    None,
+                    self._modal_overlay_class(True),
+                    children,
+                    class_name,
+                )            
 
             if trigger == "btn_open_data":
                 if isinstance(open_data_clicks, int) and open_data_clicks >= 1:
@@ -791,56 +821,6 @@ class TapMap:
                         no_update,
                     )
                 return no_update, None, no_update, no_update, no_update
-
-            if trigger == "toggle_open_ports_system":
-                if (
-                    not is_open
-                    or not isinstance(current_state, dict)
-                    or current_state.get("screen") != "menu_open_ports"
-                ):
-                    return no_update, None, no_update, no_update, no_update
-
-                new_state = make_state(
-                    "menu_open_ports", {"show_system": show_system}
-                )
-                children, class_name = self._render_modal(
-                    new_state, snapshot, ui_view, geo_path
-                )
-                return (
-                    new_state,
-                    None,
-                    self._modal_overlay_class(True),
-                    children,
-                    class_name,
-                )
-
-            if trigger in (
-                self.MENU_SCREENS | self.MENU_COMMANDS
-            ) and trigger not in self.MENU_COMMANDS:
-                screen = str(trigger)
-                payload: dict[str, Any] = {}
-
-                if screen == "menu_open_ports":
-                    prefs = (
-                        open_ports_prefs_data
-                        if isinstance(open_ports_prefs_data, dict)
-                        else {}
-                    )
-                    payload["show_system"] = bool(
-                        prefs.get("show_system", False)
-                    )
-
-                new_state = make_state(screen, payload)
-                children, class_name = self._render_modal(
-                    new_state, snapshot, ui_view, geo_path
-                )
-                return (
-                    new_state,
-                    None,
-                    self._modal_overlay_class(True),
-                    children,
-                    class_name,
-                )
 
             if trigger == "menu_recheck_geo":
                 return (

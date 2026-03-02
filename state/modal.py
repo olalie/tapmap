@@ -38,3 +38,60 @@ def decide_close(
         return ModalDecision(modal_state=None, ui_event=None)
 
     return None
+
+def decide_screen_change(
+    *,
+    trigger: Any,
+    is_open: bool,
+    current_screen: str | None,
+    show_system: bool,
+    action: Any,
+    menu_screens: set[str],
+    menu_commands: set[str],
+    open_ports_prefs: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Return new modal_state for screen transitions.
+
+    Return None if no screen change applies.
+    """
+
+    # Keyboard open modal
+    if trigger == "key_action" and isinstance(action, str):
+        if action in menu_screens:
+            screen = action
+            payload: dict[str, Any] = {}
+
+            if screen == "menu_open_ports":
+                prefs = open_ports_prefs or {}
+                payload["show_system"] = bool(prefs.get("show_system", False))
+
+            return {
+                "screen": screen,
+                "payload": payload,
+            }
+
+    # Toggle inside Open Ports modal
+    if trigger == "toggle_open_ports_system":
+        if not is_open or current_screen != "menu_open_ports":
+            return None
+
+        return {
+            "screen": "menu_open_ports",
+            "payload": {"show_system": show_system},
+        }
+
+    # Open modal from menu_* click
+    if trigger in menu_screens:
+        screen = str(trigger)
+        payload: dict[str, Any] = {}
+
+        if screen == "menu_open_ports":
+            prefs = open_ports_prefs or {}
+            payload["show_system"] = bool(prefs.get("show_system", False))
+
+        return {
+            "screen": screen,
+            "payload": payload,
+        }
+
+    return None
