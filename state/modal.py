@@ -54,21 +54,19 @@ def decide_screen_change(
 
     Return None if no screen change applies.
     """
-
     # Keyboard open modal
-    if trigger == "key_action" and isinstance(action, str):
-        if action in menu_screens:
-            screen = action
-            payload: dict[str, Any] = {}
+    if trigger == "key_action" and isinstance(action, str) and action in menu_screens:
+        screen = action
+        payload: dict[str, Any] = {}
 
-            if screen == "menu_open_ports":
-                prefs = open_ports_prefs or {}
-                payload["show_system"] = bool(prefs.get("show_system", False))
+        if screen == "menu_open_ports":
+            prefs = open_ports_prefs or {}
+            payload["show_system"] = bool(prefs.get("show_system", False))
 
-            return {
-                "screen": screen,
-                "payload": payload,
-            }
+        return {
+            "screen": screen,
+            "payload": payload,
+        }
 
     # Toggle inside Open Ports modal
     if trigger == "toggle_open_ports_system":
@@ -95,3 +93,52 @@ def decide_screen_change(
         }
 
     return None
+
+def decide_map_click(
+    *,
+    trigger: Any,
+    click_data: Any,
+    now_iso: str,
+) -> ModalDecision | None:
+    """Return modal decision for map click.
+
+    Open the map_click screen when the map is clicked
+    and click_data is present. Return None otherwise.
+    """
+    if trigger != "map":
+        return None
+
+    if click_data is None:
+        return None
+
+    return ModalDecision(
+        modal_state={
+            "screen": "map_click",
+            "t": now_iso,
+            "payload": {"click_data": click_data},
+        },
+        ui_event=None,
+    )
+
+def decide_geo_recheck(
+    *,
+    trigger: Any,
+    check_db_clicks: int | None,
+    evt_type: str,
+    now_iso: str,
+) -> ModalDecision | None:
+    """Return modal decision for GeoIP recheck request.
+
+    Emit EVT_GEO_RECHECK event when the check databases
+    button is triggered. Return None otherwise.
+    """
+    if trigger != "btn_check_databases":
+        return None
+
+    if not isinstance(check_db_clicks, int) or check_db_clicks < 1:
+        return None
+
+    return ModalDecision(
+        modal_state=None,
+        ui_event={"type": evt_type, "t": now_iso},
+    )

@@ -20,7 +20,7 @@ from model.public_ip import iter_public_ip_candidates
 from runtime import AppMeta, RuntimeContext, build_runtime
 from state.keyboard import build_key_action
 from state.menu import compute_menu_open_state
-from state.modal import decide_close, decide_screen_change
+from state.modal import decide_close, decide_geo_recheck, decide_map_click, decide_screen_change
 from state.open_ports_prefs import set_show_system_pref
 from state.status_line import render_status_text
 from ui.cache_view import CacheViewBuilder
@@ -737,6 +737,7 @@ class TapMap:
         ):
             trigger = ctx.triggered_id
             geo_path = str(self.ctx.geo_data_dir)
+            now_iso = datetime.now().isoformat()
             current_state = (
                 modal_state_data if isinstance(modal_state_data, dict) else None
             )
@@ -768,10 +769,11 @@ class TapMap:
             if close_decision is not None:
                 new_state = close_decision.modal_state
                 children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
+                overlay_open = new_state is not None
                 return (
                     new_state,
                     close_decision.ui_event,
-                    self._modal_overlay_class(False),
+                    self._modal_overlay_class(overlay_open),
                     children,
                     class_name,
                 )
@@ -811,16 +813,21 @@ class TapMap:
                     open_folder(Path(geo_path))
                 return no_update, None, no_update, no_update, no_update
 
-            if trigger == "btn_check_databases":
-                if isinstance(check_db_clicks, int) and check_db_clicks >= 1:
-                    return (
-                        no_update,
-                        {"type": self.EVT_GEO_RECHECK, "t": datetime.now().isoformat()},
-                        no_update,
-                        no_update,
-                        no_update,
-                    )
-                return no_update, None, no_update, no_update, no_update
+            geo_decision = decide_geo_recheck(
+                trigger=trigger,
+                check_db_clicks=check_db_clicks,
+                evt_type=self.EVT_GEO_RECHECK,
+                now_iso=now_iso,
+            )
+
+            if geo_decision is not None:
+                return (
+                    no_update,
+                    geo_decision.ui_event,
+                    no_update,
+                    no_update,
+                    no_update,
+                )
 
             if trigger == "menu_recheck_geo":
                 return (
@@ -831,10 +838,14 @@ class TapMap:
                     no_update,
                 )
 
-            if trigger == "map":
-                if click_data is None:
-                    return no_update, None, no_update, no_update, no_update
-                new_state = make_state("map_click", {"click_data": click_data})
+            map_decision = decide_map_click(
+                trigger=trigger,
+                click_data=click_data,
+                now_iso=now_iso,
+            )
+
+            if map_decision is not None:
+                new_state = map_decision.modal_state
                 children, class_name = self._render_modal(
                     new_state, snapshot, ui_view, geo_path
                 )
@@ -845,7 +856,7 @@ class TapMap:
                     children,
                     class_name,
                 )
-
+            
             return no_update, None, no_update, no_update, no_update
         
         @self.app.callback(
