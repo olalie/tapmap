@@ -20,8 +20,15 @@ from model.public_ip import iter_public_ip_candidates
 from runtime import AppMeta, RuntimeContext, build_runtime
 from state.keyboard import build_key_action
 from state.menu import compute_menu_open_state
-from state.modal import decide_close, decide_geo_recheck, decide_map_click, decide_screen_change
+from state.modal import decide_close, decide_map_click, decide_screen_change
 from state.open_ports_prefs import set_show_system_pref
+from state.poll import (
+    ACTION_CACHE_TERMINAL,
+    ACTION_CLEAR_CACHE,
+    ACTION_GEO_RECHECK,
+    ACTION_NORMAL_POLL,
+    decide_poll_action,
+)
 from state.status_line import render_status_text
 from ui.cache_view import CacheViewBuilder
 from ui.map_view import MapUI
@@ -40,7 +47,7 @@ class TapMap:
         {"menu_unmapped", "menu_lan_local", "menu_open_ports","menu_help", "menu_about"}
     )
     MENU_COMMANDS: ClassVar[frozenset[str]] = frozenset(
-        {"menu_clear", "menu_cache_terminal", "menu_recheck_geo"}
+        {"menu_clear_cache", "menu_cache_terminal", "menu_recheck_geoip"}
     )
 
     DASH_DEBUG = False
@@ -53,7 +60,6 @@ class TapMap:
     FLASH_SHORT_S = 1.5
     FLASH_LONG_S = 3.0
 
-    EVT_GEO_RECHECK = "geo_recheck"
     SCR_MISSING_GEO_DB = "missing_geo_db"
 
     def __init__(self, runtime_ctx: RuntimeContext) -> None:
@@ -156,8 +162,6 @@ class TapMap:
                 dcc.Store(id="ui_cache", data={}),
                 dcc.Store(id="status_cache", data=StatusCache().to_store()),
                 dcc.Store(id="ui_view", data={"points": [], "summaries": {}, "details": {}}),
-                dcc.Store(id="ui_event", data=None),
-                dcc.Store(id="ui_event_seen", data=None),
                 dcc.Store(id="modal_state", data=initial_modal_state),
                 dcc.Store(id="open_ports_prefs", data={"show_system": False}),
                 dcc.Input(
@@ -177,7 +181,6 @@ class TapMap:
                     },
                 ),
                 dcc.Interval(id="tick_status", interval=self.MODEL_TICK_MS, n_intervals=0),
-                dcc.Interval(id="tick_ui", interval=self.UI_TICK_MS, n_intervals=0),
                 dcc.Graph(
                     id="map",
                     figure=start_fig,
@@ -217,14 +220,14 @@ class TapMap:
                                 self._menu_button(
                                     "Show cache in terminal (T)", "menu_cache_terminal"
                                 ),
-                                self._menu_button("Clear cache (C)", "menu_clear"),
+                                self._menu_button("Clear cache (C)", "menu_clear_cache"),
                             ],
                             className="mx-menu-group",
                         ),
                         html.Div(
                             [
                                 self._menu_button(
-                                    "Recheck GeoIP databases (R)", "menu_recheck_geo"
+                                    "Recheck GeoIP databases (R)", "menu_recheck_geoip"
                                 ),
                                 self._menu_button("Help (H)", "menu_help"),
                                 self._menu_button("About (A)", "menu_about"),
@@ -302,15 +305,6 @@ class TapMap:
     @staticmethod
     def _flash(message: str, seconds: float) -> dict[str, Any]:
         return {"message": message, "until": (datetime.now().timestamp() + float(seconds))}
-
-    def _event_signature(self, ev: Any) -> str | None:
-        if not isinstance(ev, dict):
-            return None
-        et = ev.get("type")
-        t = ev.get("t")
-        if isinstance(et, str) and et:
-            return f"{et}|{t}" if isinstance(t, str) else f"{et}|"
-        return None
 
     def _myloc_label(self) -> str:
         if isinstance(MY_LOCATION, tuple):
@@ -547,62 +541,53 @@ class TapMap:
             Output("status_cache", "data"),
             Output("ui_view", "data"),
             Output("status_flash", "data"),
-            Output("ui_event_seen", "data"),
             Input("tick_status", "n_intervals"),
-            Input("ui_event", "data"),
             Input("key_action", "data"),
-            Input("menu_clear", "n_clicks"),
+            Input("menu_clear_cache", "n_clicks"),
             Input("menu_cache_terminal", "n_clicks"),
+            Input("menu_recheck_geoip", "n_clicks"),
+            Input("btn_check_databases", "n_clicks", allow_optional=True),
             State("ui_cache", "data"),
             State("status_cache", "data"),
-            State("ui_event_seen", "data"),
             prevent_initial_call=False,
         )
         def poll_model(
             tick_n: int,
-            ui_event: Any,
             key_action: Any,
             _clear_clicks: int,
             _cache_terminal_clicks: int,
+            _recheck_clicks: int,
+            _check_db_clicks: int | None,
             ui_cache_data: Any,
             status_cache_data: Any,
-            event_seen: Any,
         ):
             status_cache = StatusCache.from_store(status_cache_data)
             ui_cache = self._ensure_dict(ui_cache_data)
-
-            sig = self._event_signature(ui_event)
-            if sig and sig != event_seen and isinstance(ui_event, dict):
-                if ui_event.get("type") == self.EVT_GEO_RECHECK:
-                    snap, cache, sc_store, view, flash = self._handle_geo_recheck(status_cache)
-                    return snap, cache, sc_store, view, flash, sig
-                return no_update, no_update, no_update, no_update, no_update, sig
-
             trigger = ctx.triggered_id
-
-            if trigger == "key_action" and isinstance(key_action, dict):
-                action = key_action.get("action")
-
-                if action == "menu_clear":
-                    snap, cache, sc_store, view, flash = self._handle_clear_cache(status_cache)
-                    return snap, cache, sc_store, view, flash, event_seen
-
-                if action == "menu_cache_terminal":
-                    a, b, c, d, flash = self._handle_cache_terminal(status_cache, ui_cache)
-                    return a, b, c, d, flash, event_seen
-
-            if trigger == "menu_clear":
-                snap, cache, sc_store, view, flash = self._handle_clear_cache(status_cache)
-                return snap, cache, sc_store, view, flash, event_seen
-
-            if trigger == "menu_cache_terminal":
-                a, b, c, d, flash = self._handle_cache_terminal(status_cache, ui_cache)
-                return a, b, c, d, flash, event_seen
-
-            snap, cache, sc_store, view, flash = self._handle_normal_poll(
-                tick_n, status_cache, ui_cache
+            decision = decide_poll_action(
+                trigger=trigger,
+                key_action=key_action,
             )
-            return snap, cache, sc_store, view, flash, event_seen
+
+            if decision.action == ACTION_CACHE_TERMINAL:
+                a, b, c, d, flash = self._handle_cache_terminal(status_cache, ui_cache)
+                return a, b, c, d, flash
+
+            if decision.action == ACTION_CLEAR_CACHE:
+                snap, cache, sc_store, view, flash = self._handle_clear_cache(status_cache)
+                return snap, cache, sc_store, view, flash
+
+            if decision.action == ACTION_GEO_RECHECK:
+                snap, cache, sc_store, view, flash = self._handle_geo_recheck(status_cache)
+                return snap, cache, sc_store, view, flash
+
+            if decision.action == ACTION_NORMAL_POLL:
+                snap, cache, sc_store, view, _flash = self._handle_normal_poll(
+                    tick_n, status_cache, ui_cache
+                )
+                return snap, cache, sc_store, view, None
+
+            return no_update, no_update, no_update, no_update, no_update
 
         @self.app.callback(
             Output("map", "figure"),
@@ -619,21 +604,16 @@ class TapMap:
             Input("model_snapshot", "data"),
             Input("status_cache", "data"),
             Input("status_flash", "data"),
-            Input("ui_view", "data"),
-            Input("tick_ui", "n_intervals"),
         )
         def render_status(
             snapshot: Any,
             status_cache_data: Any,
             status_flash: Any,
-            ui_view: Any,
-            _tick_ui: int,
         ) -> str:
             return render_status_text(
                 snapshot=snapshot,
                 status_cache_data=status_cache_data,
                 status_flash=status_flash,
-                now=datetime.now(),
                 myloc_label=self._myloc_label(),
                 to_int=self._to_int,
             )
@@ -658,8 +638,8 @@ class TapMap:
             Input("menu_cache_terminal", "n_clicks"),
             Input("menu_about", "n_clicks"),
             Input("menu_help", "n_clicks"),
-            Input("menu_clear", "n_clicks"),
-            Input("menu_recheck_geo", "n_clicks"),
+            Input("menu_clear_cache", "n_clicks"),
+            Input("menu_recheck_geoip", "n_clicks"),
             State("menu_open", "data"),
             prevent_initial_call=True,
         )
@@ -693,7 +673,6 @@ class TapMap:
 
         @self.app.callback(
             Output("modal_state", "data"),
-            Output("ui_event", "data"),
             Output("modal_overlay", "className"),
             Output("modal_body", "children"),
             Output("modal_body", "className"),
@@ -703,11 +682,9 @@ class TapMap:
             Input("menu_lan_local", "n_clicks"),
             Input("menu_about", "n_clicks"),
             Input("menu_help", "n_clicks"),
-            Input("menu_recheck_geo", "n_clicks"),
             Input("toggle_open_ports_system", "value", allow_optional=True),
             Input("map", "clickData"),
             Input("btn_open_data", "n_clicks", allow_optional=True),
-            Input("btn_check_databases", "n_clicks", allow_optional=True),
             Input("btn_close", "n_clicks"),
             Input("key_action", "data"),
             State("modal_state", "data"),
@@ -723,11 +700,9 @@ class TapMap:
             _lan_local_clicks: int,
             _about_clicks: int,
             _help_clicks: int,
-            _recheck_clicks: int,
             toggle_system_value: Any,
             click_data: Any,
             open_data_clicks: int | None,
-            check_db_clicks: int | None,
             _close_clicks: int,
             key_action: Any,
             modal_state_data: Any,
@@ -738,22 +713,18 @@ class TapMap:
             trigger = ctx.triggered_id
             geo_path = str(self.ctx.geo_data_dir)
             now_iso = datetime.now().isoformat()
-            current_state = (
-                modal_state_data if isinstance(modal_state_data, dict) else None
-            )
+
+            current_state = modal_state_data if isinstance(modal_state_data, dict) else None
             is_open = current_state is not None
             current_screen = (
                 current_state.get("screen")
                 if isinstance(current_state, dict)
                 else None
             )
-            action = None
 
+            action = None
             if trigger == "key_action" and isinstance(key_action, dict):
-                action = key_action.get("action")            
-            
-            def make_state(screen: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
-                return {"screen": screen, "t": datetime.now().isoformat(), "payload": payload or {}}
+                action = key_action.get("action")
 
             show_system = self._toggle_on(toggle_system_value)
 
@@ -765,19 +736,17 @@ class TapMap:
                 is_geo_enabled=self._is_geo_enabled(snapshot),
                 missing_geo_screen=self.SCR_MISSING_GEO_DB,
             )
-
             if close_decision is not None:
-                new_state = close_decision.modal_state
-                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
-                overlay_open = new_state is not None
+                next_state = close_decision.modal_state
+                children, body_class = self._render_modal(next_state, snapshot, ui_view, geo_path)
+                overlay_open = next_state is not None
                 return (
-                    new_state,
-                    close_decision.ui_event,
+                    next_state,
                     self._modal_overlay_class(overlay_open),
                     children,
-                    class_name,
+                    body_class,
                 )
-            
+
             screen_change = decide_screen_change(
                 trigger=trigger,
                 is_open=is_open,
@@ -785,79 +754,47 @@ class TapMap:
                 show_system=show_system,
                 action=action,
                 menu_screens=self.MENU_SCREENS,
-                menu_commands=self.MENU_COMMANDS,
                 open_ports_prefs=(
                     open_ports_prefs_data
                     if isinstance(open_ports_prefs_data, dict)
                     else None
                 ),
             )
-
             if screen_change is not None:
-                new_state = {
+                next_state = {
                     "screen": screen_change["screen"],
-                    "t": datetime.now().isoformat(),
+                    "t": now_iso,
                     "payload": screen_change.get("payload", {}),
                 }
-                children, class_name = self._render_modal(new_state, snapshot, ui_view, geo_path)
+                children, body_class = self._render_modal(next_state, snapshot, ui_view, geo_path)
                 return (
-                    new_state,
-                    None,
+                    next_state,
                     self._modal_overlay_class(True),
                     children,
-                    class_name,
-                )            
+                    body_class,
+                )
 
             if trigger == "btn_open_data":
                 if isinstance(open_data_clicks, int) and open_data_clicks >= 1:
                     open_folder(Path(geo_path))
-                return no_update, None, no_update, no_update, no_update
-
-            geo_decision = decide_geo_recheck(
-                trigger=trigger,
-                check_db_clicks=check_db_clicks,
-                evt_type=self.EVT_GEO_RECHECK,
-                now_iso=now_iso,
-            )
-
-            if geo_decision is not None:
-                return (
-                    no_update,
-                    geo_decision.ui_event,
-                    no_update,
-                    no_update,
-                    no_update,
-                )
-
-            if trigger == "menu_recheck_geo":
-                return (
-                    no_update,
-                    {"type": self.EVT_GEO_RECHECK, "t": datetime.now().isoformat()},
-                    no_update,
-                    no_update,
-                    no_update,
-                )
+                return no_update, no_update, no_update, no_update
 
             map_decision = decide_map_click(
                 trigger=trigger,
                 click_data=click_data,
                 now_iso=now_iso,
             )
-
             if map_decision is not None:
-                new_state = map_decision.modal_state
-                children, class_name = self._render_modal(
-                    new_state, snapshot, ui_view, geo_path
-                )
+                next_state = map_decision.modal_state
+                children, body_class = self._render_modal(next_state, snapshot, ui_view, geo_path)
                 return (
-                    new_state,
-                    None,
+                    next_state,
                     self._modal_overlay_class(True),
                     children,
-                    class_name,
+                    body_class,
                 )
-            
-            return no_update, None, no_update, no_update, no_update
+
+            return no_update, no_update, no_update, no_update
         
         @self.app.callback(
             Output("open_ports_prefs", "data"),
@@ -866,7 +803,7 @@ class TapMap:
             prevent_initial_call=True,
         )
         def open_ports_toggle(toggle_value: Any, prefs_data: Any) -> dict[str, Any]:
-            return set_show_system_pref(toggle_value=toggle_value, prefs_data=prefs_data)
+            return set_show_system_pref(toggle_value=toggle_value, prefs_data=prefs_data)   
 
     def run(self) -> None:
         """Start the Dash server and launch the local UI."""

@@ -1,3 +1,8 @@
+"""Modal state transition logic.
+
+Provide pure decision functions for closing,
+opening, and switching modal screens.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -6,9 +11,8 @@ from typing import Any
 
 @dataclass(frozen=True)
 class ModalDecision:
-    """Describe next modal state and optional UI event."""
+    """Describe the next modal_state value for the modal controller."""
     modal_state: dict[str, Any] | None
-    ui_event: dict[str, Any] | None
 
 
 def decide_close(
@@ -20,22 +24,24 @@ def decide_close(
     is_geo_enabled: bool,
     missing_geo_screen: str,
 ) -> ModalDecision | None:
-    """Return close decision for modal overlay.
+    """Decide whether the modal should close.
 
-    Return None if no close decision applies.
+    Return ModalDecision(modal_state=None) to close the modal.
+    Return None if no close rule applies.
     """
+    # Auto close the missing Geo DB modal once GeoIP is enabled.
     if (
         is_open
         and current_screen == missing_geo_screen
         and is_geo_enabled
     ):
-        return ModalDecision(modal_state=None, ui_event=None)
+        return ModalDecision(modal_state=None)
 
     if trigger == "btn_close" and is_open:
-        return ModalDecision(modal_state=None, ui_event=None)
+        return ModalDecision(modal_state=None)
 
     if trigger == "key_action" and action == "escape" and is_open:
-        return ModalDecision(modal_state=None, ui_event=None)
+        return ModalDecision(modal_state=None)
 
     return None
 
@@ -47,14 +53,14 @@ def decide_screen_change(
     show_system: bool,
     action: Any,
     menu_screens: set[str],
-    menu_commands: set[str],
     open_ports_prefs: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
-    """Return new modal_state for screen transitions.
+    """Decide whether the modal should switch to a different screen.
 
+    Return a partial modal_state dict with "screen" and optional "payload".
     Return None if no screen change applies.
     """
-    # Keyboard open modal
+    # Open a modal screen from keyboard action.
     if trigger == "key_action" and isinstance(action, str) and action in menu_screens:
         screen = action
         payload: dict[str, Any] = {}
@@ -68,7 +74,7 @@ def decide_screen_change(
             "payload": payload,
         }
 
-    # Toggle inside Open Ports modal
+    # Update Open Ports payload when the toggle changes.
     if trigger == "toggle_open_ports_system":
         if not is_open or current_screen != "menu_open_ports":
             return None
@@ -78,7 +84,7 @@ def decide_screen_change(
             "payload": {"show_system": show_system},
         }
 
-    # Open modal from menu_* click
+    # Open a modal screen from menu click.
     if trigger in menu_screens:
         screen = str(trigger)
         payload: dict[str, Any] = {}
@@ -100,10 +106,9 @@ def decide_map_click(
     click_data: Any,
     now_iso: str,
 ) -> ModalDecision | None:
-    """Return modal decision for map click.
+    """Open the map_click modal for valid map click data.
 
-    Open the map_click screen when the map is clicked
-    and click_data is present. Return None otherwise.
+    Return ModalDecision for the map_click screen, or None if not applicable.
     """
     if trigger != "map":
         return None
@@ -117,28 +122,4 @@ def decide_map_click(
             "t": now_iso,
             "payload": {"click_data": click_data},
         },
-        ui_event=None,
-    )
-
-def decide_geo_recheck(
-    *,
-    trigger: Any,
-    check_db_clicks: int | None,
-    evt_type: str,
-    now_iso: str,
-) -> ModalDecision | None:
-    """Return modal decision for GeoIP recheck request.
-
-    Emit EVT_GEO_RECHECK event when the check databases
-    button is triggered. Return None otherwise.
-    """
-    if trigger != "btn_check_databases":
-        return None
-
-    if not isinstance(check_db_clicks, int) or check_db_clicks < 1:
-        return None
-
-    return ModalDecision(
-        modal_state=None,
-        ui_event={"type": evt_type, "t": now_iso},
     )

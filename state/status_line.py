@@ -1,6 +1,10 @@
+"""Status line rendering logic.
+
+Build human readable status text from
+snapshot, cache state, and flash messages.
+"""
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any
 
 from ui.status_cache import StatusCache
@@ -11,20 +15,13 @@ def render_status_text(
     snapshot: Any,
     status_cache_data: Any,
     status_flash: Any,
-    now: datetime,
     myloc_label: str,
     to_int: Any,
 ) -> str:
     """Render status bar text."""
     if isinstance(status_flash, dict):
         message = status_flash.get("message")
-        until = status_flash.get("until")
-        if (
-            isinstance(message, str)
-            and message
-            and isinstance(until, (int, float))
-            and now.timestamp() < float(until)
-        ):
+        if isinstance(message, str) and message:
             return message
 
     status_cache = StatusCache.from_store(status_cache_data)
