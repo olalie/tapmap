@@ -1,3 +1,22 @@
+"""Dash application entry point for TapMap.
+
+This module wires together:
+
+- model: runtime state and data collection (snapshot, GeoIP reload, caches)
+- state: pure decision logic (no Dash code)
+- ui: rendering helpers (map, modal, status text)
+
+tapmap.py contains Dash callback wiring and controller code only.
+Deterministic state transitions live in the state package.
+
+Dash callbacks return multiple values because each Output property
+requires one return value. For example, modal_controller returns:
+
+    modal_state
+    modal_overlay className
+    modal_body children
+    modal_body className
+"""
 from __future__ import annotations
 
 import logging
@@ -682,10 +701,10 @@ class TapMap:
             Input("menu_lan_local", "n_clicks"),
             Input("menu_about", "n_clicks"),
             Input("menu_help", "n_clicks"),
+            Input("btn_close", "n_clicks"),
             Input("toggle_open_ports_system", "value", allow_optional=True),
             Input("map", "clickData"),
             Input("btn_open_data", "n_clicks", allow_optional=True),
-            Input("btn_close", "n_clicks"),
             Input("key_action", "data"),
             State("modal_state", "data"),
             State("model_snapshot", "data"),
@@ -700,10 +719,10 @@ class TapMap:
             _lan_local_clicks: int,
             _about_clicks: int,
             _help_clicks: int,
+            _close_clicks: int,
             toggle_system_value: Any,
             click_data: Any,
             open_data_clicks: int | None,
-            _close_clicks: int,
             key_action: Any,
             modal_state_data: Any,
             snapshot: Any,
@@ -712,7 +731,14 @@ class TapMap:
         ):
             trigger = ctx.triggered_id
             geo_path = str(self.ctx.geo_data_dir)
-            now_iso = datetime.now().isoformat()
+
+            def _apply_modal_state(next_state: dict[str, Any] | None) -> tuple[Any, Any, Any, Any]:
+                children, body_class = self._render_modal(next_state, snapshot, ui_view, geo_path)
+                overlay_open = next_state is not None
+                overlay_class = self._modal_overlay_class(overlay_open)
+                return next_state, overlay_class, children, body_class          
+
+
             current_state = modal_state_data if isinstance(modal_state_data, dict) else None
             is_open = current_state is not None
             current_screen = (
@@ -721,18 +747,9 @@ class TapMap:
                 else None
             )
 
-            def _apply_modal_state(next_state: dict[str, Any] | None) -> tuple[Any, Any, Any, Any]:
-                children, body_class = self._render_modal(next_state, snapshot, ui_view, geo_path)
-                overlay_open = next_state is not None
-                overlay_class = self._modal_overlay_class(overlay_open)
-                return next_state, overlay_class, children, body_class
-            
-
             action = None
             if trigger == "key_action" and isinstance(key_action, dict):
                 action = key_action.get("action")
-
-            show_system = self._toggle_on(toggle_system_value)
 
             close_decision = decide_close(
                 trigger=trigger,
@@ -742,10 +759,10 @@ class TapMap:
                 is_geo_enabled=self._is_geo_enabled(snapshot),
                 missing_geo_screen=self.SCR_MISSING_GEO_DB,
             )
-
             if close_decision is not None:
                 return _apply_modal_state(close_decision.modal_state)
-
+            
+            show_system = self._toggle_on(toggle_system_value)
             screen_change = decide_screen_change(
                 trigger=trigger,
                 is_open=is_open,
@@ -759,7 +776,8 @@ class TapMap:
                     else None
                 ),
             )
-
+            
+            now_iso = datetime.now().isoformat()
             if screen_change is not None:
                 next_state = {
                     "screen": screen_change["screen"],
@@ -778,7 +796,7 @@ class TapMap:
                 click_data=click_data,
                 now_iso=now_iso,
             )
-            
+
             if map_decision is not None:
                 return _apply_modal_state(map_decision.modal_state)
 
