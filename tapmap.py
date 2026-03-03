@@ -713,7 +713,6 @@ class TapMap:
             trigger = ctx.triggered_id
             geo_path = str(self.ctx.geo_data_dir)
             now_iso = datetime.now().isoformat()
-
             current_state = modal_state_data if isinstance(modal_state_data, dict) else None
             is_open = current_state is not None
             current_screen = (
@@ -721,6 +720,13 @@ class TapMap:
                 if isinstance(current_state, dict)
                 else None
             )
+
+            def _apply_modal_state(next_state: dict[str, Any] | None) -> tuple[Any, Any, Any, Any]:
+                children, body_class = self._render_modal(next_state, snapshot, ui_view, geo_path)
+                overlay_open = next_state is not None
+                overlay_class = self._modal_overlay_class(overlay_open)
+                return next_state, overlay_class, children, body_class
+            
 
             action = None
             if trigger == "key_action" and isinstance(key_action, dict):
@@ -736,16 +742,9 @@ class TapMap:
                 is_geo_enabled=self._is_geo_enabled(snapshot),
                 missing_geo_screen=self.SCR_MISSING_GEO_DB,
             )
+
             if close_decision is not None:
-                next_state = close_decision.modal_state
-                children, body_class = self._render_modal(next_state, snapshot, ui_view, geo_path)
-                overlay_open = next_state is not None
-                return (
-                    next_state,
-                    self._modal_overlay_class(overlay_open),
-                    children,
-                    body_class,
-                )
+                return _apply_modal_state(close_decision.modal_state)
 
             screen_change = decide_screen_change(
                 trigger=trigger,
@@ -760,19 +759,14 @@ class TapMap:
                     else None
                 ),
             )
+
             if screen_change is not None:
                 next_state = {
                     "screen": screen_change["screen"],
                     "t": now_iso,
                     "payload": screen_change.get("payload", {}),
                 }
-                children, body_class = self._render_modal(next_state, snapshot, ui_view, geo_path)
-                return (
-                    next_state,
-                    self._modal_overlay_class(True),
-                    children,
-                    body_class,
-                )
+                return _apply_modal_state(next_state)
 
             if trigger == "btn_open_data":
                 if isinstance(open_data_clicks, int) and open_data_clicks >= 1:
@@ -784,15 +778,9 @@ class TapMap:
                 click_data=click_data,
                 now_iso=now_iso,
             )
+            
             if map_decision is not None:
-                next_state = map_decision.modal_state
-                children, body_class = self._render_modal(next_state, snapshot, ui_view, geo_path)
-                return (
-                    next_state,
-                    self._modal_overlay_class(True),
-                    children,
-                    body_class,
-                )
+                return _apply_modal_state(map_decision.modal_state)
 
             return no_update, no_update, no_update, no_update
         
