@@ -49,11 +49,11 @@ from state.poll import (
     ACTION_NORMAL_POLL,
     decide_poll_action,
 )
+from state.status_cache import StatusCache
 from state.status_line import render_status_text
 from ui.cache_view import CacheViewBuilder
 from ui.map_view import MapUI
 from ui.modal_view import ModalTextBuilder
-from state.status_cache import StatusCache
 
 LonLat = tuple[float, float]
 
@@ -74,11 +74,7 @@ class TapMap:
     DEBUG_COORDS = False
     DEBUG_COORDS_EVERY_N_TICKS = 6
 
-    MODEL_TICK_MS = 5000
-    UI_TICK_MS = 500
-
-    FLASH_SHORT_S = 1.5
-    FLASH_LONG_S = 3.0
+    MIN_FLASH_S = 3.0
 
     SCR_MISSING_GEO_DB = "missing_geo_db"
 
@@ -200,7 +196,7 @@ class TapMap:
                         "pointerEvents": "none",
                     },
                 ),
-                dcc.Interval(id="tick_status", interval=self.MODEL_TICK_MS, n_intervals=0),
+                dcc.Interval(id="tick_model", interval=POLL_INTERVAL_MS, n_intervals=0),
                 dcc.Graph(
                     id="map",
                     figure=start_fig,
@@ -342,6 +338,8 @@ class TapMap:
 
         if MY_LOCATION == "auto":
             if not getattr(self.model.geoinfo, "city_enabled", False):
+                self._public_ip_cached = None
+                self._auto_geo_cached = {}
                 return []
 
             for ip in iter_public_ip_candidates(timeout_s=2.0):
@@ -354,6 +352,10 @@ class TapMap:
                     self._public_ip_cached = ip
                     self._auto_geo_cached = dict(geo_dict)
                     return [(float(lon), float(lat))]
+
+            self._public_ip_cached = None
+            self._auto_geo_cached = {}
+            return []
 
         return []
 
@@ -389,7 +391,7 @@ class TapMap:
             view = self.view_builder.build_view_from_cache({})
             flash = self._flash(
                 "Still missing GeoLite2-City.mmdb. Copy it to the data folder and try again.",
-                self.FLASH_LONG_S,
+                self.MIN_FLASH_S,
             )
             return snap, {}, status_cache.to_store(), view, flash
 
@@ -403,7 +405,7 @@ class TapMap:
         if isinstance(snap, dict):
             snap["app_info"] = self._build_app_info()
 
-        flash = self._flash("Databases loaded. Geolocation enabled.", self.FLASH_LONG_S)
+        flash = self._flash("Databases loaded. Geolocation enabled.", self.MIN_FLASH_S)
         return snap, empty_cache, status_cache.to_store(), view, flash
 
     def _handle_clear_cache(self, status_cache: StatusCache) -> tuple[Any, Any, Any, Any, Any]:
@@ -414,14 +416,14 @@ class TapMap:
         status_cache.clear()
         empty_cache: dict[str, Any] = {}
         view = self.view_builder.build_view_from_cache(empty_cache)
-        flash = self._flash("Clearing cache...", self.FLASH_SHORT_S)
+        flash = self._flash("Clearing cache...", self.MIN_FLASH_S)
         return snap, empty_cache, status_cache.to_store(), view, flash
 
     def _handle_cache_terminal(
         self, status_cache: StatusCache, ui_cache: dict[str, Any]
     ) -> tuple[Any, Any, Any, Any, Any]:
         status_cache.log_cache(ui_cache, title="UI CACHE")
-        flash = self._flash("Cache shown in terminal.", self.FLASH_SHORT_S)
+        flash = self._flash("Cache shown in terminal.", self.MIN_FLASH_S)
         return no_update, no_update, no_update, no_update, flash
 
     def _handle_normal_poll(
@@ -430,7 +432,7 @@ class TapMap:
         snap = self.model.snapshot()
         if not isinstance(snap, dict):
             view = self.view_builder.build_view_from_cache(ui_cache)
-            flash = self._flash("Model snapshot is invalid. See terminal.", self.FLASH_LONG_S)
+            flash = self._flash("Model snapshot is invalid. See terminal.", self.MIN_FLASH_S)
             return {"error": True}, ui_cache, status_cache.to_store(), view, flash
 
         snap["app_info"] = self._build_app_info()
@@ -559,7 +561,7 @@ class TapMap:
             Output("status_cache", "data"),
             Output("ui_view", "data"),
             Output("status_flash", "data"),
-            Input("tick_status", "n_intervals"),
+            Input("tick_model", "n_intervals"),
             Input("key_action", "data"),
             Input("menu_clear_cache", "n_clicks"),
             Input("menu_cache_terminal", "n_clicks"),
@@ -567,6 +569,7 @@ class TapMap:
             Input("btn_check_databases", "n_clicks", allow_optional=True),
             State("ui_cache", "data"),
             State("status_cache", "data"),
+            State("status_flash", "data"),
             prevent_initial_call=False,
         )
         def poll_model(
@@ -578,6 +581,7 @@ class TapMap:
             _check_db_clicks: int | None,
             ui_cache_data: Any,
             status_cache_data: Any,
+            status_flash_data: Any,
         ):
             status_cache = StatusCache.from_store(status_cache_data)
             ui_cache = self._ensure_dict(ui_cache_data)
@@ -603,6 +607,13 @@ class TapMap:
                 snap, cache, sc_store, view, _flash = self._handle_normal_poll(
                     tick_n, status_cache, ui_cache
                 )
+
+                now = datetime.now().timestamp()
+                if isinstance(status_flash_data, dict):
+                    until = status_flash_data.get("until")
+                    if isinstance(until, (int, float)) and now < until:
+                        return snap, cache, sc_store, view, no_update
+
                 return snap, cache, sc_store, view, None
 
             return no_update, no_update, no_update, no_update, no_update
@@ -665,7 +676,7 @@ class TapMap:
             Output("modal_overlay", "className"),
             Output("modal_body", "children"),
             Output("modal_body", "className"),
-            Input("tick_status", "n_intervals"),
+            Input("tick_model", "n_intervals"),
             Input("menu_open_ports", "n_clicks"),
             Input("menu_unmapped", "n_clicks"),
             Input("menu_lan_local", "n_clicks"),
