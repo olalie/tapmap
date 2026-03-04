@@ -53,7 +53,7 @@ from state.status_line import render_status_text
 from ui.cache_view import CacheViewBuilder
 from ui.map_view import MapUI
 from ui.modal_view import ModalTextBuilder
-from ui.status_cache import StatusCache
+from state.status_cache import StatusCache
 
 LonLat = tuple[float, float]
 
@@ -778,15 +778,15 @@ class TapMap:
         def render_map(ui_view: Any) -> Any:
             view = self._ensure_dict(ui_view)
 
-            raw_points = view.get("points")
-            if not raw_points:
+            if "points" not in view:
                 return no_update
 
-            points = self._ensure_list(raw_points)
-            if not points:
-                return no_update
-
+            points = self._ensure_list(view.get("points"))
             summaries = self._ensure_dict(view.get("summaries"))
+
+            if not points:
+                return self.ui.create_figure(([], self.my_location), summaries=summaries)
+
             return self.ui.create_figure((points, self.my_location), summaries=summaries)
 
         @self.app.callback(

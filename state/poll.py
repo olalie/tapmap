@@ -13,6 +13,8 @@ ACTION_CLEAR_CACHE = "clear_cache"
 ACTION_CACHE_TERMINAL = "cache_terminal"
 ACTION_NORMAL_POLL = "normal_poll"
 
+RECHECK_TRIGGERS = {"menu_recheck_geoip", "btn_check_databases"}
+
 
 @dataclass(frozen=True)
 class PollDecision:
@@ -33,8 +35,6 @@ def decide_poll_action(*, trigger: Any, key_action: Any) -> PollDecision:
 
     Handles direct menu clicks and keyboard actions. Otherwise returns normal_poll.
     """
-    RECHECK_TRIGGERS = {"menu_recheck_geoip", "btn_check_databases"}
-
     if trigger in RECHECK_TRIGGERS:
         return PollDecision(action=ACTION_GEO_RECHECK)
 
