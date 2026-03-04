@@ -17,6 +17,7 @@ requires one return value. For example, modal_controller returns:
     modal_body children
     modal_body className
 """
+
 from __future__ import annotations
 
 import logging
@@ -63,7 +64,7 @@ class TapMap:
     """Coordinate Dash callbacks, model polling, and UI state."""
 
     MENU_SCREENS: ClassVar[frozenset[str]] = frozenset(
-        {"menu_unmapped", "menu_lan_local", "menu_open_ports","menu_help", "menu_about"}
+        {"menu_unmapped", "menu_lan_local", "menu_open_ports", "menu_help", "menu_about"}
     )
     MENU_COMMANDS: ClassVar[frozenset[str]] = frozenset(
         {"menu_clear_cache", "menu_cache_terminal", "menu_recheck_geoip"}
@@ -233,9 +234,7 @@ class TapMap:
                                 self._menu_button(
                                     "Show established LAN/LOCAL services (L)", "menu_lan_local"
                                 ),
-                                self._menu_button(
-                                    "Show open ports (O)", "menu_open_ports"
-                                ),
+                                self._menu_button("Show open ports (O)", "menu_open_ports"),
                                 self._menu_button(
                                     "Show cache in terminal (T)", "menu_cache_terminal"
                                 ),
@@ -609,44 +608,6 @@ class TapMap:
             return no_update, no_update, no_update, no_update, no_update
 
         @self.app.callback(
-            Output("map", "figure"),
-            Input("ui_view", "data"),
-        )
-        def render_map(ui_view: Any) -> Any:
-            view = self._ensure_dict(ui_view)
-            points = self._ensure_list(view.get("points"))
-            summaries = self._ensure_dict(view.get("summaries"))
-            return self.ui.create_figure((points, self.my_location), summaries=summaries)
-
-        @self.app.callback(
-            Output("status_bar", "children"),
-            Input("model_snapshot", "data"),
-            Input("status_cache", "data"),
-            Input("status_flash", "data"),
-        )
-        def render_status(
-            snapshot: Any,
-            status_cache_data: Any,
-            status_flash: Any,
-        ) -> str:
-            return render_status_text(
-                snapshot=snapshot,
-                status_cache_data=status_cache_data,
-                status_flash=status_flash,
-                myloc_label=self._myloc_label(),
-                to_int=self._to_int,
-            )
-
-        @self.app.callback(
-            Output("menu_panel", "className"),
-            Output("menu_overlay", "className"),
-            Input("menu_open", "data"),
-        )
-        def show_hide_menu(is_open: Any) -> tuple[str, str]:
-            open_flag = bool(is_open)
-            return self._menu_panel_class(open_flag), self._menu_overlay_class(open_flag)
-
-        @self.app.callback(
             Output("menu_open", "data"),
             Input("btn_menu", "n_clicks"),
             Input("menu_overlay", "n_clicks"),
@@ -689,6 +650,15 @@ class TapMap:
             if next_state is None:
                 return no_update
             return next_state
+
+        @self.app.callback(
+            Output("menu_panel", "className"),
+            Output("menu_overlay", "className"),
+            Input("menu_open", "data"),
+        )
+        def show_hide_menu(is_open: Any) -> tuple[str, str]:
+            open_flag = bool(is_open)
+            return self._menu_panel_class(open_flag), self._menu_overlay_class(open_flag)
 
         @self.app.callback(
             Output("modal_state", "data"),
@@ -751,9 +721,7 @@ class TapMap:
             current_state = modal_state_data if isinstance(modal_state_data, dict) else None
             is_open = current_state is not None
             current_screen = (
-                current_state.get("screen")
-                if isinstance(current_state, dict)
-                else None
+                current_state.get("screen") if isinstance(current_state, dict) else None
             )
 
             # Normalize keyboard action payload.
@@ -764,9 +732,7 @@ class TapMap:
             # Delegate routing decisions to the state layer.
             now_iso = datetime.now().isoformat()
             open_ports_prefs = (
-                open_ports_prefs_data
-                if isinstance(open_ports_prefs_data, dict)
-                else None
+                open_ports_prefs_data if isinstance(open_ports_prefs_data, dict) else None
             )
             route = decide_modal_route(
                 trigger=trigger,
@@ -795,7 +761,7 @@ class TapMap:
                 # fall through to default no_update return
 
             return no_update, no_update, no_update, no_update
-        
+
         @self.app.callback(
             Output("open_ports_prefs", "data"),
             Input("toggle_open_ports_system", "value", allow_optional=True),
@@ -803,7 +769,36 @@ class TapMap:
             prevent_initial_call=True,
         )
         def open_ports_toggle(toggle_value: Any, prefs_data: Any) -> dict[str, Any]:
-            return set_show_system_pref(toggle_value=toggle_value, prefs_data=prefs_data)   
+            return set_show_system_pref(toggle_value=toggle_value, prefs_data=prefs_data)
+
+        @self.app.callback(
+            Output("map", "figure"),
+            Input("ui_view", "data"),
+        )
+        def render_map(ui_view: Any) -> Any:
+            view = self._ensure_dict(ui_view)
+            points = self._ensure_list(view.get("points"))
+            summaries = self._ensure_dict(view.get("summaries"))
+            return self.ui.create_figure((points, self.my_location), summaries=summaries)
+
+        @self.app.callback(
+            Output("status_bar", "children"),
+            Input("model_snapshot", "data"),
+            Input("status_cache", "data"),
+            Input("status_flash", "data"),
+        )
+        def render_status(
+            snapshot: Any,
+            status_cache_data: Any,
+            status_flash: Any,
+        ) -> str:
+            return render_status_text(
+                snapshot=snapshot,
+                status_cache_data=status_cache_data,
+                status_flash=status_flash,
+                myloc_label=self._myloc_label(),
+                to_int=self._to_int,
+            )
 
     def run(self) -> None:
         """Start the Dash server and launch the local UI."""
