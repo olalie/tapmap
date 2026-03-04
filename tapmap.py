@@ -777,7 +777,15 @@ class TapMap:
         )
         def render_map(ui_view: Any) -> Any:
             view = self._ensure_dict(ui_view)
-            points = self._ensure_list(view.get("points"))
+
+            raw_points = view.get("points")
+            if not raw_points:
+                return no_update
+
+            points = self._ensure_list(raw_points)
+            if not points:
+                return no_update
+
             summaries = self._ensure_dict(view.get("summaries"))
             return self.ui.create_figure((points, self.my_location), summaries=summaries)
 
