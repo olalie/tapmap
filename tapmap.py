@@ -39,7 +39,7 @@ from model.public_ip import iter_public_ip_candidates
 from runtime import AppMeta, RuntimeContext, build_runtime
 from state.keyboard import build_key_action
 from state.menu import compute_menu_open_state
-from state.modal import decide_close, decide_map_click, decide_screen_change
+from state.modal import decide_modal_route
 from state.open_ports_prefs import set_show_system_pref
 from state.poll import (
     ACTION_CACHE_TERMINAL,
@@ -702,6 +702,7 @@ class TapMap:
             Input("menu_about", "n_clicks"),
             Input("menu_help", "n_clicks"),
             Input("btn_close", "n_clicks"),
+            Input("btn_check_databases", "n_clicks", allow_optional=True),
             Input("toggle_open_ports_system", "value", allow_optional=True),
             Input("map", "clickData"),
             Input("btn_open_data", "n_clicks", allow_optional=True),
@@ -720,6 +721,7 @@ class TapMap:
             _about_clicks: int,
             _help_clicks: int,
             _close_clicks: int,
+            _check_db_clicks: int | None,
             toggle_system_value: Any,
             click_data: Any,
             open_data_clicks: int | None,
@@ -729,16 +731,23 @@ class TapMap:
             ui_view: Any,
             open_ports_prefs_data: Any,
         ):
+            # Identify which Dash Input triggered this callback.
             trigger = ctx.triggered_id
             geo_path = str(self.ctx.geo_data_dir)
 
+            # Apply a modal_state to the UI by rendering and updating overlay classes.
             def _apply_modal_state(next_state: dict[str, Any] | None) -> tuple[Any, Any, Any, Any]:
                 children, body_class = self._render_modal(next_state, snapshot, ui_view, geo_path)
                 overlay_open = next_state is not None
                 overlay_class = self._modal_overlay_class(overlay_open)
-                return next_state, overlay_class, children, body_class          
+                return next_state, overlay_class, children, body_class
 
+            # Close About immediately when the GeoIP recheck button is pressed.
+            # The actual recheck work is executed by poll_model.
+            if trigger == "btn_check_databases":
+                return _apply_modal_state(None)
 
+            # Normalize current modal state.
             current_state = modal_state_data if isinstance(modal_state_data, dict) else None
             is_open = current_state is not None
             current_screen = (
@@ -747,58 +756,43 @@ class TapMap:
                 else None
             )
 
+            # Normalize keyboard action payload.
             action = None
             if trigger == "key_action" and isinstance(key_action, dict):
                 action = key_action.get("action")
 
-            close_decision = decide_close(
+            # Delegate routing decisions to the state layer.
+            now_iso = datetime.now().isoformat()
+            open_ports_prefs = (
+                open_ports_prefs_data
+                if isinstance(open_ports_prefs_data, dict)
+                else None
+            )
+            route = decide_modal_route(
                 trigger=trigger,
                 is_open=is_open,
                 current_screen=current_screen if isinstance(current_screen, str) else None,
                 action=action,
+                show_system=self._toggle_on(toggle_system_value),
+                menu_screens=self.MENU_SCREENS,
+                open_ports_prefs=open_ports_prefs,
+                click_data=click_data,
                 is_geo_enabled=self._is_geo_enabled(snapshot),
                 missing_geo_screen=self.SCR_MISSING_GEO_DB,
-            )
-            if close_decision is not None:
-                return _apply_modal_state(close_decision.modal_state)
-            
-            show_system = self._toggle_on(toggle_system_value)
-            screen_change = decide_screen_change(
-                trigger=trigger,
-                is_open=is_open,
-                current_screen=current_screen if isinstance(current_screen, str) else None,
-                show_system=show_system,
-                action=action,
-                menu_screens=self.MENU_SCREENS,
-                open_ports_prefs=(
-                    open_ports_prefs_data
-                    if isinstance(open_ports_prefs_data, dict)
-                    else None
-                ),
-            )
-            
-            now_iso = datetime.now().isoformat()
-            if screen_change is not None:
-                next_state = {
-                    "screen": screen_change["screen"],
-                    "t": now_iso,
-                    "payload": screen_change.get("payload", {}),
-                }
-                return _apply_modal_state(next_state)
-
-            if trigger == "btn_open_data":
-                if isinstance(open_data_clicks, int) and open_data_clicks >= 1:
-                    open_folder(Path(geo_path))
-                return no_update, no_update, no_update, no_update
-
-            map_decision = decide_map_click(
-                trigger=trigger,
-                click_data=click_data,
                 now_iso=now_iso,
             )
 
-            if map_decision is not None:
-                return _apply_modal_state(map_decision.modal_state)
+            # Execute the decided route.
+            if route.action == "apply":
+                return _apply_modal_state(route.modal_state)
+
+            if (
+                route.action == "open_data"
+                and isinstance(open_data_clicks, int)
+                and open_data_clicks >= 1
+            ):
+                open_folder(Path(geo_path))
+                # fall through to default no_update return
 
             return no_update, no_update, no_update, no_update
         
