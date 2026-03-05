@@ -226,8 +226,56 @@ class StatusCache:
             out.add((p, ip, port_i, owner_s))
         return out
 
-    def log_cache(self, ui_cache: dict[str, Any], *, title: str = "UI CACHE") -> None:
-        """Log a readable UI cache snapshot."""
+    @staticmethod
+    def _safe_str(value: Any) -> str:
+        """Return empty string for None, else str(value)."""
+        return "" if value is None else str(value)
+
+    @staticmethod
+    def _key_ip_port(key: Any) -> tuple[str, int]:
+        """Extract (ip, port) sort key from 'ip|port' service key."""
+        if not isinstance(key, str):
+            return ("", -1)
+
+        ip, _, port_s = key.partition("|")
+        try:
+            return (ip, int(port_s))
+        except ValueError:
+            return (ip, -1)
+
+    @staticmethod
+    def _format_procs_with_pids(entry: dict[str, Any]) -> str:
+        """Format process list with optional PID values."""
+        def to_name(v: Any) -> str:
+            s = StatusCache._safe_str(v).strip()
+            return s
+
+        processes = entry.get("processes")
+        names = [to_name(x) for x in processes] if isinstance(processes, list) else []
+        names = [n for n in names if n]
+        if not names:
+            return "-"
+
+        proc_pids_raw = entry.get("proc_pids")
+        proc_pids: dict[str, list[int]] = proc_pids_raw if isinstance(proc_pids_raw, dict) else {}
+
+        parts: list[str] = []
+        for name in sorted(set(names), key=str.lower):
+            pids_raw = proc_pids.get(name)
+            pids = (
+                sorted({int(x) for x in pids_raw if isinstance(x, int) and x > 0})
+                if isinstance(pids_raw, list)
+                else []
+            )
+            if pids:
+                parts.append(f"{name} (pid {', '.join(str(x) for x in pids)})")
+            else:
+                parts.append(name)
+
+        return ", ".join(parts) if parts else "-"
+
+    def show_ui_cache(self, ui_cache: dict[str, Any], *, title: str = "UI CACHE") -> None:
+        """Show UI cache snapshot in terminal log."""
         logger = logging.getLogger("tapmap.cache")
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -242,41 +290,27 @@ class StatusCache:
             logger.info("\n".join(lines))
             return
 
-        def safe_str(v: Any) -> str:
-            return "" if v is None else str(v)
-
-        def key_ip_port(k: Any) -> tuple[str, int]:
-            if not isinstance(k, str):
-                return ("", -1)
-            ip, _, port_s = k.partition("|")
-            try:
-                return (ip, int(port_s))
-            except ValueError:
-                return (ip, -1)
-
-        for key in sorted(cache.keys(), key=key_ip_port):
+        for key in sorted(cache.keys(), key=self._key_ip_port):
             entry = cache.get(key)
             if not isinstance(entry, dict):
                 continue
 
-            ip = safe_str(entry.get("ip")) or safe_str(key).split("|", 1)[0]
+            ip = self._safe_str(entry.get("ip")) or self._safe_str(key).split("|", 1)[0]
+
             port = entry.get("port")
             port_txt = str(int(port)) if isinstance(port, int) else "-"
 
-            asn_org = safe_str(entry.get("asn_org")) or "-"
-            city = safe_str(entry.get("city")) or ""
-            country = safe_str(entry.get("country")) or ""
+            proto = self._normalize_proto(entry.get("proto"))
+
+            asn_org = self._safe_str(entry.get("asn_org")) or "-"
+            city = self._safe_str(entry.get("city")) or ""
+            country = self._safe_str(entry.get("country")) or ""
             place = ", ".join([x for x in [city, country] if x]) or "-"
 
-            processes = entry.get("processes")
-            if isinstance(processes, list):
-                proc_set = {safe_str(x) for x in processes if safe_str(x)}
-                procs_txt = ", ".join(sorted(proc_set)) or "-"
-            else:
-                procs_txt = "-"
+            procs_txt = self._format_procs_with_pids(entry)
 
+            addr = f"{ip}:{port_txt}"
             lines.append(
-                f"{ip:<40}  {asn_org}  place={place}  port={port_txt}  procs={procs_txt}"
+                f"{addr:<22} ({proto})  procs={procs_txt}  {asn_org}  place={place}"
             )
-
         logger.info("\n".join(lines))

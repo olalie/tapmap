@@ -422,7 +422,7 @@ class TapMap:
     def _handle_cache_terminal(
         self, status_cache: StatusCache, ui_cache: dict[str, Any]
     ) -> tuple[Any, Any, Any, Any, Any]:
-        status_cache.log_cache(ui_cache, title="UI CACHE")
+        status_cache.show_ui_cache(ui_cache, title="UI CACHE")
         flash = self._flash("Cache shown in terminal.", self.MIN_FLASH_S)
         return no_update, no_update, no_update, no_update, flash
 
