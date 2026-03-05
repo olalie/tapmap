@@ -9,6 +9,7 @@ Build a dark-themed world map with:
 from __future__ import annotations
 
 import logging
+import math
 from typing import Final, TypeAlias
 
 import plotly.graph_objects as go
@@ -267,8 +268,6 @@ class MapUI:
     @staticmethod
     def _haversine_km(a: LonLat, b: LonLat, radius_km: float) -> float:
         """Compute great-circle distance between two (lon, lat) points in kilometers."""
-        import math
-
         lon1, lat1 = a
         lon2, lat2 = b
 
@@ -283,23 +282,7 @@ class MapUI:
         h = sin_dlat * sin_dlat + math.cos(lat1_rad) * math.cos(lat2_rad) * sin_dlon * sin_dlon
         return 2.0 * radius_km * math.asin(min(1.0, math.sqrt(h)))
 
-    def create_figure(
-        self,
-        point_sets: PointSets,
-        summaries: dict[str, str] | None = None,
-    ) -> go.Figure:
-        """Build a world map figure.
-
-        Color rules:
-            - MAGENTA: normal remote targets and lines
-            - YELLOW: targets and lines with nearby neighbors (zoom recommended)
-            - CYAN: local marker when enabled
-        """
-        summaries = summaries or {}
-        targets, my_location = point_sets
-
-        fig = go.Figure()
-
+    def _add_world_layer(self, fig: go.Figure) -> None:
         fig.add_trace(
             go.Choropleth(
                 locations=self.COUNTRY_CODES,
@@ -314,11 +297,7 @@ class MapUI:
             )
         )
 
-        my_lon: float | None = None
-        my_lat: float | None = None
-        if my_location:
-            my_lon, my_lat = my_location[0]
-
+    def _compute_zoom_flags(self, targets: list[LonLat]) -> list[bool]:
         zoom_flags = [False] * len(targets)
         for i in range(len(targets)):
             for j in range(i + 1, len(targets)):
@@ -332,71 +311,88 @@ class MapUI:
                 ):
                     zoom_flags[i] = True
                     zoom_flags[j] = True
+        return zoom_flags
 
-        if targets and my_lon is not None and my_lat is not None:
-            for i, (lon, lat) in enumerate(targets):
-                line_color = self.COLOR_ZOOM if zoom_flags[i] else self.COLOR_NORMAL
-                fig.add_trace(
-                    go.Scattergeo(
-                        lon=[my_lon, lon],
-                        lat=[my_lat, lat],
-                        mode="lines",
-                        line=dict(width=3, color=line_color),
-                        showlegend=False,
-                        hoverinfo="skip",
-                        hovertemplate=None,
-                        customdata=[self._cd_line(i), self._cd_line(i)],
-                        name=f"line_{i}",
-                    )
-                )
-
-        if targets:
-            lons = [lon for lon, _ in targets]
-            lats = [lat for _, lat in targets]
-
-            if self.debug:
-                unique_xy = len(set(zip(lons, lats, strict=False)))
-                self.logger.debug("Figure targets: count=%s unique_xy=%s", len(lons), unique_xy)
-
-            colors: list[str] = []
-            texts: list[str] = []
-            for i in range(len(targets)):
-                colors.append(self.COLOR_ZOOM if zoom_flags[i] else self.COLOR_NORMAL)
-                base = summaries.get(str(i), f"Summary {i}")
-                texts.append(base)
-
+    def _add_connection_lines(
+        self,
+        fig: go.Figure,
+        *,
+        targets: list[LonLat],
+        my_lon: float,
+        my_lat: float,
+        zoom_flags: list[bool],
+    ) -> None:
+        for i, (lon, lat) in enumerate(targets):
+            line_color = self.COLOR_ZOOM if zoom_flags[i] else self.COLOR_NORMAL
             fig.add_trace(
                 go.Scattergeo(
-                    lon=lons,
-                    lat=lats,
-                    mode="markers",
-                    marker=dict(
-                        size=10, color=colors, symbol="circle", line=dict(width=0), opacity=1.0
-                    ),
+                    lon=[my_lon, lon],
+                    lat=[my_lat, lat],
+                    mode="lines",
+                    line=dict(width=3, color=line_color),
                     showlegend=False,
-                    hovertemplate="%{text}<extra></extra>",
-                    text=texts,
-                    customdata=[self._cd_target(i) for i in range(len(targets))],
-                    name="targets",
-                )
-            )
-
-
-        if my_lon is not None and my_lat is not None:
-            fig.add_trace(
-                go.Scattergeo(
-                    lon=[my_lon],
-                    lat=[my_lat],
-                    mode="markers",
-                    marker=dict(size=10, color=self.COLOR_ME, symbol="circle", opacity=1.0),
                     hoverinfo="skip",
                     hovertemplate=None,
-                    showlegend=False,
-                    customdata=[self._cd_me()],
-                    name="me",
+                    customdata=[self._cd_line(i), self._cd_line(i)],
+                    name=f"line_{i}",
                 )
             )
 
+    def _add_target_markers(
+        self,
+        fig: go.Figure,
+        *,
+        targets: list[LonLat],
+        summaries: dict[str, str],
+        zoom_flags: list[bool],
+    ) -> None:
+        lons = [lon for lon, _ in targets]
+        lats = [lat for _, lat in targets]
+
+        if self.debug:
+            unique_xy = len(set(zip(lons, lats, strict=False)))
+            self.logger.debug("Figure targets: count=%s unique_xy=%s", len(lons), unique_xy)
+
+        colors: list[str] = []
+        texts: list[str] = []
+        for i in range(len(targets)):
+            colors.append(self.COLOR_ZOOM if zoom_flags[i] else self.COLOR_NORMAL)
+            base = summaries.get(str(i), f"Summary {i}")
+            texts.append(base)
+
+        fig.add_trace(
+            go.Scattergeo(
+                lon=lons,
+                lat=lats,
+                mode="markers",
+                marker=dict(
+                    size=10, color=colors, symbol="circle", line=dict(width=0), opacity=1.0
+                ),
+                showlegend=False,
+                hovertemplate="%{text}<extra></extra>",
+                text=texts,
+                customdata=[self._cd_target(i) for i in range(len(targets))],
+                name="targets",
+            )
+        )
+
+    def _add_my_marker(self, fig: go.Figure, *, my_lon: float, my_lat: float) -> None:
+        fig.add_trace(
+            go.Scattergeo(
+                lon=[my_lon],
+                lat=[my_lat],
+                mode="markers",
+                marker=dict(size=10, color=self.COLOR_ME, symbol="circle", opacity=1.0),
+                hoverinfo="skip",
+                hovertemplate=None,
+                showlegend=False,
+                customdata=[self._cd_me()],
+                name="me",
+            )
+        )
+
+    @staticmethod
+    def _apply_geos(fig: go.Figure) -> None:
         fig.update_geos(
             visible=True,
             projection_type="natural earth",
@@ -410,6 +406,7 @@ class MapUI:
             uirevision="keep",
         )
 
+    def _apply_layout(self, fig: go.Figure) -> None:
         font_family = (
             "ui-monospace, SFMono-Regular, Menlo, Consolas, "
             "'Liberation Mono', 'Courier New', monospace"
@@ -433,5 +430,51 @@ class MapUI:
                 ),
             ),
         )
+
+    def create_figure(
+        self,
+        point_sets: PointSets,
+        summaries: dict[str, str] | None = None,
+    ) -> go.Figure:
+        """Build a world map figure.
+
+        Color rules:
+            - MAGENTA: normal remote targets and lines
+            - YELLOW: targets and lines with nearby neighbors (zoom recommended)
+            - CYAN: local marker when enabled
+        """
+        summaries = summaries or {}
+        targets, my_location = point_sets
+
+        fig = go.Figure()
+
+        self._add_world_layer(fig)
+
+        my_lon: float | None = None
+        my_lat: float | None = None
+        if my_location:
+            my_lon, my_lat = my_location[0]
+
+        zoom_flags = self._compute_zoom_flags(targets) if targets else []
+
+        if targets and my_lon is not None and my_lat is not None:
+            self._add_connection_lines(
+                fig,
+                targets=targets,
+                my_lon=my_lon,
+                my_lat=my_lat,
+                zoom_flags=zoom_flags,
+            )
+
+        if targets:
+            self._add_target_markers(
+                fig, targets=targets, summaries=summaries, zoom_flags=zoom_flags
+            )
+
+        if my_lon is not None and my_lat is not None:
+            self._add_my_marker(fig, my_lon=my_lon, my_lat=my_lat)
+
+        self._apply_geos(fig)
+        self._apply_layout(fig)
 
         return fig
