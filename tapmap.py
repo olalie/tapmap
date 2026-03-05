@@ -89,7 +89,7 @@ class TapMap:
             suppress_callback_exceptions=True,
         )
 
-        self.ui = MapUI(debug=self.DEBUG_COORDS)
+        self.ui = MapUI(zoom_near_km=ZOOM_NEAR_KM, debug=self.DEBUG_COORDS)
         self.view_builder = CacheViewBuilder(
             coord_precision=COORD_PRECISION,
             debug=self.DEBUG_COORDS,

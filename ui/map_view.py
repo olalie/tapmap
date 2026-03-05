@@ -13,8 +13,6 @@ from typing import Final, TypeAlias
 
 import plotly.graph_objects as go
 
-from config import ZOOM_NEAR_KM
-
 LonLat: TypeAlias = tuple[float, float]
 PointSets: TypeAlias = tuple[list[LonLat], list[LonLat]]  # (targets, my_location)
 CustomData: TypeAlias = dict[str, object]
@@ -249,7 +247,8 @@ class MapUI:
 
     EARTH_RADIUS_KM: Final[float] = 6371.0
 
-    def __init__(self, debug: bool = False) -> None:
+    def __init__(self, *, zoom_near_km: float, debug: bool = False) -> None:
+        self.zoom_near_km = zoom_near_km
         self.debug = debug
         self.logger = logging.getLogger(__name__)
 
@@ -329,7 +328,7 @@ class MapUI:
                         targets[j],
                         radius_km=self.EARTH_RADIUS_KM,
                     )
-                    <= ZOOM_NEAR_KM
+                    <= self.zoom_near_km
                 ):
                     zoom_flags[i] = True
                     zoom_flags[j] = True
