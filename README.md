@@ -1,6 +1,6 @@
 # TapMap
 
-![TapMap main view](docs/main-view.png)
+![TapMap demo](docs/demo.gif)
 
 **See where your computer connects on a live world map.**
 
@@ -122,6 +122,8 @@ Unexpected connections may indicate misconfiguration, background services, or un
 ---
 
 ## Interface
+
+![TapMap features](docs/features.gif)
 
 ### Main view
 ![Main view](docs/main-view.png)
