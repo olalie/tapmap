@@ -341,6 +341,20 @@ class ModalTextBuilder:
 
         return list(agg.values())
 
+    @staticmethod
+    def _service_sort_key(row: dict[str, Any]) -> tuple[int, int, int, str, str]:
+        """Return sort key for aggregated service rows."""
+        interesting_ports = {443, 53, 80, 3478, 22, 3389}
+
+        scope = safe_str(row.get("scope"))
+        port = safe_int(row.get("port"), default=-1)
+        proc = safe_str(row.get("process"))
+        ip = safe_str(row.get("ip"))
+        count = safe_int(row.get("count"), default=0)
+
+        port_rank = 0 if port in interesting_ports else 1
+        return (scope_rank(scope), port_rank, -count, proc.lower(), ip)
+
     @classmethod
     def _render_unmapped(cls, snapshot: Any | None) -> list[Any]:
         """Render unmapped services.
@@ -371,20 +385,9 @@ class ModalTextBuilder:
             return [header, html.Pre("(no unmapped public services)")]
 
         aggregated = cls._aggregate_service_rows(filtered)
-        interesting_ports = {443, 53, 80, 3478, 22, 3389}
-
-        def sort_key(row: dict[str, Any]) -> tuple[int, int, int, str, str]:
-            scope = safe_str(row.get("scope"))
-            port = safe_int(row.get("port"), default=-1)
-            proc = safe_str(row.get("process"))
-            ip = safe_str(row.get("ip"))
-            count = safe_int(row.get("count"), default=0)
-
-            port_rank = 0 if port in interesting_ports else 1
-            return (scope_rank(scope), port_rank, -count, proc.lower(), ip)
-
         body_rows: list[Any] = []
-        for row in sorted(aggregated, key=sort_key):
+
+        for row in sorted(aggregated, key=cls._service_sort_key):
             scope = safe_str(row.get("scope"))
             ip = safe_str(row.get("ip"))
             port = safe_int(row.get("port"), default=-1)
@@ -464,20 +467,9 @@ class ModalTextBuilder:
             return [header, html.Pre("(no LAN/LOCAL services)")]
 
         aggregated = cls._aggregate_service_rows(filtered)
-        interesting_ports = {443, 53, 80, 3478, 22, 3389}
-
-        def sort_key(row: dict[str, Any]) -> tuple[int, int, int, str, str]:
-            scope = safe_str(row.get("scope"))
-            port = safe_int(row.get("port"), default=-1)
-            proc = safe_str(row.get("process"))
-            ip = safe_str(row.get("ip"))
-            count = safe_int(row.get("count"), default=0)
-
-            port_rank = 0 if port in interesting_ports else 1
-            return (scope_rank(scope), port_rank, -count, proc.lower(), ip)
-
         body_rows: list[Any] = []
-        for row in sorted(aggregated, key=sort_key):
+
+        for row in sorted(aggregated, key=cls._service_sort_key):
             scope = safe_str(row.get("scope"))
             ip = safe_str(row.get("ip"))
             port = safe_int(row.get("port"), default=-1)
