@@ -18,8 +18,8 @@ dist/
 .DS_Store
 Thumbs.db
 
-# GeoIP databases
-data/*.mmdb
+# MkDocs build
+site/
 
-# Private notes (not committed)
+# Private notes
 .private/

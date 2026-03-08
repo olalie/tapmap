@@ -2,3 +2,15 @@ site_name: TapMap
 
 theme:
   name: material
+
+plugins:
+  - search
+  - gen-files:
+      scripts:
+        - tools/build_docs.py
+  - literate-nav
+  - mkdocstrings
+
+nav:
+  - Home: index.md
+  - API: reference/
