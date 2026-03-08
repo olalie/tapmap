@@ -301,7 +301,46 @@ class ModalTextBuilder:
         hint = safe_str(row.get("service_hint")) or None
         return service, hint
 
-    # Unmapped services
+    @classmethod
+    def _aggregate_service_rows(cls, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Aggregate service rows by scope, ip, port, pid and process."""
+        agg: dict[tuple[str, str, int, int, str], dict[str, Any]] = {}
+
+        for r in rows:
+            ip = safe_str(r.get("ip"))
+            port = safe_int(r.get("port"), default=-1)
+            scope = safe_str(r.get("service_scope")) or "UNKNOWN"
+
+            pid_val = r.get("pid")
+            pid = safe_int(pid_val) if pid_val is not None else -1
+
+            proc_label, proc_tip = cls._process_text(r)
+            svc_val, svc_tip = cls._service_text(r)
+
+            key = (scope, ip, port, pid, proc_label)
+            entry = agg.get(key)
+
+            if entry is None:
+                agg[key] = {
+                    "scope": scope,
+                    "ip": ip,
+                    "port": port,
+                    "service": svc_val,
+                    "service_tip": svc_tip,
+                    "pid": pid if pid != -1 else None,
+                    "process": proc_label,
+                    "process_tip": proc_tip,
+                    "count": 1,
+                }
+            else:
+                entry["count"] = int(entry.get("count") or 0) + 1
+                if entry.get("process_tip") in {None, ""} and proc_tip:
+                    entry["process_tip"] = proc_tip
+                if entry.get("service_tip") in {None, ""} and svc_tip:
+                    entry["service_tip"] = svc_tip
+
+        return list(agg.values())
+
     @classmethod
     def _render_unmapped(cls, snapshot: Any | None) -> list[Any]:
         """Render unmapped services.
@@ -331,41 +370,7 @@ class ModalTextBuilder:
         if not filtered:
             return [header, html.Pre("(no unmapped public services)")]
 
-        agg: dict[tuple[str, str, int, int, str], dict[str, Any]] = {}
-        for r in filtered:
-            ip = safe_str(r.get("ip"))
-            port = safe_int(r.get("port"), default=-1)
-            scope = safe_str(r.get("service_scope")) or "UNKNOWN"
-
-            pid_val = r.get("pid")
-            pid = safe_int(pid_val) if pid_val is not None else -1
-
-            proc_label, proc_tip = cls._process_text(r)
-            svc_val, svc_tip = cls._service_text(r)
-
-            key = (scope, ip, port, pid, proc_label)
-            entry = agg.get(key)
-            if entry is None:
-                agg[key] = {
-                    "scope": scope,
-                    "ip": ip,
-                    "port": port,
-                    "service": svc_val,
-                    "service_tip": svc_tip,
-                    "pid": pid if pid != -1 else None,
-                    "process": proc_label,
-                    "process_tip": proc_tip,
-                    "count": 1,
-                }
-            else:
-                entry["count"] = int(entry.get("count") or 0) + 1
-                if entry.get("process_tip") in {None, ""} and proc_tip:
-                    entry["process_tip"] = proc_tip
-                if entry.get("service_tip") in {None, ""} and svc_tip:
-                    entry["service_tip"] = svc_tip
-
-        aggregated = list(agg.values())
-
+        aggregated = cls._aggregate_service_rows(filtered)
         interesting_ports = {443, 53, 80, 3478, 22, 3389}
 
         def sort_key(row: dict[str, Any]) -> tuple[int, int, int, str, str]:
@@ -458,41 +463,7 @@ class ModalTextBuilder:
         if not filtered:
             return [header, html.Pre("(no LAN/LOCAL services)")]
 
-        agg: dict[tuple[str, str, int, int, str], dict[str, Any]] = {}
-        for r in filtered:
-            ip = safe_str(r.get("ip"))
-            port = safe_int(r.get("port"), default=-1)
-            scope = safe_str(r.get("service_scope")) or "UNKNOWN"
-
-            pid_val = r.get("pid")
-            pid = safe_int(pid_val) if pid_val is not None else -1
-
-            proc_label, proc_tip = cls._process_text(r)
-            svc_val, svc_tip = cls._service_text(r)
-
-            key = (scope, ip, port, pid, proc_label)
-            entry = agg.get(key)
-            if entry is None:
-                agg[key] = {
-                    "scope": scope,
-                    "ip": ip,
-                    "port": port,
-                    "service": svc_val,
-                    "service_tip": svc_tip,
-                    "pid": pid if pid != -1 else None,
-                    "process": proc_label,
-                    "process_tip": proc_tip,
-                    "count": 1,
-                }
-            else:
-                entry["count"] = int(entry.get("count") or 0) + 1
-                if entry.get("process_tip") in {None, ""} and proc_tip:
-                    entry["process_tip"] = proc_tip
-                if entry.get("service_tip") in {None, ""} and svc_tip:
-                    entry["service_tip"] = svc_tip
-
-        aggregated = list(agg.values())
-
+        aggregated = cls._aggregate_service_rows(filtered)
         interesting_ports = {443, 53, 80, 3478, 22, 3389}
 
         def sort_key(row: dict[str, Any]) -> tuple[int, int, int, str, str]:
