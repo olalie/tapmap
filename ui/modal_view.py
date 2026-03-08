@@ -6,7 +6,6 @@ and modal screens shown by the application.
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from typing import Any
 
 from dash import dcc, html
@@ -126,32 +125,6 @@ class ModalTextBuilder:
     @staticmethod
     def _h1(title: str) -> html.H1:
         return html.H1(title)
-
-    @staticmethod
-    def _kv_table(rows: Iterable[tuple[str, str]]) -> html.Table:
-        """Render a two-column key/value table with tooltips."""
-        body: list[Any] = []
-        for key, value in rows:
-            v = "" if value is None else str(value)
-            body.append(
-                html.Tr(
-                    [
-                        html.Td(key),
-                        html.Td(html.Span(v, title=v if v else None)),
-                    ]
-                )
-            )
-        colgroup = html.Colgroup(
-            [
-                html.Col(style={"width": "180px"}),
-                html.Col(),
-            ]
-        )
-
-        return html.Table(
-            className="mx-table mx-info-table",
-            children=[colgroup, html.Tbody(body)],
-        )
 
     @classmethod
     def _open_ports_sort_key(cls, row: dict[str, Any]) -> tuple[int, int, int, str, int]:
