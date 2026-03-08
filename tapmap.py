@@ -52,6 +52,7 @@ from state.poll import (
 from state.status_cache import StatusCache
 from state.status_line import render_status_text
 from ui.cache_view import CacheViewBuilder
+from ui.layout_view import render_layout
 from ui.map_view import MapUI
 from ui.modal_view import ModalTextBuilder
 
@@ -168,137 +169,19 @@ class TapMap:
             initial_body_children = self._as_children(self.modal_text.missing_geo_db(geo_path))
             initial_body_class = self._class_for_modal_screen(self.SCR_MISSING_GEO_DB)
 
-        return html.Div(
-            className="app",
-            children=[
-                dcc.Store(id="menu_open", data=False),
-                dcc.Store(id="key_action", data=None),
-                dcc.Store(id="status_flash", data=None),
-                dcc.Store(id="model_snapshot", data=None),
-                dcc.Store(id="ui_cache", data={}),
-                dcc.Store(id="status_cache", data=StatusCache().to_store()),
-                dcc.Store(id="ui_view", data={"points": [], "summaries": {}, "details": {}}),
-                dcc.Store(id="modal_state", data=initial_modal_state),
-                dcc.Store(id="open_ports_prefs", data={"show_system": False}),
-                dcc.Input(
-                    id="key_capture",
-                    type="text",
-                    value="",
-                    autoFocus=False,
-                    style={
-                        "position": "fixed",
-                        "left": "0",
-                        "top": "0",
-                        "width": "1px",
-                        "height": "1px",
-                        "opacity": "0",
-                        "zIndex": "1000",
-                        "pointerEvents": "none",
-                    },
-                ),
-                dcc.Interval(id="tick_model", interval=POLL_INTERVAL_MS, n_intervals=0),
-                dcc.Graph(
-                    id="map",
-                    figure=start_fig,
-                    className="map",
-                    config=self.graph_config,
-                    clear_on_unhover=True,
-                ),
-                html.Div(self.ctx.meta.name, className="app-title"),
-                html.Button(
-                    "☰",
-                    id="btn_menu",
-                    n_clicks=0,
-                    className="mx-btn mx-btn--icon",
-                    type="button",
-                ),
-                html.Div(
-                    id="menu_overlay",
-                    n_clicks=0,
-                    className=self._menu_overlay_class(False),
-                ),
-                html.Nav(
-                    id="menu_panel",
-                    className=self._menu_panel_class(False),
-                    children=[
-                        html.Div("Actions", className="mx-panel__title"),
-                        html.Div(
-                            [
-                                self._menu_button(
-                                    "Show unmapped public services (U)", "menu_unmapped"
-                                ),
-                                self._menu_button(
-                                    "Show established LAN/LOCAL services (L)", "menu_lan_local"
-                                ),
-                                self._menu_button("Show open ports (O)", "menu_open_ports"),
-                                self._menu_button(
-                                    "Show cache in terminal (T)", "menu_cache_terminal"
-                                ),
-                                self._menu_button("Clear cache (C)", "menu_clear_cache"),
-                            ],
-                            className="mx-menu-group",
-                        ),
-                        html.Div(
-                            [
-                                self._menu_button(
-                                    "Recheck GeoIP databases (R)", "menu_recheck_geoip"
-                                ),
-                                self._menu_button("Help (H)", "menu_help"),
-                                self._menu_button("About (A)", "menu_about"),
-                            ],
-                            className="mx-menu-group",
-                        ),
-                    ],
-                ),
-                html.Div(
-                    id="modal_overlay",
-                    className=self._modal_overlay_class(initial_modal_open),
-                    children=[
-                        html.Div(
-                            className="modal-card",
-                            children=[
-                                html.Div(
-                                    id="modal_body",
-                                    className=initial_body_class,
-                                    children=initial_body_children,
-                                ),
-                                html.Div(
-                                    className="mx-modal-actions",
-                                    children=[
-                                        html.Button(
-                                            "Close",
-                                            id="btn_close",
-                                            n_clicks=0,
-                                            className="mx-btn mx-btn--primary mx-btn--nowrap",
-                                            type="button",
-                                        ),
-                                    ],
-                                ),
-                            ],
-                        )
-                    ],
-                ),
-                html.Div(
-                    id="status_bar",
-                    className="status-bar",
-                    children=(
-                        "STATUS: WAIT | "
-                        "LIVE: TCP 0 EST 0 LST 0 UDP R 0 B 0 | "
-                        "CACHE: SOCK 0 SERV 0 MAP 0 UNM 0 LOC 0 | "
-                        "UPDATED: --:--:-- | "
-                        "MYLOC: --"
-                    ),
-                ),
-            ],
-        )
-
-    def _menu_button(self, label: str, btn_id: str) -> html.Button:
-        return html.Button(
-            label,
-            id=btn_id,
-            n_clicks=0,
-            className="mx-btn mx-btn--menu",
-            type="button",
+        return render_layout(
+            app_name=self.ctx.meta.name,
+            start_fig=start_fig,
+            graph_config=self.graph_config,
+            poll_interval_ms=POLL_INTERVAL_MS,
+            status_cache_store=StatusCache().to_store(),
+            initial_modal_state=initial_modal_state,
+            initial_modal_open=initial_modal_open,
+            initial_body_children=initial_body_children,
+            initial_body_class=initial_body_class,
+            menu_overlay_class=self._menu_overlay_class(False),
+            menu_panel_class=self._menu_panel_class(False),
+            modal_overlay_class=self._modal_overlay_class(initial_modal_open),
         )
 
     @staticmethod
