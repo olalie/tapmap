@@ -277,6 +277,30 @@ class ModalTextBuilder:
 
         return [*header, table]
 
+    @staticmethod
+    def _process_text(row: dict[str, Any]) -> tuple[str, str | None]:
+        """Return process label and tooltip."""
+        label = safe_str(row.get("process_name"))
+        if not label:
+            label = safe_str(row.get("process_status")) or "Unavailable"
+
+        exe = row.get("exe")
+        if isinstance(exe, str) and exe.strip():
+            return label, exe.strip()
+
+        status = row.get("process_status")
+        if isinstance(status, str) and status.strip():
+            return label, status.strip()
+
+        return label, None
+
+    @staticmethod
+    def _service_text(row: dict[str, Any]) -> tuple[str, str | None]:
+        """Return service label and tooltip."""
+        service = safe_str(row.get("service")) or "Unknown"
+        hint = safe_str(row.get("service_hint")) or None
+        return service, hint
+
     # Unmapped services
     @classmethod
     def _render_unmapped(cls, snapshot: Any | None) -> list[Any]:
@@ -307,26 +331,6 @@ class ModalTextBuilder:
         if not filtered:
             return [header, html.Pre("(no unmapped public services)")]
 
-        def process_text(row: dict[str, Any]) -> tuple[str, str | None]:
-            label = safe_str(row.get("process_name"))
-            if not label:
-                label = safe_str(row.get("process_status")) or "Unavailable"
-
-            exe = row.get("exe")
-            if isinstance(exe, str) and exe.strip():
-                return label, exe.strip()
-
-            status = row.get("process_status")
-            if isinstance(status, str) and status.strip():
-                return label, status.strip()
-
-            return label, None
-
-        def service_text(row: dict[str, Any]) -> tuple[str, str | None]:
-            service = safe_str(row.get("service")) or "Unknown"
-            hint = safe_str(row.get("service_hint")) or None
-            return service, hint
-
         agg: dict[tuple[str, str, int, int, str], dict[str, Any]] = {}
         for r in filtered:
             ip = safe_str(r.get("ip"))
@@ -336,8 +340,8 @@ class ModalTextBuilder:
             pid_val = r.get("pid")
             pid = safe_int(pid_val) if pid_val is not None else -1
 
-            proc_label, proc_tip = process_text(r)
-            svc_val, svc_tip = service_text(r)
+            proc_label, proc_tip = cls._process_text(r)
+            svc_val, svc_tip = cls._service_text(r)
 
             key = (scope, ip, port, pid, proc_label)
             entry = agg.get(key)
@@ -454,26 +458,6 @@ class ModalTextBuilder:
         if not filtered:
             return [header, html.Pre("(no LAN/LOCAL services)")]
 
-        def process_text(row: dict[str, Any]) -> tuple[str, str | None]:
-            label = safe_str(row.get("process_name"))
-            if not label:
-                label = safe_str(row.get("process_status")) or "Unavailable"
-
-            exe = row.get("exe")
-            if isinstance(exe, str) and exe.strip():
-                return label, exe.strip()
-
-            status = row.get("process_status")
-            if isinstance(status, str) and status.strip():
-                return label, status.strip()
-
-            return label, None
-
-        def service_text(row: dict[str, Any]) -> tuple[str, str | None]:
-            service = safe_str(row.get("service")) or "Unknown"
-            hint = safe_str(row.get("service_hint")) or None
-            return service, hint
-
         agg: dict[tuple[str, str, int, int, str], dict[str, Any]] = {}
         for r in filtered:
             ip = safe_str(r.get("ip"))
@@ -483,8 +467,8 @@ class ModalTextBuilder:
             pid_val = r.get("pid")
             pid = safe_int(pid_val) if pid_val is not None else -1
 
-            proc_label, proc_tip = process_text(r)
-            svc_val, svc_tip = service_text(r)
+            proc_label, proc_tip = cls._process_text(r)
+            svc_val, svc_tip = cls._service_text(r)
 
             key = (scope, ip, port, pid, proc_label)
             entry = agg.get(key)
