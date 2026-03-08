@@ -29,7 +29,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar, Final
 
-from dash import Dash, Input, Output, State, ctx, dcc, html, no_update
+from dash import Dash, Input, Output, State, ctx, html, no_update
 
 from app_dirs import open_folder
 from config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
