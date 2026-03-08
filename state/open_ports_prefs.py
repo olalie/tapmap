@@ -3,6 +3,7 @@
 Contain pure helpers for storing and updating
 user preferences related to the Open Ports view.
 """
+
 from __future__ import annotations
 
 from typing import Any

@@ -1,3 +1,9 @@
+"""Dash layout construction for the TapMap UI.
+
+Build the top level application layout and reusable
+UI elements used by the controller.
+"""
+
 from __future__ import annotations
 
 from typing import Any

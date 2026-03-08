@@ -3,6 +3,7 @@
 Decide which model operation to execute
 based on triggers and keyboard actions.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -19,6 +20,7 @@ RECHECK_TRIGGERS = {"menu_recheck_geoip", "btn_check_databases"}
 @dataclass(frozen=True)
 class PollDecision:
     """Describe which poll action to execute."""
+
     action: str
 
 

@@ -9,6 +9,7 @@ from typing import Any, Final, TypedDict
 
 class CacheItem(TypedDict):
     """Define one cache item for the UI."""
+
     proto: str
     ip: str
     port: int
@@ -30,6 +31,7 @@ class CacheItem(TypedDict):
 
 class OpenPort(TypedDict):
     """Define one row for the Open Ports modal table."""
+
     proto: str
     local_address: str
     service: str
@@ -43,6 +45,7 @@ class OpenPort(TypedDict):
 
 class SnapshotPayload(TypedDict):
     """Define the payload from Model.snapshot()."""
+
     error: bool
     stats: dict[str, Any]
     cache_items: list[CacheItem]

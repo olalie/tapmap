@@ -3,6 +3,7 @@
 Translate raw key input into high level action strings
 used by the application state layer.
 """
+
 from __future__ import annotations
 
 from datetime import datetime
@@ -19,6 +20,7 @@ KEY_MAP = {
     "__a__": "menu_about",
     "__esc__": "escape",
 }
+
 
 def build_key_action(value: str) -> dict[str, Any] | None:
     """Build key action payload from capture value."""

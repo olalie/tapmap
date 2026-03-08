@@ -45,6 +45,7 @@ class RuntimeContext:
         """Return the directory containing GeoIP databases."""
         return self.app_data_dir
 
+
 def build_runtime(meta: AppMeta) -> RuntimeContext:
     """Build the runtime context for the current OS and execution mode."""
     is_frozen = bool(getattr(sys, "frozen", False))
@@ -63,12 +64,14 @@ def build_runtime(meta: AppMeta) -> RuntimeContext:
         net_backend_version=net_backend_version,
     )
 
+
 def _detect_network_backend() -> tuple[str, str]:
     """Return network backend name and version."""
     system = platform.system()
 
     if system == "Windows":
         import psutil
+
         return "psutil", getattr(psutil, "__version__", "-")
 
     if system == "Linux":

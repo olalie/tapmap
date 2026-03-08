@@ -53,6 +53,4 @@ class NetInfo:
 
             return WindowsNetInfo(allowed_statuses=self.allowed_statuses)
 
-        raise NotImplementedError(
-            f"NetInfo backend is not implemented for OS: {system}"
-        )
+        raise NotImplementedError(f"NetInfo backend is not implemented for OS: {system}")

@@ -3,6 +3,7 @@
 Build human readable status text from
 snapshot, cache state, and flash messages.
 """
+
 from __future__ import annotations
 
 from typing import Any

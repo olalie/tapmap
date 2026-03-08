@@ -1,3 +1,9 @@
+"""Modal content rendering for the TapMap UI.
+
+Build Dash components for menu actions, map clicks,
+and modal screens shown by the application.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterable

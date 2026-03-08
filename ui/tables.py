@@ -1,3 +1,9 @@
+"""Table rendering helpers for the TapMap UI.
+
+Provide reusable helpers for building HTML tables
+used across multiple UI views.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterable, Sequence
@@ -20,9 +26,7 @@ def cell(text: str, *, title: str | None = None) -> html.Td:
     value = text or ""
     tooltip = title if title is not None else value
     tooltip = tooltip if tooltip else None
-    return html.Td(
-        html.Span(value, className="mx-cell-text", title=tooltip)
-    )
+    return html.Td(html.Span(value, className="mx-cell-text", title=tooltip))
 
 
 def build_table(
@@ -34,15 +38,10 @@ def build_table(
 ) -> html.Table:
     """Build a Dash HTML table with colgroup, thead and tbody."""
     colgroup = html.Colgroup(
-        [
-            html.Col(style={"width": col.width}) if col.width else html.Col()
-            for col in columns
-        ]
+        [html.Col(style={"width": col.width}) if col.width else html.Col() for col in columns]
     )
 
-    thead = html.Thead(
-        html.Tr([html.Th(h) for h in header_cells])
-    )
+    thead = html.Thead(html.Tr([html.Th(h) for h in header_cells]))
 
     tbody = html.Tbody(list(body_rows))
 
@@ -50,6 +49,7 @@ def build_table(
         className=class_name,
         children=[colgroup, thead, tbody],
     )
+
 
 def kv_table(rows: Iterable[tuple[str, str]]) -> html.Table:
     """Build a two column key/value table with tooltips."""

@@ -1,4 +1,8 @@
-"""Normalize values and format UI display strings."""
+"""Value normalization and formatting helpers for the UI.
+
+Provide small utility functions used when rendering
+values in the TapMap interface.
+"""
 
 from __future__ import annotations
 

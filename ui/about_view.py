@@ -1,3 +1,9 @@
+"""About view rendering for the TapMap UI.
+
+Build the About modal content from application
+metadata and cached runtime information.
+"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -38,9 +44,7 @@ def render_about(
 
     public_ip_cached = app_info.get("public_ip_cached")
     public_ip_cached = (
-        public_ip_cached
-        if isinstance(public_ip_cached, str) and public_ip_cached
-        else None
+        public_ip_cached if isinstance(public_ip_cached, str) and public_ip_cached else None
     )
 
     auto_geo_cached = app_info.get("auto_geo_cached")
@@ -53,9 +57,7 @@ def render_about(
     net_backend = net_backend_val if isinstance(net_backend_val, str) else "-"
     net_backend_version_val = app_info.get("net_backend_version")
     net_backend_version = (
-        net_backend_version_val
-        if isinstance(net_backend_version_val, str)
-        else "-"
+        net_backend_version_val if isinstance(net_backend_version_val, str) else "-"
     )
 
     tapmap_rows: list[tuple[str, str]] = [
@@ -160,6 +162,7 @@ def render_about(
             ]
         ),
     ]
+
 
 def _build_location_rows(
     *,

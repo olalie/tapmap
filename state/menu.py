@@ -3,6 +3,7 @@
 Contain pure functions that decide menu visibility
 based on triggers and keyboard actions.
 """
+
 from __future__ import annotations
 
 from typing import Any

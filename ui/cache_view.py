@@ -1,12 +1,7 @@
-"""Define cache and view building for TapMap.
+"""Cache view preparation helpers for the TapMap UI.
 
-Merge map candidates into a per-service cache keyed by "ip|port", group cached
-entries by rounded coordinates, and build hover summaries and click details.
-
-The cache is JSON-friendly and stable:
-
-- Each service key maps to one entry that accumulates across snapshots.
-- Each entry keeps both a flat process list and a per-process PID list.
+Merge service entries into a stable UI cache and build
+map points, hover summaries, and click details.
 """
 
 from __future__ import annotations

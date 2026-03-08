@@ -30,6 +30,7 @@ ServiceKey = tuple[Proto, Ip, Port]
 
 class StatusCacheItem(TypedDict, total=False):
     """Socket/service fields used by StatusCache.update()."""
+
     ip: str
     port: int
     proto: str
@@ -246,6 +247,7 @@ class StatusCache:
     @staticmethod
     def _format_procs_with_pids(entry: dict[str, Any]) -> str:
         """Format process list with optional PID values."""
+
         def to_name(v: Any) -> str:
             s = StatusCache._safe_str(v).strip()
             return s
@@ -310,7 +312,5 @@ class StatusCache:
             procs_txt = self._format_procs_with_pids(entry)
 
             addr = f"{ip}:{port_txt}"
-            lines.append(
-                f"{addr:<22} ({proto})  procs={procs_txt}  {asn_org}  place={place}"
-            )
+            lines.append(f"{addr:<22} ({proto})  procs={procs_txt}  {asn_org}  place={place}")
         logger.info("\n".join(lines))
