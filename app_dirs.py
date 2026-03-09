@@ -74,7 +74,7 @@ def open_folder(path: Path) -> tuple[bool, str]:
         system = platform.system()
 
         if system == "Windows":
-            subprocess.Popen(["explorer.exe", str(path)])
+            os.startfile(str(path))
             return True, f"Opened: {path}"
 
         if system == "Darwin":
