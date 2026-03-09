@@ -1,3 +1,9 @@
+"""Snapshot building logic and payload definitions.
+
+Provide the typed payload structures returned from Model.snapshot()
+and the Model class that builds one live snapshot from network data.
+"""
+
 from __future__ import annotations
 
 import ipaddress
@@ -54,10 +60,7 @@ class SnapshotPayload(TypedDict):
 
 
 class Model:
-    """Build a live snapshot for the UI.
-
-    Treat as stateless; caching and aggregation over time occur in the UI.
-    """
+    """Build one live snapshot from current network data."""
 
     INTERNET_TARGETS: Final[tuple[tuple[str, int], ...]] = (
         ("1.1.1.1", 53),

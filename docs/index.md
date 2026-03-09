@@ -1,4 +1,1 @@
-# TapMap documentation
-
-Welcome to the TapMap documentation.
-cd..
+--8<-- "README.md"
