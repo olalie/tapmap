@@ -1,3 +1,8 @@
+"""Application data directory and folder access utilities.
+
+Resolve per-user application data paths and provide
+helpers for creating and opening the directory.
+"""
 from __future__ import annotations
 
 import os

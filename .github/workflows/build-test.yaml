@@ -27,8 +27,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements-tests.txt
           pip install pyinstaller
+
+      - name: Run tests
+        run: |
+          pytest -q
 
       - name: Build (same as local)
         run: |
@@ -61,3 +65,4 @@ jobs:
           name: tapmap-${{ runner.os }}
           path: tapmap-artifact-*.zip
           if-no-files-found: error
+          retention-days: 7
