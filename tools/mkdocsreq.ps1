@@ -6,6 +6,6 @@ $root = Split-Path -Parent $PSScriptRoot
 
 Set-Location $root
 
-pip freeze | Select-String '^mkdocs' | ForEach-Object { $_.Line } | Set-Content docs-requirements.txt
+pip freeze | Select-String '^mkdocs' | ForEach-Object { $_.Line } | Set-Content requirements-docs.txt
 
-Write-Host "docs-requirements.txt generated in $root"
+Write-Host "requirements-docs.txt generated in $root"
