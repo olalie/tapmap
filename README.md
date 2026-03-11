@@ -20,6 +20,14 @@ It makes network activity visible on a world map and easy to inspect with hover 
 
 ---
 
+## Documentation
+
+README and API reference:
+
+https://olalie.github.io/tapmap/
+
+---
+
 ## Download
 
 Download the latest version from the  
@@ -197,6 +205,12 @@ Run:
 
 ```
 python tapmap.py
+```
+
+Run tests:
+
+```
+pytest
 ```
 
 ---
