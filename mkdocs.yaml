@@ -1,12 +1,25 @@
+# yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
+
 site_name: TapMap
+site_description: Documentation for TapMap
 
 theme:
   name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - search.suggest
+    - search.highlight
+    - content.code.copy
 
 markdown_extensions:
+  - admonition
   - pymdownx.snippets:
       base_path:
         - ..
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
 
 plugins:
   - search
@@ -14,8 +27,20 @@ plugins:
       scripts:
         - tools/build_docs.py
   - literate-nav
-  - mkdocstrings
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          options:
+            show_root_heading: true
+            show_root_toc_entry: false
+            filters:
+              - "!^_[^_]"
+            members_order: source
 
 nav:
   - Home: index.md
   - API: reference/
+
+extra:
+  generator: false
