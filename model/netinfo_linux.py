@@ -69,7 +69,11 @@ class LinuxNetInfo:
     def _run_ss() -> list[str]:
         """Run ss and return output lines (no header)."""
         cmd = ["ss", "-H", "-n", "-t", "-u", "-a", "-p"]
-        cp = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        try:
+            cp = subprocess.run(cmd, capture_output=True, text=True, check=False)
+        except (FileNotFoundError, PermissionError, OSError):
+            # Keep Linux runtime functional even when iproute2/ss is unavailable.
+            return []
         out = (cp.stdout or "").strip()
         return out.splitlines() if out else []
 

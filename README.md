@@ -37,11 +37,16 @@ Available builds:
 
 - Windows (zip)
 
-macOS and Linux support is under development.
+Linux is supported when running from source.
+
+Linux runtime requirements:
+
+- `ss` command from `iproute2` (used for socket enumeration)
+- `xdg-open` (optional, only needed for the **Open data folder** action)
 
 No installation required. Download, extract, and run.
 
-Tested on Windows 11.
+Tested on Windows 11 and Linux.
 
 ---
 
