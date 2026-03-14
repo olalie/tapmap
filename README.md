@@ -63,12 +63,25 @@ TapMap runs locally and opens in your browser.
 
 The web interface runs on a local server at:
 
-```
-http://127.0.0.1:8050/
-```
+    http://127.0.0.1:8050/
 
 If it does not open automatically, enter the address manually in your browser.
 
+The default port is defined by `SERVER_PORT` in `config.py`.
+
+The port can be overridden using the environment variable `TAPMAP_PORT`.
+
+Examples:
+
+Linux / macOS:
+
+    TAPMAP_PORT=8060 python tapmap.py
+
+PowerShell:
+
+    $env:TAPMAP_PORT="8060"
+    python tapmap.py
+    
 ---
 
 ## GeoIP databases (required for map locations)
@@ -182,10 +195,15 @@ TapMap reads settings from `config.py`.
 
 Common settings:
 
-- `MY_LOCATION`  
-- `POLL_INTERVAL_MS`  
-- `COORD_PRECISION`  
-- `ZOOM_NEAR_KM`  
+- `SERVER_PORT`
+- `MY_LOCATION`
+- `POLL_INTERVAL_MS`
+- `COORD_PRECISION`
+- `ZOOM_NEAR_KM`
+
+`SERVER_PORT` defines the default port used by the local Dash server.
+
+The port can be overridden at runtime using the environment variable `TAPMAP_PORT`.
 
 ---
 
