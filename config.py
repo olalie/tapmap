@@ -11,6 +11,8 @@ from typing import Final, Literal
 
 LocationMode = Literal["auto", "none"]
 
+SERVER_PORT: Final[int] = 8050
+"""HTTP port used by the local Dash server."""
 
 MY_LOCATION: Final[tuple[float, float] | LocationMode] = "auto"
 """Local map marker options:

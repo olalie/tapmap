@@ -21,6 +21,7 @@ requires one return value. For example, modal_controller returns:
 from __future__ import annotations
 
 import logging
+import os
 import platform
 import sys
 import threading
@@ -32,7 +33,8 @@ from typing import Any, ClassVar, Final
 from dash import Dash, Input, Output, State, ctx, html, no_update
 
 from app_dirs import open_folder
-from config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
+from config import (COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS,
+                    SERVER_PORT, ZOOM_NEAR_KM)
 from model.geoinfo import GeoInfo
 from model.model import Model
 from model.netinfo import NetInfo
@@ -42,13 +44,9 @@ from state.keyboard import build_key_action
 from state.menu import compute_menu_open_state
 from state.modal import decide_modal_route
 from state.open_ports_prefs import set_show_system_pref
-from state.poll import (
-    ACTION_CACHE_TERMINAL,
-    ACTION_CLEAR_CACHE,
-    ACTION_GEO_RECHECK,
-    ACTION_NORMAL_POLL,
-    decide_poll_action,
-)
+from state.poll import (ACTION_CACHE_TERMINAL, ACTION_CLEAR_CACHE,
+                        ACTION_GEO_RECHECK, ACTION_NORMAL_POLL,
+                        decide_poll_action)
 from state.status_cache import StatusCache
 from state.status_line import render_status_text
 from ui.cache_view import CacheViewBuilder
@@ -59,13 +57,20 @@ from ui.modal_view import ModalTextBuilder
 LonLat = tuple[float, float]
 
 APP_META: Final[AppMeta] = AppMeta(name="TapMap", version="v1.0", author="Ola Lie")
+port = int(os.getenv("TAPMAP_PORT", SERVER_PORT))
 
 
 class TapMap:
     """Coordinate Dash callbacks, model polling, and UI state."""
 
     MENU_SCREENS: ClassVar[frozenset[str]] = frozenset(
-        {"menu_unmapped", "menu_lan_local", "menu_open_ports", "menu_help", "menu_about"}
+        {
+            "menu_unmapped",
+            "menu_lan_local",
+            "menu_open_ports",
+            "menu_help",
+            "menu_about",
+        }
     )
     MENU_COMMANDS: ClassVar[frozenset[str]] = frozenset(
         {"menu_clear_cache", "menu_cache_terminal", "menu_recheck_geoip"}
@@ -108,7 +113,8 @@ class TapMap:
         )
 
         self.logger.info(
-            "GeoInfo enabled at startup: %s", getattr(self.model.geoinfo, "enabled", False)
+            "GeoInfo enabled at startup: %s",
+            getattr(self.model.geoinfo, "enabled", False),
         )
         self.logger.info("geo_data_dir: %s", self.ctx.geo_data_dir)
 
@@ -166,7 +172,9 @@ class TapMap:
         initial_body_class = "modal-body"
         if initial_modal_state is not None:
             geo_path = str(self.ctx.geo_data_dir)
-            initial_body_children = self._as_children(self.modal_text.missing_geo_db(geo_path))
+            initial_body_children = self._as_children(
+                self.modal_text.missing_geo_db(geo_path)
+            )
             initial_body_class = self._class_for_modal_screen(self.SCR_MISSING_GEO_DB)
 
         return render_layout(
@@ -201,7 +209,10 @@ class TapMap:
 
     @staticmethod
     def _flash(message: str, seconds: float) -> dict[str, Any]:
-        return {"message": message, "until": (datetime.now().timestamp() + float(seconds))}
+        return {
+            "message": message,
+            "until": (datetime.now().timestamp() + float(seconds)),
+        }
 
     def _myloc_label(self) -> str:
         if isinstance(MY_LOCATION, tuple):
@@ -263,7 +274,9 @@ class TapMap:
             "net_backend_version": self.ctx.net_backend_version,
         }
 
-    def _handle_geo_recheck(self, status_cache: StatusCache) -> tuple[Any, Any, Any, Any, Any]:
+    def _handle_geo_recheck(
+        self, status_cache: StatusCache
+    ) -> tuple[Any, Any, Any, Any, Any]:
         ok = bool(getattr(self.model.geoinfo, "reload", lambda: False)())
         city_ready = bool(getattr(self.model.geoinfo, "city_enabled", False))
 
@@ -291,7 +304,9 @@ class TapMap:
         flash = self._flash("Databases loaded. Geolocation enabled.", self.MIN_FLASH_S)
         return snap, empty_cache, status_cache.to_store(), view, flash
 
-    def _handle_clear_cache(self, status_cache: StatusCache) -> tuple[Any, Any, Any, Any, Any]:
+    def _handle_clear_cache(
+        self, status_cache: StatusCache
+    ) -> tuple[Any, Any, Any, Any, Any]:
         snap = self.model.snapshot()
         if isinstance(snap, dict):
             snap["app_info"] = self._build_app_info()
@@ -315,7 +330,9 @@ class TapMap:
         snap = self.model.snapshot()
         if not isinstance(snap, dict):
             view = self.view_builder.build_view_from_cache(ui_cache)
-            flash = self._flash("Model snapshot is invalid. See terminal.", self.MIN_FLASH_S)
+            flash = self._flash(
+                "Model snapshot is invalid. See terminal.", self.MIN_FLASH_S
+            )
             return {"error": True}, ui_cache, status_cache.to_store(), view, flash
 
         snap["app_info"] = self._build_app_info()
@@ -479,11 +496,15 @@ class TapMap:
                 return a, b, c, d, flash
 
             if decision.action == ACTION_CLEAR_CACHE:
-                snap, cache, sc_store, view, flash = self._handle_clear_cache(status_cache)
+                snap, cache, sc_store, view, flash = self._handle_clear_cache(
+                    status_cache
+                )
                 return snap, cache, sc_store, view, flash
 
             if decision.action == ACTION_GEO_RECHECK:
-                snap, cache, sc_store, view, flash = self._handle_geo_recheck(status_cache)
+                snap, cache, sc_store, view, flash = self._handle_geo_recheck(
+                    status_cache
+                )
                 return snap, cache, sc_store, view, flash
 
             if decision.action == ACTION_NORMAL_POLL:
@@ -552,7 +573,9 @@ class TapMap:
         )
         def show_hide_menu(is_open: Any) -> tuple[str, str]:
             open_flag = bool(is_open)
-            return self._menu_panel_class(open_flag), self._menu_overlay_class(open_flag)
+            return self._menu_panel_class(open_flag), self._menu_overlay_class(
+                open_flag
+            )
 
         @self.app.callback(
             Output("modal_state", "data"),
@@ -600,8 +623,12 @@ class TapMap:
             geo_path = str(self.ctx.geo_data_dir)
 
             # Apply a modal_state to the UI by rendering and updating overlay classes.
-            def _apply_modal_state(next_state: dict[str, Any] | None) -> tuple[Any, Any, Any, Any]:
-                children, body_class = self._render_modal(next_state, snapshot, ui_view, geo_path)
+            def _apply_modal_state(
+                next_state: dict[str, Any] | None,
+            ) -> tuple[Any, Any, Any, Any]:
+                children, body_class = self._render_modal(
+                    next_state, snapshot, ui_view, geo_path
+                )
                 overlay_open = next_state is not None
                 overlay_class = self._modal_overlay_class(overlay_open)
                 return next_state, overlay_class, children, body_class
@@ -612,7 +639,9 @@ class TapMap:
                 return _apply_modal_state(None)
 
             # Normalize current modal state.
-            current_state = modal_state_data if isinstance(modal_state_data, dict) else None
+            current_state = (
+                modal_state_data if isinstance(modal_state_data, dict) else None
+            )
             is_open = current_state is not None
             current_screen = (
                 current_state.get("screen") if isinstance(current_state, dict) else None
@@ -626,12 +655,16 @@ class TapMap:
             # Delegate routing decisions to the state layer.
             now_iso = datetime.now().isoformat()
             open_ports_prefs = (
-                open_ports_prefs_data if isinstance(open_ports_prefs_data, dict) else None
+                open_ports_prefs_data
+                if isinstance(open_ports_prefs_data, dict)
+                else None
             )
             route = decide_modal_route(
                 trigger=trigger,
                 is_open=is_open,
-                current_screen=current_screen if isinstance(current_screen, str) else None,
+                current_screen=(
+                    current_screen if isinstance(current_screen, str) else None
+                ),
                 action=action,
                 show_system=self._toggle_on(toggle_system_value),
                 menu_screens=self.MENU_SCREENS,
@@ -663,7 +696,9 @@ class TapMap:
             prevent_initial_call=True,
         )
         def open_ports_toggle(toggle_value: Any, prefs_data: Any) -> dict[str, Any]:
-            return set_show_system_pref(toggle_value=toggle_value, prefs_data=prefs_data)
+            return set_show_system_pref(
+                toggle_value=toggle_value, prefs_data=prefs_data
+            )
 
         @self.app.callback(
             Output("map", "figure"),
@@ -679,9 +714,13 @@ class TapMap:
             summaries = self._ensure_dict(view.get("summaries"))
 
             if not points:
-                return self.ui.create_figure(([], self.my_location), summaries=summaries)
+                return self.ui.create_figure(
+                    ([], self.my_location), summaries=summaries
+                )
 
-            return self.ui.create_figure((points, self.my_location), summaries=summaries)
+            return self.ui.create_figure(
+                (points, self.my_location), summaries=summaries
+            )
 
         @self.app.callback(
             Output("status_bar", "children"),
@@ -705,7 +744,7 @@ class TapMap:
     def run(self) -> None:
         """Start the Dash server and launch the local UI."""
         host = "127.0.0.1"
-        port = 8050
+        port = int(os.getenv("TAPMAP_PORT", SERVER_PORT))
         url = f"http://{host}:{port}/"
         self._open_browser(url)
 
