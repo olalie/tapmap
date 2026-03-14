@@ -45,12 +45,14 @@ class NetInfo:
 
         if system == "Linux":
             from .netinfo_linux import LinuxNetInfo
-
             return LinuxNetInfo(allowed_statuses=self.allowed_statuses)
 
         if system == "Windows":
             from .netinfo_windows import WindowsNetInfo
-
             return WindowsNetInfo(allowed_statuses=self.allowed_statuses)
+
+        if system == "Darwin":
+            from .netinfo_linux import LinuxNetInfo
+            return LinuxNetInfo(allowed_statuses=self.allowed_statuses)
 
         raise NotImplementedError(f"NetInfo backend is not implemented for OS: {system}")
