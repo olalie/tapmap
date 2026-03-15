@@ -21,6 +21,7 @@ requires one return value. For example, modal_controller returns:
 from __future__ import annotations
 
 import logging
+import os
 import platform
 import sys
 import threading
@@ -32,7 +33,7 @@ from typing import Any, ClassVar, Final
 from dash import Dash, Input, Output, State, ctx, html, no_update
 
 from app_dirs import open_folder
-from config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
+from config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, SERVER_PORT, ZOOM_NEAR_KM
 from model.geoinfo import GeoInfo
 from model.model import Model
 from model.netinfo import NetInfo
@@ -245,6 +246,7 @@ class TapMap:
     def _build_app_info(self) -> dict[str, Any]:
         return {
             "version": self.ctx.meta.version,
+            "server_port": int(os.getenv("TAPMAP_PORT", str(SERVER_PORT))),
             "poll_interval_ms": POLL_INTERVAL_MS,
             "coord_precision": COORD_PRECISION,
             "zoom_near_km": ZOOM_NEAR_KM,
@@ -705,7 +707,7 @@ class TapMap:
     def run(self) -> None:
         """Start the Dash server and launch the local UI."""
         host = "127.0.0.1"
-        port = 8050
+        port = int(os.getenv("TAPMAP_PORT", str(SERVER_PORT)))
         url = f"http://{host}:{port}/"
         self._open_browser(url)
 

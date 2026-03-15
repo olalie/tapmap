@@ -30,6 +30,7 @@ def render_about(
         if isinstance(info, dict):
             app_info = info
 
+    server_port = app_info.get("server_port")
     poll_ms = app_info.get("poll_interval_ms")
     coord_precision = app_info.get("coord_precision")
     near_km = app_info.get("zoom_near_km")
@@ -64,6 +65,7 @@ def render_about(
         ("Name", app_name),
         ("Version", app_version),
         ("Author", app_author),
+        ("Server port", str(server_port) if isinstance(server_port, int) else "-"),
         ("Poll interval", f"{poll_ms} ms" if isinstance(poll_ms, int) else "-"),
         ("Coord precision", str(coord_precision) if coord_precision is not None else "-"),
         ("Near distance", f"{near_km} km" if isinstance(near_km, (int, float)) else "-"),

@@ -8,9 +8,11 @@ from __future__ import annotations
 from typing import Final, Literal
 
 # Configure local map marker behavior.
-
 LocationMode = Literal["auto", "none"]
 
+# Configure local Dash server.
+SERVER_PORT: Final[int] = 8050
+"""HTTP port used by the local Dash server."""
 
 MY_LOCATION: Final[tuple[float, float] | LocationMode] = "auto"
 """Local map marker options:

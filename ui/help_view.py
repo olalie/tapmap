@@ -446,6 +446,16 @@ def render_help() -> list[Any]:
                     [
                         html.Tr(
                             [
+                                html.Td("SERVER_PORT"),
+                                html.Td(
+                                    "Default port used by the local Dash server. "
+                                    "Can be overridden at startup using the "
+                                    "TAPMAP_PORT environment variable."
+                                ),
+                            ]
+                        ),
+                        html.Tr(
+                            [
                                 html.Td("MY_LOCATION"),
                                 html.Td(
                                     "'none' hides the local marker. Use (lon, lat) for fixed "
