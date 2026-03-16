@@ -19,7 +19,6 @@ permissions:
   contents: write
 
 jobs:
-
   build:
     name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
@@ -61,14 +60,13 @@ jobs:
           from pathlib import Path
 
           os_name = os.environ["RUNNER_OS"].lower()
-          ref_name = os.environ["GITHUB_REF_NAME"]
 
           dist = Path("dist")
           exe = dist / ("tapmap.exe" if os_name == "windows" else "tapmap")
           if not exe.exists():
               raise FileNotFoundError(f"Expected build output not found: {exe}")
 
-          out = Path(f"tapmap-{ref_name}-{os_name}.zip")
+          out = Path(f"tapmap-{os_name}.zip")
 
           with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
               zf.write(exe, exe.name)
@@ -85,9 +83,8 @@ jobs:
           from pathlib import Path
 
           os_name = os.environ["RUNNER_OS"].lower()
-          ref_name = os.environ["GITHUB_REF_NAME"]
 
-          file = Path(f"tapmap-{ref_name}-{os_name}.zip")
+          file = Path(f"tapmap-{os_name}.zip")
           if not file.exists():
               raise FileNotFoundError(file)
 
@@ -104,11 +101,10 @@ jobs:
         with:
           name: tapmap-${{ runner.os }}
           path: |
-            tapmap-${{ github.ref_name }}-${{ runner.os == 'Windows' && 'windows' || 'linux' }}.zip
-            tapmap-${{ github.ref_name }}-${{ runner.os == 'Windows' && 'windows' || 'linux' }}.zip.sha256
+            tapmap-${{ runner.os == 'Windows' && 'windows' || 'linux' }}.zip
+            tapmap-${{ runner.os == 'Windows' && 'windows' || 'linux' }}.zip.sha256
           if-no-files-found: error
           retention-days: 7
-
 
   release:
     name: Publish GitHub Release
@@ -130,7 +126,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release-assets/tapmap-Windows/tapmap-${{ github.ref_name }}-windows.zip
-            release-assets/tapmap-Windows/tapmap-${{ github.ref_name }}-windows.zip.sha256
-            release-assets/tapmap-Linux/tapmap-${{ github.ref_name }}-linux.zip
-            release-assets/tapmap-Linux/tapmap-${{ github.ref_name }}-linux.zip.sha256
+            release-assets/tapmap-Windows/tapmap-windows.zip
+            release-assets/tapmap-Windows/tapmap-windows.zip.sha256
+            release-assets/tapmap-Linux/tapmap-linux.zip
+            release-assets/tapmap-Linux/tapmap-linux.zip.sha256
