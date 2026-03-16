@@ -19,9 +19,15 @@ permissions:
   contents: write
 
 jobs:
+
   build:
-    name: Build on windows-latest
-    runs-on: windows-latest
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
 
     steps:
       - name: Checkout
@@ -46,7 +52,7 @@ jobs:
         run: |
           python tools/build.py
 
-      - name: Package artifact (same as build-test)
+      - name: Package artifact
         shell: bash
         run: |
           python - << 'PY'
@@ -63,36 +69,68 @@ jobs:
               raise FileNotFoundError(f"Expected build output not found: {exe}")
 
           out = Path(f"tapmap-{ref_name}-{os_name}.zip")
+
           with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
               zf.write(exe, exe.name)
 
           print(out)
           PY
 
-      - name: Create SHA256 (Windows)
-        shell: pwsh
+      - name: Create SHA256
+        shell: bash
         run: |
-          $file = "tapmap-$($env:GITHUB_REF_NAME)-windows.zip"
-          if (!(Test-Path $file)) {
-            throw "Missing expected zip: $file"
-          }
-          $hash = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
-          "$hash  $file" | Out-File -Encoding ascii "$file.sha256"
+          python - << 'PY'
+          import hashlib
+          import os
+          from pathlib import Path
 
-      - name: Upload artifact
+          os_name = os.environ["RUNNER_OS"].lower()
+          ref_name = os.environ["GITHUB_REF_NAME"]
+
+          file = Path(f"tapmap-{ref_name}-{os_name}.zip")
+          if not file.exists():
+              raise FileNotFoundError(file)
+
+          digest = hashlib.sha256(file.read_bytes()).hexdigest()
+
+          sha = file.with_suffix(file.suffix + ".sha256")
+          sha.write_text(f"{digest}  {file.name}\n", encoding="ascii")
+
+          print(sha)
+          PY
+
+      - name: Upload workflow artifact
         uses: actions/upload-artifact@v7
         with:
-          name: tapmap-release-${{ runner.os }}
+          name: tapmap-${{ runner.os }}
           path: |
-            tapmap-${{ github.ref_name }}-windows.zip
-            tapmap-${{ github.ref_name }}-windows.zip.sha256
+            tapmap-${{ github.ref_name }}-${{ runner.os == 'Windows' && 'windows' || 'linux' }}.zip
+            tapmap-${{ github.ref_name }}-${{ runner.os == 'Windows' && 'windows' || 'linux' }}.zip.sha256
           if-no-files-found: error
           retention-days: 7
 
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') && (github.event_name != 'workflow_dispatch' || inputs.dry_run != 'true')
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: release-assets
+
+      - name: List release files
+        run: |
+          find release-assets -type f | sort
+
       - name: Upload to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v') && (github.event_name != 'workflow_dispatch' || inputs.dry_run != 'true')
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            tapmap-${{ github.ref_name }}-windows.zip
-            tapmap-${{ github.ref_name }}-windows.zip.sha256
+            release-assets/tapmap-Windows/tapmap-${{ github.ref_name }}-windows.zip
+            release-assets/tapmap-Windows/tapmap-${{ github.ref_name }}-windows.zip.sha256
+            release-assets/tapmap-Linux/tapmap-${{ github.ref_name }}-linux.zip
+            release-assets/tapmap-Linux/tapmap-${{ github.ref_name }}-linux.zip.sha256

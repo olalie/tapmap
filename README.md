@@ -36,17 +36,20 @@ Download the latest version from the
 Available builds:
 
 - Windows (zip)
-
-Linux is supported when running from source.
-
-Linux runtime requirements:
-
-- `ss` command from `iproute2` (used for socket enumeration)
-- `xdg-open` (optional, only needed for the **Open data folder** action)
+- Linux (zip)
 
 No installation required. Download, extract, and run.
 
-Tested on Windows 11 and Linux.
+Linux notes:
+
+- `xdg-open` is used by the **Open data folder** action.
+
+Start TapMap from the extracted folder:
+
+    chmod +x tapmap
+    ./tapmap
+
+Tested on Windows 11 and Ubuntu.
 
 ---
 
