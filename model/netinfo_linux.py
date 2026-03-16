@@ -3,19 +3,38 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+from dataclasses import dataclass
 from typing import Any
 
 from .netinfo import ProcessInfo
 
-_PROC_RE = re.compile(r'users:\(\("(?P<name>[^"]+)",pid=(?P<pid>\d+),fd=\d+\)\)')
+# Matches one process entry inside users:(...)
+# Works for both single and multi-process lists, e.g.:
+# users:(("nginx",pid=1977,fd=5),("nginx",pid=1976,fd=5))
+_USERS_ENTRY_RE = re.compile(r'\("(?P<name>[^"]+)",pid=(?P<pid>\d+),fd=\d+\)')
+
+
+@dataclass(frozen=True)
+class _ParsedSocket:
+    pid: int | None
+    proto: str
+    status: str
+    family: str
+    sock_type: str
+    laddr_ip: str | None
+    laddr_port: int | None
+    raddr_ip: str | None
+    raddr_port: int | None
 
 
 class LinuxNetInfo:
     """Collect socket records via iproute2 ss and attach process metadata (Linux).
 
     Notes:
-        - Process details for other users often require root or capabilities.
-        - Missing remote addresses are returned as None, matching psutil behavior.
+        - This implementation uses text output because `ss -j` is not supported
+          by all iproute2 versions (your system returns "invalid option -j").
+        - Missing remote endpoints are returned as None.
+        - This class preserves TapMap's historical backend API and output keys.
     """
 
     def __init__(self, allowed_statuses: set[str] | None = None) -> None:
@@ -26,28 +45,23 @@ class LinuxNetInfo:
         proc_cache: dict[int, ProcessInfo] = {}
         results: list[dict[str, Any]] = []
 
-        for line in self._run_ss():
-            parsed = self._parse_ss_line(line)
-            if parsed is None:
+        for parsed in self._iter_sockets():
+            if not self._is_included(parsed.proto, parsed.status):
                 continue
 
-            if not self._is_included(parsed["proto"], parsed["status"]):
-                continue
-
-            pid = parsed["pid"]
-            proc = self._get_process_info(pid, proc_cache)
+            proc = self._get_process_info(parsed.pid, proc_cache)
 
             results.append(
                 {
-                    "pid": pid,
-                    "proto": parsed["proto"],
-                    "status": parsed["status"],
-                    "family": parsed["family"],
-                    "type": parsed["type"],
-                    "laddr_ip": parsed["laddr_ip"],
-                    "laddr_port": parsed["laddr_port"],
-                    "raddr_ip": parsed["raddr_ip"],
-                    "raddr_port": parsed["raddr_port"],
+                    "pid": parsed.pid,
+                    "proto": parsed.proto,
+                    "status": parsed.status,
+                    "family": parsed.family,
+                    "type": parsed.sock_type,
+                    "laddr_ip": parsed.laddr_ip,
+                    "laddr_port": parsed.laddr_port,
+                    "raddr_ip": parsed.raddr_ip,
+                    "raddr_port": parsed.raddr_port,
                     "process_status": proc.status,
                     "process_label": proc.label,
                     "process_name": proc.name,
@@ -65,8 +79,17 @@ class LinuxNetInfo:
             return True
         return status in self.allowed_statuses
 
+    def _iter_sockets(self) -> list[_ParsedSocket]:
+        lines = self._run_ss_lines()
+        parsed: list[_ParsedSocket] = []
+        for line in lines:
+            rec = self._parse_ss_line(line)
+            if rec is not None:
+                parsed.append(rec)
+        return parsed
+
     @staticmethod
-    def _run_ss() -> list[str]:
+    def _run_ss_lines() -> list[str]:
         """Run ss and return output lines (no header)."""
         cmd = ["ss", "-H", "-n", "-t", "-u", "-a", "-p"]
         try:
@@ -77,7 +100,7 @@ class LinuxNetInfo:
         out = (cp.stdout or "").strip()
         return out.splitlines() if out else []
 
-    def _parse_ss_line(self, line: str) -> dict[str, Any] | None:
+    def _parse_ss_line(self, line: str) -> _ParsedSocket | None:
         # ss columns:
         # Netid State Recv-Q Send-Q Local Address:Port Peer Address:Port Process
         parts = line.split(maxsplit=6)
@@ -97,41 +120,29 @@ class LinuxNetInfo:
         l_ip, l_port = self._split_addr(local, role="local")
         r_ip, r_port = self._split_addr(peer, role="peer")
 
-        family = self._infer_family(l_ip, r_ip)
+        family = "AF_INET6" if (l_ip and ":" in l_ip) or (r_ip and ":" in r_ip) else "AF_INET"
+        pid = self._extract_first_pid(proc_field)
 
-        pid, _name_from_ss = self._parse_pid_and_name(proc_field)
-
-        return {
-            "pid": pid,
-            "proto": proto,
-            "status": status,
-            "family": family,
-            "type": sock_type,
-            "laddr_ip": l_ip,
-            "laddr_port": l_port,
-            "raddr_ip": r_ip,
-            "raddr_port": r_port,
-        }
+        return _ParsedSocket(
+            pid=pid,
+            proto=proto,
+            status=status,
+            family=family,
+            sock_type=sock_type,
+            laddr_ip=l_ip,
+            laddr_port=l_port,
+            raddr_ip=r_ip,
+            raddr_port=r_port,
+        )
 
     @staticmethod
-    def _parse_pid_and_name(proc_field: str) -> tuple[int | None, str | None]:
-        m = _PROC_RE.search(proc_field or "")
+    def _extract_first_pid(proc_field: str) -> int | None:
+        """Extract the first pid from ss users:(...) field."""
+        m = _USERS_ENTRY_RE.search(proc_field or "")
         if not m:
-            return None, None
-        try:
-            return int(m.group("pid")), m.group("name")
-        except ValueError:
-            return None, None
-
-    @staticmethod
-    def _parse_port(port_str: str | None) -> int | None:
-        if not port_str:
-            return None
-        s = port_str.strip()
-        if s in {"*", "-", ""}:
             return None
         try:
-            return int(s)
+            return int(m.group("pid"))
         except ValueError:
             return None
 
@@ -148,8 +159,7 @@ class LinuxNetInfo:
 
         if s.endswith(":*"):
             ip_part = s[:-2].strip()
-            ip = self._normalize_ip(ip_part, role=role)
-            return ip, None
+            return self._normalize_ip(ip_part, role=role), None
 
         if s.startswith("["):
             right = s.rfind("]:")
@@ -171,15 +181,19 @@ class LinuxNetInfo:
         return self._normalize_ip(s, role=role), None
 
     @staticmethod
-    def _normalize_ip(ip: str | None, *, role: str) -> str | None:
-        """Normalize ip string from ss.
+    def _parse_port(port_str: str | None) -> int | None:
+        if not port_str:
+            return None
+        s = port_str.strip()
+        if s in {"*", "-", ""}:
+            return None
+        try:
+            return int(s)
+        except ValueError:
+            return None
 
-        Rules:
-            - Strip brackets if present.
-            - Strip zone suffix like '%wlp2s0' for stability.
-            - local: map '*' to '0.0.0.0'
-            - peer: map wildcards to None
-        """
+    @staticmethod
+    def _normalize_ip(ip: str | None, *, role: str) -> str | None:
         if not ip:
             return None
 
@@ -196,17 +210,14 @@ class LinuxNetInfo:
                 return "0.0.0.0"
             return s or None
 
-        # peer role
         if s in {"*", "0.0.0.0", "::"}:
             return None
         return s or None
 
     @staticmethod
     def _normalize_status(state: str | None) -> str:
-        """Normalize ss TCP state names to psutil-compatible values."""
         if not state:
             return "NONE"
-
         mapping = {
             "ESTAB": "ESTABLISHED",
             "SYN-SENT": "SYN_SENT",
@@ -217,14 +228,7 @@ class LinuxNetInfo:
             "CLOSE-WAIT": "CLOSE_WAIT",
             "LAST-ACK": "LAST_ACK",
         }
-
         return mapping.get(state, state)
-
-    @staticmethod
-    def _infer_family(l_ip: str | None, r_ip: str | None) -> str:
-        if (l_ip and ":" in l_ip) or (r_ip and ":" in r_ip):
-            return "AF_INET6"
-        return "AF_INET"
 
     def _get_process_info(self, pid: int | None, cache: dict[int, ProcessInfo]) -> ProcessInfo:
         """Return process metadata for a PID using /proc."""
@@ -255,8 +259,6 @@ class LinuxNetInfo:
             except PermissionError:
                 access_denied = True
                 return None
-            except FileNotFoundError:
-                return None
             except OSError:
                 return None
 
@@ -267,12 +269,10 @@ class LinuxNetInfo:
             except PermissionError:
                 access_denied = True
                 return None
-            except FileNotFoundError:
-                return None
             except OSError:
                 return None
 
-        name = None
+        name: str | None = None
         comm = safe_read_text(f"{base}/comm")
         if comm:
             name = comm.strip() or None
@@ -287,10 +287,10 @@ class LinuxNetInfo:
             cmdline = parts or None
         except PermissionError:
             access_denied = True
-        except (FileNotFoundError, OSError):
+        except OSError:
             pass
 
-        if isinstance(name, str) and name:
+        if name:
             return ProcessInfo(status="OK", label=name, name=name, exe=exe, cmdline=cmdline)
 
         if access_denied:
