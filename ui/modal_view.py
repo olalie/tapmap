@@ -150,8 +150,11 @@ class ModalTextBuilder:
         return (scope_order, proto_order, port, process_name, pid)
 
     @staticmethod
-    def _is_system_process(process_name: str) -> bool:
-        """Return True if process is a core Windows system service."""
+    def _is_system_process(row: dict[str, Any]) -> bool:
+        """Return True if the row should be treated as a system process."""
+        process_status = safe_str(row.get("process_status"))
+        process_name = safe_str(row.get("process_name") or row.get("process_label")).lower()
+
         hidden = {
             "system",
             "svchost.exe",
@@ -160,7 +163,8 @@ class ModalTextBuilder:
             "services.exe",
             "spoolsv.exe",
         }
-        return process_name.lower() in hidden
+
+        return process_status != "OK" or process_name in hidden
 
     @classmethod
     def _render_open_ports(
@@ -178,8 +182,7 @@ class ModalTextBuilder:
         if not show_system:
             filtered: list[dict[str, Any]] = []
             for r in cleaned:
-                process_name = safe_str(r.get("process_name") or r.get("process_label"))
-                if cls._is_system_process(process_name):
+                if cls._is_system_process(r):
                     continue
                 filtered.append(r)
             cleaned = filtered

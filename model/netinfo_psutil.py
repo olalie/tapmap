@@ -8,7 +8,7 @@ import psutil
 from .netinfo import ProcessInfo
 
 
-class WindowsNetInfo:
+class PsutilNetInfo:
     """Collect socket records via psutil and attach process metadata (Windows)."""
 
     KINDS = ("tcp", "udp")
@@ -76,7 +76,7 @@ class WindowsNetInfo:
     ) -> ProcessInfo:
         """Return process metadata for a PID."""
         if pid is None or pid <= 0:
-            return ProcessInfo(status="No process", label="No process")
+            return ProcessInfo(status="No process", label="System")
 
         cached = cache.get(pid)
         if cached is not None:
@@ -85,7 +85,7 @@ class WindowsNetInfo:
         try:
             proc = psutil.Process(pid)
         except psutil.NoSuchProcess:
-            info = ProcessInfo(status="No process", label="No process")
+            info = ProcessInfo(status="No process", label="System")
             cache[pid] = info
             return info
         except psutil.AccessDenied:

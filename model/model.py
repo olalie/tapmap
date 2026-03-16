@@ -263,7 +263,13 @@ class Model:
         process_name = conn.get("process_name") or None
         exe = conn.get("exe") or None
 
-        process_label = process_name or process_status
+        if process_name:
+            process_label = process_name
+        elif process_status == "No process":
+            process_label = "System"
+        else:
+            process_label = process_status
+
         process_hint = exe or process_status
 
         service = self._service_name(l_port, proto)
