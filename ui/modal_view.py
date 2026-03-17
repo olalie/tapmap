@@ -50,6 +50,7 @@ class ModalTextBuilder:
         *,
         snapshot: Any | None = None,
         show_system: bool = False,
+        is_docker: bool,
     ) -> list[Any]:
         """Build modal body content for a menu action.
 
@@ -57,6 +58,7 @@ class ModalTextBuilder:
             action: Menu action ID.
             snapshot: Latest model snapshot (dict) or None.
             show_system: Open ports view toggle state.
+            is_docker: Whether the application is running in Docker.
 
         Returns:
             Dash components for the modal body.
@@ -79,8 +81,8 @@ class ModalTextBuilder:
                 app_version=self.app_version,
                 app_author=self.app_author,
                 snapshot=snapshot,
+                is_docker=is_docker,
             )
-
         label = self._label_map.get(action, action)
         return [self._h1("Details"), html.Pre(f"Menu selected: {label}")]
 
@@ -474,7 +476,7 @@ class ModalTextBuilder:
 
         return [header, table]
 
-    def missing_geo_db(self, geo_data_dir: str) -> list[Any]:
+    def missing_geo_db(self, geo_data_dir: str, *, is_docker: bool) -> list[Any]:
         """Render the Missing GeoIP databases view."""
         return [
             self._h1("Missing GeoIP databases"),
@@ -489,12 +491,18 @@ class ModalTextBuilder:
                 className="mx-path-row",
                 children=[
                     html.Pre(geo_data_dir, className="mx-path-box"),
-                    html.Button(
-                        "Open data folder",
-                        id="btn_open_data",
-                        n_clicks=0,
-                        className="mx-btn mx-btn--primary mx-btn--nowrap",
-                        type="button",
+                    *(
+                        []
+                        if is_docker
+                        else [
+                            html.Button(
+                                "Open data folder",
+                                id="btn_open_data",
+                                n_clicks=0,
+                                className="mx-btn mx-btn--primary mx-btn--nowrap",
+                                type="button",
+                            )
+                        ]
                     ),
                     html.Button(
                         "Recheck databases",
@@ -504,6 +512,17 @@ class ModalTextBuilder:
                         type="button",
                     ),
                 ],
+            ),
+            *(
+                [
+                    html.P(
+                        "Running in Docker. Place the GeoLite2 .mmdb files in the "
+                        "host folder mounted to this path.",
+                        className="mx-note",
+                    )
+                ]
+                if is_docker
+                else []
             ),
             html.P("Required files:"),
             html.Ul(
@@ -515,8 +534,12 @@ class ModalTextBuilder:
             html.H2("Steps"),
             html.Ol(
                 [
-                    html.Li("Open the data folder."),
-                    html.Li("Copy the GeoLite2 .mmdb files into the folder."),
+                    *(
+                        [html.Li("Open the data folder.")]
+                        if not is_docker
+                        else [html.Li("Copy the GeoLite2 .mmdb files into the host folder mapped to this path.")]
+                    ),
+                    html.Li("Copy the GeoLite2 .mmdb files into the folder." if not is_docker else "Restart or return to the app after the files are in place."),
                     html.Li("Click Recheck GeoIP databases in the app."),
                 ]
             ),

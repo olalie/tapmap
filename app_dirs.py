@@ -16,6 +16,9 @@ APP_NAME: Final[str] = "TapMap"
 
 README_TEXT: Final[str] = (
     "Place GeoIP .mmdb databases here.\n"
+    "\n"
+    "If running in Docker, this folder is mapped from the host to /data in the container.\n"
+
     "Required files:\n"
     "- GeoLite2-City.mmdb\n"
     "- GeoLite2-ASN.mmdb\n"
@@ -24,8 +27,7 @@ README_TEXT: Final[str] = (
     "https://dev.maxmind.com/geoip/geolite2-free-geolocation-data\n"
 )
 
-
-def get_app_data_dir(app_name: str = APP_NAME) -> Path:
+def get_native_app_data_dir(app_name: str = APP_NAME) -> Path:
     r"""Return the per-user application data directory for the current OS.
 
     Windows: %APPDATA%\<app_name>
@@ -47,7 +49,6 @@ def get_app_data_dir(app_name: str = APP_NAME) -> Path:
     base_dir = Path(xdg) if xdg else (Path.home() / ".local" / "share")
     return base_dir / app_name
 
-
 def ensure_app_data_dir(app_dir: Path) -> None:
     """Create the application data directory and README.txt file when missing."""
     app_dir = app_dir.expanduser()
@@ -58,9 +59,9 @@ def ensure_app_data_dir(app_dir: Path) -> None:
         readme.write_text(README_TEXT, encoding="utf-8")
 
 
-def get_or_create_app_data_dir(app_name: str = APP_NAME) -> Path:
-    """Return the per-user application data directory, creating it when missing."""
-    app_dir = get_app_data_dir(app_name)
+def ensure_native_app_data_dir(app_name: str = APP_NAME) -> Path:
+    """Return native app data directory and ensure it exists."""
+    app_dir = get_native_app_data_dir(app_name)
     ensure_app_data_dir(app_dir)
     return app_dir
 

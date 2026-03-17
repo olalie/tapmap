@@ -19,6 +19,7 @@ def render_about(
     app_version: str,
     app_author: str,
     snapshot: Any | None = None,
+    is_docker: bool,
 ) -> list[Any]:
     """Render About view content.
 
@@ -113,12 +114,18 @@ def render_about(
             className="mx-path-row",
             children=[
                 html.Pre(geo_data_dir, className="mx-path-box") if geo_data_dir else None,
-                html.Button(
-                    "Open data folder",
-                    id="btn_open_data",
-                    n_clicks=0,
-                    className="mx-btn mx-btn--primary mx-btn--nowrap",
-                    type="button",
+                *(
+                    []
+                    if is_docker
+                    else [
+                        html.Button(
+                            "Open data folder",
+                            id="btn_open_data",
+                            n_clicks=0,
+                            className="mx-btn mx-btn--primary mx-btn--nowrap",
+                            type="button",
+                        )
+                    ]
                 ),
                 html.Button(
                     "Recheck GeoIP databases",
@@ -128,6 +135,17 @@ def render_about(
                     type="button",
                 ),
             ],
+        ),
+        *(
+            [
+                html.P(
+                    "Running in Docker. Place the GeoLite2 .mmdb files in the "
+                    "host folder mounted to this path.",
+                    className="mx-note",
+                )
+            ]
+            if is_docker
+            else []
         ),
         html.H2("Location"),
         kv_table(location_rows),

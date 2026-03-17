@@ -5,17 +5,17 @@ from pathlib import Path
 import app_dirs
 
 
-def test_get_app_data_dir_uses_appdata_on_windows(monkeypatch) -> None:
+def test_get_native_app_data_dir_uses_appdata_on_windows(monkeypatch) -> None:
     """Use APPDATA on Windows."""
     monkeypatch.setattr(app_dirs.platform, "system", lambda: "Windows")
     monkeypatch.setenv("APPDATA", str(Path("/tmp/roaming")))
 
-    result = app_dirs.get_app_data_dir()
+    result = app_dirs.get_native_app_data_dir()
 
     assert result == Path("/tmp/roaming") / app_dirs.APP_NAME
 
 
-def test_get_app_data_dir_uses_windows_fallback_when_appdata_is_missing(
+def test_get_native_app_data_dir_uses_windows_fallback_when_appdata_is_missing(
     monkeypatch, tmp_path: Path
 ) -> None:
     """Use the Windows fallback path when APPDATA is missing."""
@@ -23,34 +23,34 @@ def test_get_app_data_dir_uses_windows_fallback_when_appdata_is_missing(
     monkeypatch.delenv("APPDATA", raising=False)
     monkeypatch.setattr(app_dirs.Path, "home", lambda: tmp_path)
 
-    result = app_dirs.get_app_data_dir()
+    result = app_dirs.get_native_app_data_dir()
 
     assert result == tmp_path / "AppData" / "Roaming" / app_dirs.APP_NAME
 
 
-def test_get_app_data_dir_uses_application_support_on_macos(
+def test_get_native_app_data_dir_uses_application_support_on_macos(
     monkeypatch, tmp_path: Path
 ) -> None:
     """Use Application Support on macOS."""
     monkeypatch.setattr(app_dirs.platform, "system", lambda: "Darwin")
     monkeypatch.setattr(app_dirs.Path, "home", lambda: tmp_path)
 
-    result = app_dirs.get_app_data_dir()
+    result = app_dirs.get_native_app_data_dir()
 
     assert result == tmp_path / "Library" / "Application Support" / app_dirs.APP_NAME
 
 
-def test_get_app_data_dir_uses_xdg_data_home_on_linux(monkeypatch) -> None:
+def test_get_native_app_data_dir_uses_xdg_data_home_on_linux(monkeypatch) -> None:
     """Use XDG_DATA_HOME on Linux."""
     monkeypatch.setattr(app_dirs.platform, "system", lambda: "Linux")
     monkeypatch.setenv("XDG_DATA_HOME", str(Path("/tmp/xdg-data")))
 
-    result = app_dirs.get_app_data_dir()
+    result = app_dirs.get_native_app_data_dir()
 
     assert result == Path("/tmp/xdg-data") / app_dirs.APP_NAME
 
 
-def test_get_app_data_dir_uses_linux_default_when_xdg_data_home_is_missing(
+def test_get_native_app_data_dir_uses_linux_default_when_xdg_data_home_is_missing(
     monkeypatch, tmp_path: Path
 ) -> None:
     """Use the Linux default path when XDG_DATA_HOME is missing."""
@@ -58,7 +58,7 @@ def test_get_app_data_dir_uses_linux_default_when_xdg_data_home_is_missing(
     monkeypatch.delenv("XDG_DATA_HOME", raising=False)
     monkeypatch.setattr(app_dirs.Path, "home", lambda: tmp_path)
 
-    result = app_dirs.get_app_data_dir()
+    result = app_dirs.get_native_app_data_dir()
 
     assert result == tmp_path / ".local" / "share" / app_dirs.APP_NAME
 
@@ -88,17 +88,17 @@ def test_ensure_app_data_dir_does_not_overwrite_existing_readme(tmp_path: Path) 
     assert readme_path.read_text(encoding="utf-8") == "custom content"
 
 
-def test_get_or_create_app_data_dir_creates_directory_and_readme(
+def test_ensure_native_app_data_dir_creates_directory_and_readme(
     monkeypatch, tmp_path: Path
 ) -> None:
     """Create and return the application data directory."""
     monkeypatch.setattr(
         app_dirs,
-        "get_app_data_dir",
+        "get_native_app_data_dir",
         lambda app_name=app_dirs.APP_NAME: tmp_path / app_name,
     )
 
-    result = app_dirs.get_or_create_app_data_dir()
+    result = app_dirs.ensure_native_app_data_dir()
 
     assert result == tmp_path / app_dirs.APP_NAME
     assert result.is_dir()

@@ -21,7 +21,6 @@ requires one return value. For example, modal_controller returns:
 from __future__ import annotations
 
 import logging
-import os
 import platform
 import sys
 import threading
@@ -33,7 +32,7 @@ from typing import Any, ClassVar, Final
 from dash import Dash, Input, Output, State, ctx, html, no_update
 
 from app_dirs import open_folder
-from config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, SERVER_PORT, ZOOM_NEAR_KM
+from config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
 from model.geoinfo import GeoInfo
 from model.model import Model
 from model.netinfo import NetInfo
@@ -81,12 +80,12 @@ class TapMap:
     SCR_MISSING_GEO_DB = "missing_geo_db"
 
     def __init__(self, runtime_ctx: RuntimeContext) -> None:
-        self.ctx = runtime_ctx
+        self.runtime = runtime_ctx
         self.logger = logging.getLogger(__name__)
 
         self.app = Dash(
             __name__,
-            title=self.ctx.meta.name,
+            title=self.runtime.meta.name,
             update_title=None,
             suppress_callback_exceptions=True,
         )
@@ -98,20 +97,20 @@ class TapMap:
         )
 
         self.modal_text = ModalTextBuilder(
-            self.ctx.meta.name,
-            self.ctx.meta.version,
-            self.ctx.meta.author,
+            self.runtime.meta.name,
+            self.runtime.meta.version,
+            self.runtime.meta.author,
         )
 
         self.model = Model(
             netinfo=NetInfo(),
-            geoinfo=GeoInfo(data_dir=self.ctx.geo_data_dir),
+            geoinfo=GeoInfo(data_dir=self.runtime.geo_data_dir),
         )
 
         self.logger.info(
             "GeoInfo enabled at startup: %s", getattr(self.model.geoinfo, "enabled", False)
         )
-        self.logger.info("geo_data_dir: %s", self.ctx.geo_data_dir)
+        self.logger.info("geo_data_dir: %s", self.runtime.geo_data_dir)
 
         self._public_ip_cached: str | None = None
         self._auto_geo_cached: dict[str, Any] = {}
@@ -166,12 +165,17 @@ class TapMap:
         initial_body_children: list[Any] = []
         initial_body_class = "modal-body"
         if initial_modal_state is not None:
-            geo_path = str(self.ctx.geo_data_dir)
-            initial_body_children = self._as_children(self.modal_text.missing_geo_db(geo_path))
+            geo_path = str(self.runtime.geo_data_dir)
+            initial_body_children = self._as_children(
+                self.modal_text.missing_geo_db(
+                    geo_path,
+                    is_docker=self.runtime.is_docker,
+                )
+            )
             initial_body_class = self._class_for_modal_screen(self.SCR_MISSING_GEO_DB)
 
         return render_layout(
-            app_name=self.ctx.meta.name,
+            app_name=self.runtime.meta.name,
             start_fig=start_fig,
             graph_config=self.graph_config,
             poll_interval_ms=POLL_INTERVAL_MS,
@@ -245,24 +249,26 @@ class TapMap:
 
     def _build_app_info(self) -> dict[str, Any]:
         return {
-            "version": self.ctx.meta.version,
-            "server_port": int(os.getenv("TAPMAP_PORT", str(SERVER_PORT))),
+            "version": self.runtime.meta.version,
             "poll_interval_ms": POLL_INTERVAL_MS,
             "coord_precision": COORD_PRECISION,
             "zoom_near_km": ZOOM_NEAR_KM,
             "geoinfo_enabled": bool(getattr(self.model.geoinfo, "city_enabled", False)),
-            "geo_data_dir": str(self.ctx.geo_data_dir),
-            "app_data_dir": str(self.ctx.app_data_dir),
-            "run_dir": str(self.ctx.run_dir),
-            "is_frozen": bool(self.ctx.is_frozen),
+            "geo_data_dir": str(self.runtime.geo_data_dir),
+            "app_data_dir": str(self.runtime.app_data_dir),
+            "run_dir": str(self.runtime.run_dir),
+            "is_frozen": bool(self.runtime.is_frozen),
             "myloc_mode": self._myloc_label(),
             "my_location": MY_LOCATION,
             "public_ip_cached": self._public_ip_cached,
             "auto_geo_cached": self._auto_geo_cached,
             "os": f"{platform.system()} {platform.release()}",
             "python": sys.version.split()[0],
-            "net_backend": self.ctx.net_backend,
-            "net_backend_version": self.ctx.net_backend_version,
+            "net_backend": self.runtime.net_backend,
+            "net_backend_version": self.runtime.net_backend_version,
+            "server_host": self.runtime.server_host,
+            "server_port": self.runtime.server_port,
+            "is_docker": self.runtime.is_docker,
         }
 
     def _handle_geo_recheck(self, status_cache: StatusCache) -> tuple[Any, Any, Any, Any, Any]:
@@ -406,7 +412,12 @@ class TapMap:
             return [], "modal-body"
 
         if screen == self.SCR_MISSING_GEO_DB:
-            children = self._as_children(self.modal_text.missing_geo_db(geo_path))
+            children = self._as_children(
+                self.modal_text.missing_geo_db(
+                    geo_path,
+                    is_docker=self.runtime.is_docker,
+                )
+            )
             return children, self._class_for_modal_screen(screen)
 
         if screen == "map_click":
@@ -422,6 +433,7 @@ class TapMap:
                 screen,
                 snapshot=snapshot,
                 show_system=show_system,
+                is_docker=self.runtime.is_docker,
             )
             return self._as_children(body), self._class_for_modal_screen(screen)
 
@@ -599,7 +611,7 @@ class TapMap:
         ):
             # Identify which Dash Input triggered this callback.
             trigger = ctx.triggered_id
-            geo_path = str(self.ctx.geo_data_dir)
+            geo_path = str(self.runtime.geo_data_dir)
 
             # Apply a modal_state to the UI by rendering and updating overlay classes.
             def _apply_modal_state(next_state: dict[str, Any] | None) -> tuple[Any, Any, Any, Any]:
@@ -647,12 +659,15 @@ class TapMap:
             # Execute the decided route.
             if route.action == "apply":
                 return _apply_modal_state(route.modal_state)
-
+            
             if (
                 route.action == "open_data"
                 and isinstance(open_data_clicks, int)
                 and open_data_clicks >= 1
             ):
+                if self.runtime.is_docker:
+                    return no_update, no_update, no_update, no_update
+
                 open_folder(Path(geo_path))
                 # fall through to default no_update return
 
@@ -706,8 +721,8 @@ class TapMap:
 
     def run(self) -> None:
         """Start the Dash server and launch the local UI."""
-        host = "127.0.0.1"
-        port = int(os.getenv("TAPMAP_PORT", str(SERVER_PORT)))
+        host = self.runtime.server_host
+        port = self.runtime.server_port
         url = f"http://{host}:{port}/"
         self._open_browser(url)
 

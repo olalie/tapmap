@@ -23,3 +23,7 @@ site/
 
 # Private notes
 .private/
+
+# GeoIP data (must not be committed)
+docker-data/
+*.mmdb
