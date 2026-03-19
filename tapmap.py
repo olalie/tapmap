@@ -94,6 +94,7 @@ class TapMap:
         self.view_builder = CacheViewBuilder(
             coord_precision=COORD_PRECISION,
             debug=self.DEBUG_COORDS,
+            is_docker=self.runtime.is_docker,
         )
 
         self.modal_text = ModalTextBuilder(

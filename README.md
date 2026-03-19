@@ -18,11 +18,13 @@ TapMap runs entirely on your own machine.
 It is not a firewall or a full security suite.  
 It makes network activity visible on a world map and easy to inspect with hover and click.
 
+TapMap can also run in Docker on Linux, with limited process visibility.
+
 ---
 
 ## Documentation
 
-README and API reference:
+Full documentation, including API reference and platform behavior notes:
 
 https://olalie.github.io/tapmap/
 
@@ -238,6 +240,37 @@ Run tests:
 ```
 pytest
 ```
+---
+
+## Docker (Linux)
+
+TapMap can run in Docker on Linux hosts.
+
+### Requirements
+
+- Linux host
+- Docker installed
+- GeoLite2 `.mmdb` files
+
+### Setup
+
+Place the GeoLite2 database files in:
+
+    docker-data/
+
+### Run
+
+    docker compose -f compose.linux.yaml up --build
+
+Open in browser:
+
+    http://127.0.0.1:8050
+
+### Notes
+
+- Docker provides full TCP and UDP socket data
+- Process information is not available in Docker mode
+- Requires Linux host (not supported on Docker Desktop for Windows)
 
 ---
 

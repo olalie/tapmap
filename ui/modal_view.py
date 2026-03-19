@@ -537,9 +537,18 @@ class ModalTextBuilder:
                     *(
                         [html.Li("Open the data folder.")]
                         if not is_docker
-                        else [html.Li("Copy the GeoLite2 .mmdb files into the host folder mapped to this path.")]
+                        else [
+                            html.Li(
+                                "Copy the GeoLite2 .mmdb files into the host "
+                                "folder mapped to this path."
+                            )
+                        ]
                     ),
-                    html.Li("Copy the GeoLite2 .mmdb files into the folder." if not is_docker else "Restart or return to the app after the files are in place."),
+                    html.Li(
+                        "Copy the GeoLite2 .mmdb files into the folder."
+                        if not is_docker
+                        else "Restart or return to the app after the files are in place."
+                    ),
                     html.Li("Click Recheck GeoIP databases in the app."),
                 ]
             ),

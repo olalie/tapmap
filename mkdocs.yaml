@@ -40,6 +40,7 @@ plugins:
 
 nav:
   - Home: index.md
+  - Backend testing: backend-testing.md
   - API: reference/
 
 extra:

@@ -17,9 +17,15 @@ from ui.formatting import safe_int, safe_str
 class CacheViewBuilder:
     """Build UI cache and map view data."""
 
-    def __init__(self, coord_precision: int = 3, debug: bool = False) -> None:
+    def __init__(
+        self,
+        coord_precision: int = 3,
+        debug: bool = False,
+        is_docker: bool = False,
+    ) -> None:
         self.coord_precision = int(coord_precision)
         self.debug = bool(debug)
+        self.is_docker = bool(is_docker)
         self.logger = logging.getLogger(__name__)
 
     @staticmethod
@@ -84,7 +90,7 @@ class CacheViewBuilder:
                 continue
 
             proto = safe_str(candidate.get("proto")) or None
-            process_name = safe_str(candidate.get("process_name")) or "Unknown"
+            process_name = safe_str(candidate.get("process_name"))
             pid = safe_int(candidate.get("pid"))
 
             key = self._service_key(ip, port)
@@ -94,7 +100,9 @@ class CacheViewBuilder:
                 entry = self._new_entry(candidate, ip=ip, port=port, proto=proto)
                 cache[key] = entry
 
-            self._merge_process(entry, process_name=process_name, pid=pid)
+            if process_name:
+                self._merge_process(entry, process_name=process_name, pid=pid)
+            
             self._merge_missing_attrs(
                 entry,
                 candidate,
@@ -232,7 +240,12 @@ class CacheViewBuilder:
         unique_procs = self._unique_processes(entries)
 
         ports_txt = self.format_list_compact([str(p) for p in unique_ports], max_items=3)
-        procs_txt = self.format_list_compact(unique_procs, max_items=2)
+
+        if self.is_docker and self._has_only_placeholder_processes(unique_procs):
+            procs_txt = "unavailable"
+        else:
+            procs_txt = self.format_list_compact(unique_procs, max_items=2)
+
         line3 = f"Ports: {ports_txt} | Procs: {procs_txt}"
 
         return f"{line1}<br>{line2}<br>{line3}"
@@ -248,16 +261,25 @@ class CacheViewBuilder:
         unique_ports = self._unique_ports(entries)
         unique_procs = self._unique_processes(entries)
 
+        display_proc_count = (
+            0 if self.is_docker and self._has_only_placeholder_processes(unique_procs)
+            else len(unique_procs)
+        )
+
         counts_line = (
             f"Services: {len(entries)} | "
             f"Networks: {len(unique_orgs)} | "
             f"IPs: {len(unique_ips)} | "
             f"Ports: {len(unique_ports)} | "
-            f"Procs: {len(unique_procs)}"
+            f"Procs: {display_proc_count}"
         )
 
+        process_note = ""
+        if self.is_docker and self._has_only_placeholder_processes(unique_procs):
+            process_note = "Process details unavailable in Docker mode.\n\n"
+
         org_blocks = self._build_org_blocks(entries)
-        return f"Location: {place}\n{counts_line}\n\n" + "\n\n".join(org_blocks)
+        return f"Location: {place}\n{counts_line}\n\n{process_note}" + "\n\n".join(org_blocks)
 
     @staticmethod
     def _pick_place(entries: list[dict[str, Any]]) -> str:
@@ -312,6 +334,14 @@ class CacheViewBuilder:
                     if s:
                         out.add(s)
         return sorted(out, key=str.lower)
+    
+    @staticmethod
+    def _has_only_placeholder_processes(processes: list[str]) -> bool:
+        """Return True if process names only contain placeholder values."""
+        cleaned = [p.strip() for p in processes if isinstance(p, str) and p.strip()]
+        if not cleaned:
+            return True
+        return set(cleaned) <= {"System"}
 
     def _build_org_blocks(self, entries: list[dict[str, Any]]) -> list[str]:
         by_org: dict[str, list[dict[str, Any]]] = defaultdict(list)
@@ -350,6 +380,12 @@ class CacheViewBuilder:
             proto = self._safe_proto(e.get("proto"))
             addr = self._fmt_ip_port(ip, port)
             procs_txt = self._format_procs_with_pids(e)
+
+            if self.is_docker:
+                processes = e.get("processes")
+                proc_names = processes if isinstance(processes, list) else []
+                if self._has_only_placeholder_processes(proc_names):
+                    procs_txt = "unavailable"
 
             lines.append(f"  {addr} ({proto})")
             lines.append(f"    Procs: {procs_txt}")

@@ -14,6 +14,7 @@ site/
 .private/
 .pytest_cache/
 .git/
-.github/a
+.github/
+out/
 docker-data/
 *.mmdb

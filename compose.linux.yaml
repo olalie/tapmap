@@ -1,14 +1,19 @@
 services:
   tapmap:
-    build: .
-    container_name: tapmap
+    build:
+      context: .
+      dockerfile: Dockerfile
 
     network_mode: host
+    pid: host
 
     environment:
-      - TAPMAP_PORT=8050
-      - TAPMAP_HOST=0.0.0.0
-      - TAPMAP_DATA_DIR=/data
+      TAPMAP_IN_DOCKER: "1"
+      TAPMAP_PORT: "8050"
+      TAPMAP_HOST: "127.0.0.1"
+      TAPMAP_DATA_DIR: /data
 
     volumes:
       - ./docker-data:/data
+
+    restart: unless-stopped

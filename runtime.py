@@ -2,9 +2,6 @@ from __future__ import annotations
 
 import os
 import platform
-import re
-import shutil
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -101,18 +98,9 @@ def _detect_network_backend() -> tuple[str, str]:
     """Return network backend name and version."""
     system = platform.system()
 
-    if system == "Windows":
+    if system in {"Windows", "Linux"}:
         import psutil
 
         return "psutil", getattr(psutil, "__version__", "-")
-
-    if system == "Linux":
-        if not shutil.which("ss"):
-            return "ss", "not found"
-
-        p = subprocess.run(["ss", "-V"], capture_output=True, text=True, check=False)
-        text = (p.stdout + p.stderr).strip()
-        m = re.search(r"\biproute2-([0-9][0-9A-Za-z.\-+]*)\b", text)
-        return "ss", (f"iproute2 {m.group(1)}" if m else "unknown")
 
     return "unknown", "unknown"

@@ -14,6 +14,7 @@ EXCLUDE_DIRS = {
     "docs",
     "site",
     "tools",
+    "tests",
     "__pycache__",
 }
 
