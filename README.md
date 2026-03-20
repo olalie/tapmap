@@ -240,6 +240,7 @@ Run tests:
 ```
 pytest
 ```
+
 ---
 
 ## Docker (Linux)
@@ -270,7 +271,43 @@ Open in browser:
 
 - Docker provides full TCP and UDP socket data
 - Process information is not available in Docker mode
-- Requires Linux host (not supported on Docker Desktop for Windows)
+- Requires Linux host (not supported on Docker Desktop for Windows or macOS)
+
+---
+
+## Docker Hub
+
+TapMap can run directly from Docker Hub without cloning the repository.
+
+### Setup
+
+Create a local data folder:
+
+    mkdir -p ~/tapmap-data
+
+Place the GeoLite2 database files in that folder:
+
+- GeoLite2-City.mmdb
+- GeoLite2-ASN.mmdb
+
+### Run
+
+    docker run --rm \
+      --network host \
+      --pid host \
+      -v ~/tapmap-data:/data \
+      -e TAPMAP_IN_DOCKER=1 \
+      olalie/tapmap:latest
+
+Open in browser:
+
+    http://127.0.0.1:8050
+
+### Notes
+
+- The mounted folder is used as the container data directory (`/data`)
+- Process information is not available in Docker mode
+- Requires Linux host (not supported on Docker Desktop for Windows or macOS)
 
 ---
 
