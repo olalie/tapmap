@@ -4,7 +4,7 @@ a = Analysis(
     ['tapmap.py'],
     pathex=[],
     binaries=[],
-    datas=[('assets', 'assets')],
+    datas=[('assets', 'assets'), ('pyproject.toml', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
