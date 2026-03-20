@@ -20,6 +20,7 @@ requires one return value. For example, modal_controller returns:
 
 from __future__ import annotations
 
+import argparse
 import logging
 import platform
 import sys
@@ -55,10 +56,15 @@ from ui.cache_view import CacheViewBuilder
 from ui.layout_view import render_layout
 from ui.map_view import MapUI
 from ui.modal_view import ModalTextBuilder
+from version import get_display_version
 
 LonLat = tuple[float, float]
 
-APP_META: Final[AppMeta] = AppMeta(name="TapMap", version="v1.0", author="Ola Lie")
+APP_META: Final[AppMeta] = AppMeta(
+    name="TapMap",
+    version=get_display_version(),
+    author="Ola Lie",
+)
 
 
 class TapMap:
@@ -741,7 +747,22 @@ class TapMap:
             close_fn()
 
 
-if __name__ == "__main__":
+def _build_arg_parser() -> argparse.ArgumentParser:
+    """Build command-line parser."""
+    parser = argparse.ArgumentParser(prog="tapmap")
+    parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version=f"%(prog)s {APP_META.version}",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run application from the command line."""
+    _build_arg_parser().parse_args(argv)
+
     logging.basicConfig(
         level=logging.DEBUG if TapMap.DEBUG_COORDS else logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
@@ -754,3 +775,9 @@ if __name__ == "__main__":
         app.run()
     finally:
         app.close()
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
