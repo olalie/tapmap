@@ -263,9 +263,17 @@ Place the GeoLite2 database files in:
 
     docker compose -f compose.linux.yaml up --build
 
-Open in browser:
+The server binds to 0.0.0.0 by default in Docker.
+
+Override in compose if needed:
+
+    TAPMAP_HOST: "127.0.0.1"
+
+Open in browser on the host:
 
     http://127.0.0.1:8050
+
+If you access the app from another machine, use the host IP address instead.
 
 ### Notes
 
@@ -299,9 +307,17 @@ Place the GeoLite2 database files in that folder:
       -e TAPMAP_IN_DOCKER=1 \
       olalie/tapmap:latest
 
-Open in browser:
+The server binds to 0.0.0.0 by default in Docker.
+
+To override the bind address:
+
+    -e TAPMAP_HOST=127.0.0.1
+
+Open in browser on the host:
 
     http://127.0.0.1:8050
+
+If you access the app from another machine, use the host IP address instead.
 
 ### Notes
 

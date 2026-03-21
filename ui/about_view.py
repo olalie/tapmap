@@ -31,6 +31,8 @@ def render_about(
         if isinstance(info, dict):
             app_info = info
 
+    server_host_val = app_info.get("server_host")
+    server_host = server_host_val if isinstance(server_host_val, str) else "-"
     server_port = app_info.get("server_port")
     poll_ms = app_info.get("poll_interval_ms")
     coord_precision = app_info.get("coord_precision")
@@ -89,6 +91,8 @@ def render_about(
         ("Python", py_text),
         ("Network backend", net_backend),
         ("Backend version", net_backend_version),
+        ("Server host", server_host),
+        ("Docker", "Yes" if is_docker else "No"),
     ]
 
     return [

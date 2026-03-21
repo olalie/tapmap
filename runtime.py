@@ -57,9 +57,16 @@ def _get_app_data_dir(meta: AppMeta) -> Path:
 
     return ensure_native_app_data_dir(meta.name)
 
-def _get_server_host() -> str:
+def _get_server_host(is_docker: bool) -> str:
     """Return server bind host for the current runtime."""
-    return os.environ.get("TAPMAP_HOST", "127.0.0.1")
+    host = os.environ.get("TAPMAP_HOST")
+    if host:
+        return host
+
+    if is_docker:
+        return "0.0.0.0"
+
+    return "127.0.0.1"
 
 def _get_server_port() -> int:
     """Return server port for the current runtime."""
@@ -78,9 +85,9 @@ def build_runtime(meta: AppMeta) -> RuntimeContext:
 
     app_data_dir = _get_app_data_dir(meta)
     net_backend, net_backend_version = _detect_network_backend()
-    server_host = _get_server_host()
-    server_port = _get_server_port()
     is_docker = _detect_docker()
+    server_host = _get_server_host(is_docker)
+    server_port = _get_server_port()
 
     return RuntimeContext(
         meta=meta,
