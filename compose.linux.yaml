@@ -17,3 +17,6 @@ services:
       - ./docker-data:/data
 
     restart: unless-stopped
+    
+    cap_add:
+      - SYS_PTRACE
