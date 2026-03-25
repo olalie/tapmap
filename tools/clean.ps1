@@ -8,7 +8,8 @@ Remove-Item -Recurse -Force `
     "$root\build",
     "$root\dist",
     "$root\__pycache__",
-    "$root\.ruff_cache" `
+    "$root\.ruff_cache",
+    "$root\.pytest_cache" `
     -ErrorAction SilentlyContinue
     
 Get-ChildItem -Path $root -Recurse -Directory -Filter "__pycache__" |

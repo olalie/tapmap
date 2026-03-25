@@ -220,4 +220,4 @@ Conclusion:
 
 The application can rely on TCP and UDP data alone for map and service point visualization.
 
-Process-level insights depend on platform and privileges, while network-level insights remain consistent in supported environments.
+Process-level insights depend on platform and privileges. Network-level insights are generally consistent, but may vary on macOS and in Docker environments.
