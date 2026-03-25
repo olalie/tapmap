@@ -183,14 +183,22 @@ class LsofNetInfo:
     def _socket_family(value: str) -> str | None:
         """Map lsof TYPE to OS address family code (psutil-compatible)."""
         if value == "IPv4":
-            return "2"   # AF_INET
+            return "2"  # AF_INET
         if value == "IPv6":
-            return "30"  # AF_INET6 on macOS (psutil uses OS values)
+            return "30"  # AF_INET6 on macOS
+        return None
+
+    @staticmethod
+    def _socket_type(proto: str) -> str | None:
+        """Return psutil-like socket type code from protocol."""
+        if proto == "tcp":
+            return "1"
+        if proto == "udp":
+            return "2"
         return None
 
     @staticmethod
     def _parse_name(
-
         name: str,
         *,
         family: str | None,
