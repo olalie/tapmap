@@ -181,14 +181,6 @@ class LsofNetInfo:
 
     @staticmethod
     def _socket_family(value: str) -> str | None:
-        """Return psutil-like family code from lsof TYPE text."""
-        if value == "IPv4":
-            return "2"
-        if value == "IPv6":
-            return "30"
-        return None
-
-    def _socket_family(value: str) -> str | None:
         """Map lsof TYPE to OS address family code (psutil-compatible)."""
         if value == "IPv4":
             return "2"   # AF_INET
@@ -198,6 +190,7 @@ class LsofNetInfo:
 
     @staticmethod
     def _parse_name(
+
         name: str,
         *,
         family: str | None,
