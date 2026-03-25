@@ -8,7 +8,7 @@ TapMap inspects local socket data, enriches IP addresses with geolocation, and v
 
 It uses:
 
-- `psutil` to read active network connections  
+- `psutil` (Windows and Linux) or `lsof` (macOS) to read active network connections
 - MaxMind GeoLite2 databases for IP geolocation  
 - Dash and Plotly to render an interactive world map  
 
@@ -30,7 +30,7 @@ https://olalie.github.io/tapmap/
 
 ---
 
-## Download
+## Download & run
 
 Download the latest version from the  
 [Releases page](https://github.com/olalie/tapmap/releases)
@@ -39,19 +39,26 @@ Available builds:
 
 - Windows (zip)
 - Linux (zip)
+- macOS (zip)
+
+Tested on Windows 11, Ubuntu, and macOS (Apple Silicon).
 
 No installation required. Download, extract, and run.
 
-Linux notes:
+Start TapMap:
 
-- `xdg-open` is used by the **Open data folder** action.
-
-Start TapMap from the extracted folder:
-
-    chmod +x tapmap
     ./tapmap
 
-Tested on Windows 11 and Ubuntu.
+On Windows, double-click `tapmap.exe`.
+
+On Linux, you may need:
+
+    chmod +x tapmap
+
+Platform notes:
+
+- Linux uses `xdg-open` for the **Open data folder** action
+- macOS uses `open`
 
 ---
 
@@ -64,6 +71,25 @@ To start the program:
 
 1. Click **More info**.  
 2. Click **Run anyway**.
+
+---
+
+## macOS security warning
+
+macOS may block the app the first time you run TapMap.
+This is normal for unsigned applications.
+
+To start the program:
+
+1. Try to open the app.
+2. Open **System Settings → Privacy & Security**.
+3. Click **Open anyway** for TapMap.
+
+You may be asked to confirm once more.
+
+Alternatively, you can remove the warning using Terminal:
+
+    xattr -d com.apple.quarantine tapmap
 
 ---
 

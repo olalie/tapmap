@@ -48,4 +48,9 @@ class NetInfo:
 
             return PsutilNetInfo(allowed_statuses=self.allowed_statuses)
 
+        if system == "Darwin":
+            from .netinfo_lsof import LsofNetInfo
+
+            return LsofNetInfo(allowed_statuses=self.allowed_statuses)
+
         raise NotImplementedError(f"NetInfo backend is not implemented for OS: {system}")

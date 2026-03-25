@@ -110,4 +110,26 @@ def _detect_network_backend() -> tuple[str, str]:
 
         return "psutil", getattr(psutil, "__version__", "-")
 
+    if system == "Darwin":
+        try:
+            import subprocess
+
+            result = subprocess.run(
+                ["lsof", "-v"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return "lsof", "-"
+
+        text = (result.stdout or "") + "\n" + (result.stderr or "")
+        for line in text.splitlines():
+            line_s = line.strip()
+            if line_s.lower().startswith("revision:"):
+                version = line_s.split(":", 1)[1].strip()
+                return "lsof", version
+
+        return "lsof", "-"
+
     return "unknown", "unknown"
