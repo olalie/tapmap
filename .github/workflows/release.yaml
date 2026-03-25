@@ -26,11 +26,38 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest]
+        os: [windows-latest, ubuntu-latest, macos-latest]
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+
+      - name: Verify version matches tag
+        shell: bash
+        run: |
+          python - << 'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          tag = os.environ.get("GITHUB_REF", "")
+          if not tag.startswith("refs/tags/v"):
+              raise SystemExit("Not a version tag")
+
+          tag_version = tag.split("/")[-1][1:]
+          text = Path("pyproject.toml").read_text(encoding="utf-8")
+          match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
+          if not match:
+              raise SystemExit("Version not found in pyproject.toml")
+
+          project_version = match.group(1)
+          if project_version != tag_version:
+              raise SystemExit(
+                  f"Version mismatch: pyproject.toml={project_version}, tag={tag_version}"
+              )
+
+          print(f"Version OK: {project_version}")
+          PY
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -101,8 +128,8 @@ jobs:
         with:
           name: tapmap-${{ runner.os }}
           path: |
-            tapmap-${{ runner.os == 'Windows' && 'windows' || 'linux' }}.zip
-            tapmap-${{ runner.os == 'Windows' && 'windows' || 'linux' }}.zip.sha256
+            tapmap-${{ runner.os == 'Windows' && 'windows' || runner.os == 'macOS' && 'macos' || 'linux' }}.zip
+            tapmap-${{ runner.os == 'Windows' && 'windows' || runner.os == 'macOS' && 'macos' || 'linux' }}.zip.sha256
           if-no-files-found: error
           retention-days: 7
 
@@ -125,8 +152,11 @@ jobs:
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          # Artifact folders use runner.os names: Windows, Linux, macOS
           files: |
             release-assets/tapmap-Windows/tapmap-windows.zip
             release-assets/tapmap-Windows/tapmap-windows.zip.sha256
             release-assets/tapmap-Linux/tapmap-linux.zip
             release-assets/tapmap-Linux/tapmap-linux.zip.sha256
+            release-assets/tapmap-macOS/tapmap-macos.zip
+            release-assets/tapmap-macOS/tapmap-macos.zip.sha256
