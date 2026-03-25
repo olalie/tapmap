@@ -278,7 +278,7 @@ If you access the app from another machine, use the host IP address instead.
 ### Notes
 
 - Docker provides full TCP and UDP socket data
-- Process information is not available in Docker mode
+- Process information is typically not available in Docker mode
 - Requires Linux host (not supported on Docker Desktop for Windows or macOS)
 
 ---
@@ -322,7 +322,7 @@ If you access the app from another machine, use the host IP address instead.
 ### Notes
 
 - The mounted folder is used as the container data directory (`/data`)
-- Process information is not available in Docker mode
+- Process information is typically not available in Docker mode
 - Requires Linux host (not supported on Docker Desktop for Windows or macOS)
 
 ---
@@ -346,3 +346,13 @@ You can also give the project a star on GitHub.
 ## License
 
 MIT License
+
+---
+
+## Acknowledgements
+
+Thanks to @TechnVision for raising the configurable port use case.
+
+Thanks to @desrod for suggesting a solution for configurable port support.
+
+    Thanks to @hugalafutro for suggesting optional SYS_PTRACE support for process visibility on Linux. This approach was tested on Ubuntu but did not provide additional process information.

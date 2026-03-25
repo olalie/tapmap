@@ -1,8 +1,8 @@
-# Backend testing (Windows, Linux and Docker)
+# Backend testing (Windows, Linux, macOS, Docker)
 
 This document summarizes testing of network backends used to collect socket data.
 
-_Last reviewed: 2026-03-18 (Ubuntu 24.04.4 LTS, kernel 6.17.0-19-generic, psutil 7.2.2, ss from iproute2 6.1.0)_
+_Last reviewed: 2026-03-25 (Windows 11, Ubuntu 24.04.4 LTS, macOS on Apple M1; psutil, ss, lsof tested)_
 
 ## Scope
 
@@ -11,9 +11,12 @@ Tested combinations:
 - Windows (native)
 - Linux (native)
     - psutil vs ss
+- macOS (native)
+    - psutil vs lsof
 - Docker
     - Linux host
         - psutil vs ss
+    - macOS host
     - Windows host
 
 The goal was to verify:
@@ -81,6 +84,75 @@ Conclusion:
 - psutil is sufficient as the Linux backend
 - ss does not provide a practical advantage in native Linux
 
+### Optional SYS_PTRACE testing
+
+Tested:
+
+- native Linux executable with setcap cap_sys_ptrace=ep
+- Docker with --cap-add=SYS_PTRACE
+
+Observed:
+
+- no change in socket coverage
+- no additional process metadata
+
+Conclusion:
+- SYS_PTRACE did not provide additional process information in this setup
+- not required for the current backend
+
+---
+
+## macOS (native)
+
+Tested combinations:
+
+- psutil without root
+- psutil with root
+- lsof without root
+- lsof with root
+
+### psutil
+
+Without root:
+
+- psutil failed with AccessDenied
+- no usable socket data
+
+With root:
+
+- full TCP and UDP socket data
+- PID available for all sockets
+- process metadata available
+
+Conclusion:
+- psutil requires root on macOS
+- not suitable for normal GUI usage
+
+### lsof
+
+Without root:
+
+- TCP socket data available
+- reduced UDP coverage
+- basic process metadata available
+
+With root:
+
+- increased socket coverage, mainly UDP
+- process metadata unchanged
+
+Conclusion:
+- lsof provides usable data without root
+- root improves socket coverage
+
+### psutil vs lsof
+
+- with root, similar socket coverage
+- without root, only lsof is usable
+
+Conclusion:
+- lsof is the preferred backend for macOS
+
 ---
 
 ## Docker (Linux host)
@@ -106,6 +178,25 @@ Conclusion:
 
 ---
 
+## Docker (macOS host)
+
+Tested:
+
+- Docker Desktop on macOS (Apple M1)
+- alpine container with lsof
+
+Observed:
+
+- lsof returned only container-internal processes
+- no access to macOS sockets or processes
+
+Conclusion:
+- Docker on macOS does not expose host network connections
+- tools like lsof only see container-internal data
+- not usable for this application
+
+---
+
 ## Docker (Windows host)
 
 - socket data and process mapping were not reliable
@@ -121,9 +212,11 @@ Conclusion:
 - psutil is sufficient across supported environments
 - Windows provides strong process visibility without elevation
 - Linux requires root for full process metadata
-- socket coverage is consistent regardless of privileges
+- macOS requires root for psutil, but lsof works without root
+- socket coverage is consistent on Windows and Linux, but not on macOS where UDP coverage improves with root
 - Docker on Linux can be used for network visualization only
-- Docker on Windows is not supported
+- Docker on macOS and Windows cannot access host network data
+- SYS_PTRACE did not improve process visibility in tested Linux setups
 
 The application can rely on TCP and UDP data alone for map and service point visualization.
 
