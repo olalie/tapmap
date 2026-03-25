@@ -209,13 +209,13 @@ Conclusion:
 
 ## Overall conclusion
 
-- psutil is sufficient across supported environments
+- psutil is sufficient on Windows and Linux
 - Windows provides strong process visibility without elevation
 - Linux requires root for full process metadata
-- macOS requires root for psutil, but lsof works without root
+- lsof is the preferred backend for macOS
 - socket coverage is consistent on Windows and Linux, but not on macOS where UDP coverage improves with root
 - Docker on Linux can be used for network visualization only
-- Docker on macOS and Windows cannot access host network data
+- Docker on macOS and Windows is not usable for host network data in this application
 - SYS_PTRACE did not improve process visibility in tested Linux setups
 
 The application can rely on TCP and UDP data alone for map and service point visualization.
