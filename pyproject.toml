@@ -1,6 +1,6 @@
 [project]
 name = "tapmap"
-version = "1.4.0"
+version = "1.4.1"
 
 [tool.ruff]
 line-length = 100
