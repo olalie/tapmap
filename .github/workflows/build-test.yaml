@@ -66,3 +66,19 @@ jobs:
           path: tapmap-artifact-*.zip
           if-no-files-found: error
           retention-days: 7
+
+  docker-smoke:
+    name: Docker smoke test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build Docker image
+        run: |
+          docker build -t tapmap:test .
+
+      - name: Run version check in container
+        run: |
+          docker run --rm tapmap:test python tapmap.py --version | grep -q "tapmap"
