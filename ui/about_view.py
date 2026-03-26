@@ -108,6 +108,21 @@ def render_about(
         ),
         html.P("All processing is local. TapMap does not inspect traffic contents."),
         kv_table(tapmap_rows),
+        html.H2("Command line"),
+        html.Ul(
+            [
+                html.Li([html.Code("tapmap"), " starts the application."]),
+                html.Li([html.Code("tapmap --help"), " shows available command-line options."]),
+                html.Li(
+                    [
+                        html.Code("tapmap --version"),
+                        " and ",
+                        html.Code("tapmap -v"),
+                        " show installed version.",
+                    ]
+                ),
+            ]
+        ),
         html.H2("Geolocation"),
         html.P(
             "Geolocation is based on local MaxMind GeoLite2 .mmdb databases. "

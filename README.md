@@ -26,7 +26,7 @@ TapMap can also run in Docker on Linux, with limited process visibility.
 
 Full documentation, including API reference and platform behavior notes:
 
-https://olalie.github.io/tapmap/
+    https://olalie.github.io/tapmap/
 
 ---
 
@@ -59,6 +59,21 @@ Platform notes:
 
 - Linux uses `xdg-open` for the **Open data folder** action
 - macOS uses `open`
+
+---
+
+## Command line
+
+TapMap can be started from the command line.
+
+Show available options:
+
+    tapmap --help
+
+Show installed version:
+
+    tapmap --version
+    tapmap -v
 
 ---
 
