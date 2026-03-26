@@ -749,12 +749,16 @@ class TapMap:
 
 def _build_arg_parser() -> argparse.ArgumentParser:
     """Build command-line parser."""
-    parser = argparse.ArgumentParser(prog="tapmap")
+    parser = argparse.ArgumentParser(
+        prog="tapmap",
+        description="Start TapMap.",
+    )
     parser.add_argument(
         "-v",
         "--version",
         action="version",
         version=f"%(prog)s {APP_META.version}",
+        help="Show installed version and exit.",
     )
     return parser
 
