@@ -64,13 +64,7 @@ Platform notes:
 
 ## Command line
 
-TapMap can be started from the command line.
-
-Show available options:
-
     tapmap --help
-
-Show installed version:
 
     tapmap --version
     tapmap -v
@@ -319,8 +313,19 @@ If you access the app from another machine, use the host IP address instead.
 ### Notes
 
 - Docker provides full TCP and UDP socket data
-- Process information is typically not available in Docker mode
+- Process information may be unavailable in Docker mode, depending on host security policies
 - Requires Linux host (not supported on Docker Desktop for Windows or macOS)
+
+Process visibility in Docker depends on host security policies.
+
+On Ubuntu with the default Docker AppArmor profile (`docker-default`), `SYS_PTRACE` alone was not sufficient.
+
+In this setup, process names became available with:
+
+    --cap-add=SYS_PTRACE
+    --security-opt apparmor=unconfined
+
+Behavior may vary across systems.
 
 ---
 
@@ -363,7 +368,7 @@ If you access the app from another machine, use the host IP address instead.
 ### Notes
 
 - The mounted folder is used as the container data directory (`/data`)
-- Process information is typically not available in Docker mode
+- Process information may be unavailable in Docker mode, depending on host security policies
 - Requires Linux host (not supported on Docker Desktop for Windows or macOS)
 
 ---
@@ -396,4 +401,4 @@ Thanks to @TechnVision for raising the configurable port use case.
 
 Thanks to @desrod for suggesting a solution for configurable port support.
 
-Thanks to @hugalafutro for suggesting optional SYS_PTRACE support for process visibility on Linux. This approach was tested on Ubuntu but did not provide additional process information.
+Thanks to @hugalafutro for suggesting optional SYS_PTRACE support for process visibility on Linux.

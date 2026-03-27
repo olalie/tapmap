@@ -111,16 +111,9 @@ def render_about(
         html.H2("Command line"),
         html.Ul(
             [
-                html.Li([html.Code("tapmap"), " starts the application."]),
-                html.Li([html.Code("tapmap --help"), " shows available command-line options."]),
-                html.Li(
-                    [
-                        html.Code("tapmap --version"),
-                        " and ",
-                        html.Code("tapmap -v"),
-                        " show installed version.",
-                    ]
-                ),
+                html.Li([html.Code("tapmap"), " Start application"]),
+                html.Li([html.Code("tapmap --help"), " Show options"]),
+                html.Li([html.Code("tapmap -v"), " Show version"]),
             ]
         ),
         html.H2("Geolocation"),
