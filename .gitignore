@@ -2,11 +2,19 @@
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
 .ruff_cache/
+.pytest_cache/
+*.egg-info/
+.eggs/
 
 # Virtual environments
 .venv/
 venv/
+env/
+
+# uv
+uv.lock
 
 # Build output (PyInstaller)
 build/
@@ -24,6 +32,10 @@ site/
 # Private notes
 .private/
 
+# Credentials / local env overrides
+.env
+.env.*
+
 # Output from exploratory tests
 out/
 docker-data/*.json
@@ -31,3 +43,6 @@ docker-data/*.json
 # GeoIP databases (must not be committed)
 docker-data/*.mmdb
 *.mmdb
+
+# MaxMind auto-update state (runtime-generated)
+.maxmind_update_state.json

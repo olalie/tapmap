@@ -36,3 +36,12 @@ ZOOM_NEAR_KM: Final[float] = 25.0
 
 Locations within this distance are shown in yellow.
 """
+
+# Configure MaxMind GeoLite2 auto-update.
+MAXMIND_UPDATE_INTERVAL_DAYS: Final[float] = 7.0
+"""Days between automatic GeoLite2 database downloads.
+
+Set MAXMIND_ACCOUNT_ID and MAXMIND_LICENSE_KEY environment variables (or provide
+them via Docker / compose) to enable auto-update.  When credentials are absent
+the updater is disabled and databases must be placed manually.
+"""

@@ -35,6 +35,7 @@ from dash import Dash, Input, Output, State, ctx, html, no_update
 from app_dirs import open_folder
 from config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
 from model.geoinfo import GeoInfo
+from model.maxmind_updater import MaxMindUpdater
 from model.model import Model
 from model.netinfo import NetInfo
 from model.public_ip import iter_public_ip_candidates
@@ -118,6 +119,22 @@ class TapMap:
             "GeoInfo enabled at startup: %s", getattr(self.model.geoinfo, "enabled", False)
         )
         self.logger.info("geo_data_dir: %s", self.runtime.geo_data_dir)
+
+        self._maxmind_updater: MaxMindUpdater | None = None
+        if self.runtime.maxmind_autofetch_enabled:
+            self._maxmind_updater = MaxMindUpdater(
+                data_dir=self.runtime.geo_data_dir,
+                account_id=self.runtime.maxmind_account_id,
+                license_key=self.runtime.maxmind_license_key,
+                interval_days=self.runtime.maxmind_update_interval_days,
+                on_update=self.model.geoinfo.reload,
+            )
+            self._maxmind_updater.start()
+        else:
+            self.logger.info(
+                "MaxMind auto-update disabled (set MAXMIND_ACCOUNT_ID and"
+                " MAXMIND_LICENSE_KEY to enable)."
+            )
 
         self._public_ip_cached: str | None = None
         self._auto_geo_cached: dict[str, Any] = {}
@@ -742,6 +759,8 @@ class TapMap:
 
     def close(self) -> None:
         """Close model resources."""
+        if self._maxmind_updater is not None:
+            self._maxmind_updater.stop()
         close_fn = getattr(self.model.geoinfo, "close", None)
         if callable(close_fn):
             close_fn()

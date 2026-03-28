@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app_dirs import ensure_app_data_dir, ensure_native_app_data_dir
-from config import SERVER_PORT
+from config import MAXMIND_UPDATE_INTERVAL_DAYS, SERVER_PORT
 
 
 @dataclass(frozen=True)
@@ -41,6 +41,14 @@ class RuntimeContext:
     server_host: str
     server_port: int
     is_docker: bool
+    maxmind_account_id: str | None
+    maxmind_license_key: str | None
+    maxmind_update_interval_days: float
+
+    @property
+    def maxmind_autofetch_enabled(self) -> bool:
+        """Return True when MaxMind credentials are configured."""
+        return bool(self.maxmind_account_id and self.maxmind_license_key)
 
     @property
     def geo_data_dir(self) -> Path:
@@ -88,6 +96,9 @@ def build_runtime(meta: AppMeta) -> RuntimeContext:
     is_docker = _detect_docker()
     server_host = _get_server_host(is_docker)
     server_port = _get_server_port()
+    maxmind_account_id = os.environ.get("MAXMIND_ACCOUNT_ID") or None
+    maxmind_license_key = os.environ.get("MAXMIND_LICENSE_KEY") or None
+    maxmind_update_interval_days = _get_maxmind_interval()
 
     return RuntimeContext(
         meta=meta,
@@ -99,7 +110,22 @@ def build_runtime(meta: AppMeta) -> RuntimeContext:
         server_host=server_host,
         server_port=server_port,
         is_docker=is_docker,
+        maxmind_account_id=maxmind_account_id,
+        maxmind_license_key=maxmind_license_key,
+        maxmind_update_interval_days=maxmind_update_interval_days,
     )
+
+def _get_maxmind_interval() -> float:
+    """Return MaxMind update interval in days from env or config default."""
+    raw = os.environ.get("MAXMIND_UPDATE_INTERVAL_DAYS")
+    if raw:
+        try:
+            value = float(raw)
+            if value > 0:
+                return value
+        except ValueError:
+            pass
+    return MAXMIND_UPDATE_INTERVAL_DAYS
 
 def _detect_network_backend() -> tuple[str, str]:
     """Return network backend name and version."""

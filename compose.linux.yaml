@@ -12,6 +12,14 @@ services:
       TAPMAP_PORT: "8050"
       TAPMAP_HOST: "0.0.0.0"
       TAPMAP_DATA_DIR: /data
+      # MaxMind GeoLite2 auto-update (optional).
+      # Provide your account ID and license key to enable automatic database
+      # downloads.  Databases are refreshed every MAXMIND_UPDATE_INTERVAL_DAYS
+      # days (default: 7).  When omitted, place .mmdb files in the data volume
+      # manually.
+      #MAXMIND_ACCOUNT_ID: "123456"
+      #MAXMIND_LICENSE_KEY: "your_license_key_here"
+      #MAXMIND_UPDATE_INTERVAL_DAYS: "7"
 
     volumes:
       - ./docker-data:/data
