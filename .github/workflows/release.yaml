@@ -163,17 +163,24 @@ jobs:
             release-assets/tapmap-macOS/tapmap-macos.zip
             release-assets/tapmap-macOS/tapmap-macos.zip.sha256
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build Docker image
-        run: |
-          docker build -t olalie/tapmap:latest -t olalie/tapmap:${{ github.ref_name }} .
-
-      - name: Push Docker image
-        run: |
-          docker push olalie/tapmap:latest
-          docker push olalie/tapmap:${{ github.ref_name }}
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: |
+            olalie/tapmap:latest
+            olalie/tapmap:${{ github.ref_name }}
