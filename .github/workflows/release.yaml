@@ -151,18 +151,33 @@ jobs:
         run: |
           find release-assets -type f | sort
 
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          # Artifact folders use runner.os names: Windows, Linux, macOS
-          files: |
-            release-assets/tapmap-Windows/tapmap-windows.zip
-            release-assets/tapmap-Windows/tapmap-windows.zip.sha256
-            release-assets/tapmap-Linux/tapmap-linux.zip
-            release-assets/tapmap-Linux/tapmap-linux.zip.sha256
-            release-assets/tapmap-macOS/tapmap-macos.zip
+      # Draft release required for immutable releases
+      # Assets must be uploaded before publish
+      - name: Create draft GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" \
+            --draft \
+            --title "${{ github.ref_name }}" \
+            --notes ""
+
+      # Upload all assets before publish
+      # Immutable release cannot be modified after publish
+      - name: Upload assets to draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.ref_name }}" \
+            release-assets/tapmap-Windows/tapmap-windows.zip \
+            release-assets/tapmap-Windows/tapmap-windows.zip.sha256 \
+            release-assets/tapmap-Linux/tapmap-linux.zip \
+            release-assets/tapmap-Linux/tapmap-linux.zip.sha256 \
+            release-assets/tapmap-macOS/tapmap-macos.zip \
             release-assets/tapmap-macOS/tapmap-macos.zip.sha256
 
+      # Build and push Docker image before publishing release
+      # Ensures all distribution channels are ready at publish time
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
 
@@ -176,7 +191,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
@@ -184,3 +199,11 @@ jobs:
           tags: |
             olalie/tapmap:latest
             olalie/tapmap:${{ github.ref_name }}
+
+      # Finalize release
+      # After this step the release becomes immutable
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release edit "${{ github.ref_name }}" --draft=false
