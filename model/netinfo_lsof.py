@@ -40,7 +40,8 @@ class LsofNetInfo:
 
             command = self._decode_lsof_text(parts[0])
             pid = self._safe_int(parts[1])
-            family = self._socket_family(parts[4])
+            value = parts[4]
+            family = value if value in ("IPv4", "IPv6") else None
             proto = parts[7].lower()
             socket_type = self._socket_type(proto)
             name_field = " ".join(parts[8:])
@@ -180,15 +181,6 @@ class LsofNetInfo:
         return None
 
     @staticmethod
-    def _socket_family(value: str) -> str | None:
-        """Map lsof TYPE to OS address family code (psutil-compatible)."""
-        if value == "IPv4":
-            return "2"  # AF_INET
-        if value == "IPv6":
-            return "30"  # AF_INET6 on macOS
-        return None
-
-    @staticmethod
     def _socket_type(proto: str) -> str | None:
         """Return psutil-like socket type code from protocol."""
         if proto == "tcp":
@@ -262,7 +254,7 @@ class LsofNetInfo:
         if value is None:
             return None
         if value == "*":
-            if family == "10":
+            if family == "IPv6":
                 return "::"
             return "0.0.0.0"
         return value

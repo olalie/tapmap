@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import socket
 from collections.abc import Callable
 from typing import Any
 
@@ -44,7 +45,7 @@ class PsutilNetInfo:
                         "pid": pid,
                         "proto": proto,
                         "status": conn.status or "NONE",
-                        "family": str(conn.family).replace("AddressFamily.", ""),
+                        "family": self._socket_family(conn.family),
                         "type": str(conn.type).replace("SocketKind.", ""),
                         "laddr_ip": l_ip,
                         "laddr_port": l_port,
@@ -141,3 +142,12 @@ class PsutilNetInfo:
             return addr.ip, addr.port
         except AttributeError:
             return addr[0], addr[1]
+    
+    @staticmethod   
+    def _socket_family(family):
+        if family == socket.AF_INET:
+            return "IPv4"
+        if family == socket.AF_INET6:
+            return "IPv6"
+        return None
+
