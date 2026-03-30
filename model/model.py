@@ -10,7 +10,7 @@ import ipaddress
 import logging
 import socket
 from datetime import datetime
-from typing import Any, Final, TypedDict
+from typing import Any, TypedDict
 
 
 class CacheItem(TypedDict):
@@ -62,11 +62,6 @@ class SnapshotPayload(TypedDict):
 class Model:
     """Build one live snapshot from current network data."""
 
-    INTERNET_TARGETS: Final[tuple[tuple[str, int], ...]] = (
-        ("1.1.1.1", 53),
-        ("8.8.8.8", 53),
-    )
-
     def __init__(self, netinfo: Any, geoinfo: Any) -> None:
         self.netinfo = netinfo
         self.geoinfo = geoinfo
@@ -78,7 +73,6 @@ class Model:
         geo_enabled = self._geoinfo_enabled()
 
         try:
-            online = self._has_internet()
             connections = self.netinfo.get_data()
 
             if geo_enabled:
@@ -144,7 +138,6 @@ class Model:
             return {
                 "error": False,
                 "stats": {
-                    "online": online,
                     "live_tcp_total": live_tcp_total,
                     "live_tcp_established": live_tcp_established,
                     "live_tcp_listen": live_tcp_listen,
@@ -164,7 +157,6 @@ class Model:
             return {
                 "error": True,
                 "stats": {
-                    "online": False,
                     "live_tcp_total": 0,
                     "live_tcp_established": 0,
                     "live_tcp_listen": 0,
@@ -190,15 +182,6 @@ class Model:
         lat = item.get("lat")
         lon = item.get("lon")
         return isinstance(lat, (int, float)) and isinstance(lon, (int, float))
-
-    def _has_internet(self, timeout_s: float = 0.6) -> bool:
-        for host, port in self.INTERNET_TARGETS:
-            try:
-                with socket.create_connection((host, port), timeout=timeout_s):
-                    return True
-            except OSError:
-                continue
-        return False
 
     @staticmethod
     def _bind_scope(ip: str | None) -> str:

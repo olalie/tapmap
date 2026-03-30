@@ -283,22 +283,14 @@ def render_help() -> list[Any]:
             "Short status messages may appear after commands such as Clear cache or "
             "Recheck databases."
         ),
-        html.H3("STATUS: WAIT | OK | OFFLINE | ERROR"),
+        html.H3("STATUS: WAIT | OK | ERROR"),
         html.Table(
             className="mx-table mx-kv",
             children=[
                 html.Tbody(
                     [
                         html.Tr([html.Td("WAIT"), html.Td("No snapshot received yet.")]),
-                        html.Tr([html.Td("OK"), html.Td("Snapshot received successfully.")]),
-                        html.Tr(
-                            [
-                                html.Td("OFFLINE"),
-                                html.Td(
-                                    "Snapshot received, but no internet connectivity detected."
-                                ),
-                            ]
-                        ),
+                        html.Tr([html.Td("OK"), html.Td("Snapshot received without errors.")]),
                         html.Tr(
                             [
                                 html.Td("ERROR"),
@@ -504,11 +496,5 @@ def render_help() -> list[Any]:
         html.P(
             "If MY_LOCATION is set to 'auto', TapMap may query external services to detect the "
             "public IP address. It stops after the first valid result."
-        ),
-        html.P(
-            [
-                "To detect OFFLINE status, TapMap performs short connection checks to ",
-                "1.1.1.1 and 8.8.8.8.",
-            ]
         ),
     ]

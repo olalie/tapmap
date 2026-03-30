@@ -1,4 +1,4 @@
-"""Tests for status line rendering logic."""
+"""Test status line rendering."""
 
 import pytest
 
@@ -84,13 +84,12 @@ def test_render_status_text_returns_error_status_with_note(cache_chain_stub: str
     )
 
 
-def test_render_status_text_returns_ok_status_for_online_snapshot(
+def test_render_status_text_returns_ok_status_when_snapshot_has_no_error(
     cache_chain_stub: str,
 ) -> None:
-    """Return OK status for an online snapshot."""
+    """Return OK status when snapshot has no error."""
     snapshot = {
         "stats": {
-            "online": True,
             "live_tcp_total": "10",
             "live_tcp_established": "4",
             "live_tcp_listen": "2",
@@ -116,47 +115,12 @@ def test_render_status_text_returns_ok_status_for_online_snapshot(
         "MYLOC: Oslo"
     )
 
-
-def test_render_status_text_returns_offline_status_for_offline_snapshot(
-    cache_chain_stub: str,
-) -> None:
-    """Return OFFLINE status for an offline snapshot."""
-    snapshot = {
-        "stats": {
-            "online": False,
-            "live_tcp_total": "8",
-            "live_tcp_established": "2",
-            "live_tcp_listen": "1",
-            "live_udp_remote": "0",
-            "live_udp_bound": "5",
-            "updated": "11:22:33",
-        }
-    }
-
-    result = status_line.render_status_text(
-        snapshot=snapshot,
-        status_cache_data=None,
-        status_flash=None,
-        myloc_label="Oslo",
-        to_int=int,
-    )
-
-    assert result == (
-        "STATUS: OFFLINE | "
-        "LIVE: TCP 8 EST 2 LST 1 UDP R 0 B 5 | "
-        f"CACHE: {cache_chain_stub} | "
-        "UPDATED: 11:22:33 | "
-        "MYLOC: Oslo"
-    )
-
-
 def test_render_status_text_uses_default_updated_when_stats_updated_is_missing(
     cache_chain_stub: str,
 ) -> None:
     """Keep the default updated value when stats.updated is missing."""
     snapshot = {
         "stats": {
-            "online": True,
             "live_tcp_total": "1",
             "live_tcp_established": "1",
             "live_tcp_listen": "0",

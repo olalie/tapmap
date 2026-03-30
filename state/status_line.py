@@ -44,8 +44,7 @@ def render_status_text(
         else:
             stats = snapshot.get("stats")
             if isinstance(stats, dict):
-                online = bool(stats.get("online", True))
-                status = "OK" if online else "OFFLINE"
+                status = "OK"
                 live_tcp_total = to_int(stats.get("live_tcp_total"))
                 live_tcp_established = to_int(stats.get("live_tcp_established"))
                 live_tcp_listen = to_int(stats.get("live_tcp_listen"))
