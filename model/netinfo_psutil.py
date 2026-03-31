@@ -112,10 +112,9 @@ class PsutilNetInfo:
             except (OSError, RuntimeError):
                 return None
 
-        with proc.oneshot():
-            name = read(proc.name)
-            exe = read(proc.exe)
-            cmdline = read(proc.cmdline)
+        name = read(proc.name)
+        exe = read(proc.exe)
+        cmdline = read(proc.cmdline)
 
         if isinstance(name, str) and name:
             info = ProcessInfo(
