@@ -1,3 +1,9 @@
+/* Ensure width includes padding and border for all elements */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 :root {
   --mx-green: #00ff66;
   --mx-green-soft: rgba(0, 255, 102, 0.55);
@@ -74,6 +80,7 @@ body {
 
 .mx-btn {
   appearance: none;
+  user-select: none;
   -webkit-appearance: none;
   background: var(--mx-bg);
   color: var(--mx-green);
@@ -154,7 +161,7 @@ body {
 
   opacity: 0;
   pointer-events: none;
-  transition: opacity 120ms ease;
+  transition: opacity 80ms linear;
 }
 
 .mx-overlay.is-open {
@@ -173,19 +180,18 @@ body {
   border: 1px solid var(--mx-border);
   border-radius: var(--mx-radius-lg);
   box-shadow: var(--mx-shadow);
-  backdrop-filter: blur(2px);
 
   opacity: 0;
-  transform: translateY(-4px) scale(0.98);
+  transform: translateY(-4px);
   transform-origin: top;
   pointer-events: none;
-  transition: opacity 120ms ease, transform 120ms ease;
+  transition: opacity 80ms linear, transform 80ms linear;
   will-change: opacity, transform;
 }
 
 .mx-panel.is-open {
   opacity: 1;
-  transform: translateY(0) scale(1);
+  transform: translateY(0);
   pointer-events: auto;
 }
 
@@ -203,24 +209,35 @@ body {
 
 /* Insights panel */
 .insights-panel {
-  position: fixed;
-  right: 0;
+  position: absolute;
   top: 0;
-  width: 250px;
-  background: #111;
-  z-index: 30;
+  right: 0;
+  bottom: 0;
+  width: 270px;
   padding: 12px;
-  bottom: 0px;
-  overflow-y: auto;
   color: var(--mx-green);
-  font-size: 13px;
-  border-left: 1px solid rgba(0, 255, 102, 0.15);
+  background: rgba(10, 20, 10, 0.85);
+  border-left: 1px solid var(--mx-green-faint);
+  z-index: 5;
+  overflow-y: auto;
+  /* animation */
+  opacity: 0;
+  transform: translateX(8px);
+  pointer-events: none;
+  transition: opacity 80ms linear, transform 80ms linear;
+}
+
+.insights-panel.is-open {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
 }
 
 .insights-title {
-  margin: 8px 0 6px 0;
+  font-size: 16px;
   font-weight: 600;
   opacity: 0.9;
+  margin: 8px 0 6px 0;
 }
 
 .insights-list {
@@ -249,15 +266,16 @@ body {
 }
 
 .insights-country {
-  flex: 1 1 auto;
-  min-width: 109px;
+  font-size: 13px;
+  flex: 1 0 110px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .insights-ip {
-  flex: 0 0 120px;
+  flex: 1 1 auto;
+  min-width: 85px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -268,29 +286,26 @@ body {
 /* Modal */
 
 .modal-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 100;
   background: var(--mx-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
-
   opacity: 0;
-  visibility: hidden;
   pointer-events: none;
-  transition: opacity 140ms ease, visibility 140ms ease;
+  transition: opacity 80ms linear;
 }
 
 .modal-overlay.is-open {
   opacity: 1;
-  visibility: visible;
   pointer-events: auto;
 }
 
 .modal-card {
-  position: relative;
-  width: var(--mx-modal-w);
+  width: 100%;
+  max-width: var(--mx-modal-w);
   max-height: var(--mx-modal-max-h);
   overflow: hidden;
   padding: 0;
@@ -301,6 +316,15 @@ body {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition: opacity 80ms linear, transform 80ms linear;
+  min-height: 0;
+}
+
+.modal-overlay.is-open .modal-card {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .modal-body {
@@ -555,5 +579,10 @@ body {
 
   .modal-overlay {
     transition: none;
+  }
+
+  .insights-panel {
+    transition: none;
+    transform: none;
   }
 }

@@ -32,6 +32,7 @@ def render_layout(
         children=[
             dcc.Store(id="menu_open", data=False),
             dcc.Store(id="insights_on", data=True),
+            dcc.Store(id="selected_ip", data=None),
             dcc.Store(id="key_action", data=None),
             dcc.Store(id="status_flash", data=None),
             dcc.Store(id="model_snapshot", data=None),
@@ -154,7 +155,6 @@ def render_layout(
                         children=[],
                     ),
                 ],
-                style={"display": "block"},
             ),
             html.Div(
                 id="status_bar",

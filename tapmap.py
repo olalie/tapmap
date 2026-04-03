@@ -30,16 +30,16 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar, Final
 
-from dash import Dash, Input, Output, State, ctx, html, no_update
+from dash import ALL, Dash, Input, Output, State, ctx, html, no_update
 
 from app_dirs import open_folder
 from config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
 from model.geoinfo import GeoInfo
 from model.model import Model
 from model.netinfo import NetInfo
-from state.insights import process_insights
 from model.public_ip import iter_public_ip_candidates
 from runtime import AppMeta, RuntimeContext, build_runtime
+from state.insights import process_insights
 from state.keyboard import build_key_action
 from state.menu import compute_menu_open_state
 from state.modal import decide_modal_route
@@ -141,7 +141,6 @@ class TapMap:
             "state": {},
             "meta": {},
             "ui": {
-                "selected_ip": None,
                 "expanded_ip": None,
             },
         }
@@ -598,13 +597,13 @@ class TapMap:
             return self._menu_panel_class(open_flag), self._menu_overlay_class(open_flag)
         
         @self.app.callback(
-            Output("insights_panel", "style"),
+            Output("insights_panel", "className"),
             Input("insights_on", "data"),
         )
-        def toggle_insights_panel(is_on: Any) -> dict[str, str]:
+        def toggle_insights_panel(is_on: Any) -> str:
             if bool(is_on):
-                return {"display": "block"}
-            return {"display": "none"}
+                return "insights-panel is-open"
+            return "insights-panel"
         
         @self.app.callback(
             Output("map", "style"),
@@ -612,7 +611,7 @@ class TapMap:
         )
         def resize_map(is_on: Any) -> dict[str, str]:
             if bool(is_on):
-                return {"width": "calc(100% - 250px)"}
+                return {"width": "calc(100% - 270px)"}
             return {"width": "100%"}
 
         @self.app.callback(
@@ -732,8 +731,9 @@ class TapMap:
         @self.app.callback(
             Output("map", "figure"),
             Input("ui_view", "data"),
+            Input("selected_ip", "data"),
         )
-        def render_map(ui_view: Any) -> Any:
+        def render_map(ui_view: Any, selected_ip: Any) -> Any:
             view = self._ensure_dict(ui_view)
 
             if "points" not in view:
@@ -741,11 +741,22 @@ class TapMap:
 
             points = self._ensure_list(view.get("points"))
             summaries = self._ensure_dict(view.get("summaries"))
+            point_ips = self._ensure_dict(view.get("point_ips"))
 
             if not points:
-                return self.ui.create_figure(([], self.my_location), summaries=summaries)
+                return self.ui.create_figure(
+                    ([], self.my_location),
+                    summaries=summaries,
+                    point_ips=point_ips,
+                    selected_ip=selected_ip,
+                )
 
-            return self.ui.create_figure((points, self.my_location), summaries=summaries)
+            return self.ui.create_figure(
+                (points, self.my_location),
+                summaries=summaries,
+                point_ips=point_ips,
+                selected_ip=selected_ip,
+            )
 
         @self.app.callback(
             Output("status_bar", "children"),
@@ -812,6 +823,9 @@ class TapMap:
                         ),
                     ],
                     className="insights-row",
+                    # identify row for pattern matching callbacks
+                    id={"type": "insights-row", "ip": item["ip"]},  
+                    # stable identity for list rendering
                     key=item["ip"],
                 )
                 for item in new
@@ -837,12 +851,37 @@ class TapMap:
                         ),
                     ],
                     className="insights-row",
+                    # identify row for pattern matching callbacks
+                    id={"type": "insights-row", "ip": item["ip"]},  
+                    # stable identity for list rendering
                     key=item["ip"],
                 )
                 for item in returning
             ]
 
             return new_children, returning_children
+        
+        @self.app.callback(
+            Output("selected_ip", "data"),
+            Input({"type": "insights-row", "ip": ALL}, "n_clicks"),
+            prevent_initial_call=True,
+        )
+        def select_insights_ip(_clicks: list[int]) -> Any:
+            if not ctx.triggered:
+                return no_update
+
+            trigger = ctx.triggered[0]
+
+            # Ignore if not clicked
+            if not trigger["value"]:
+                return no_update
+
+            trigger_id = ctx.triggered_id
+
+            if not trigger_id or "ip" not in trigger_id:
+                return no_update
+
+            return trigger_id["ip"]
 
     def run(self) -> None:
         """Start the Dash server and launch the local UI."""

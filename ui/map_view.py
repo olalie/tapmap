@@ -345,6 +345,8 @@ class MapUI:
         targets: list[LonLat],
         summaries: dict[str, str],
         zoom_flags: list[bool],
+        point_ips: dict[str, list[str]] | None,
+        selected_ip: str | None,
     ) -> None:
         lons = [lon for lon, _ in targets]
         lats = [lat for _, lat in targets]
@@ -355,10 +357,26 @@ class MapUI:
 
         colors: list[str] = []
         texts: list[str] = []
+        sizes: list[int] = []
+        line_widths: list[int] = []
+        line_colors: list[str] = []
+
         for i in range(len(targets)):
             colors.append(self.COLOR_ZOOM if zoom_flags[i] else self.COLOR_NORMAL)
+
             base = summaries.get(str(i), f"Summary {i}")
             texts.append(base)
+
+            ips = set(point_ips.get(str(i), [])) if point_ips else set()
+            is_selected = selected_ip in ips if selected_ip else False
+            sizes.append(12 if is_selected else 10)
+
+            if is_selected:
+                line_widths.append(3)
+                line_colors.append("white")
+            else:
+                line_widths.append(0)
+                line_colors.append("white")
 
         fig.add_trace(
             go.Scattergeo(
@@ -366,7 +384,11 @@ class MapUI:
                 lat=lats,
                 mode="markers",
                 marker=dict(
-                    size=10, color=colors, symbol="circle", line=dict(width=0), opacity=1.0
+                    size=sizes,
+                    color=colors,
+                    symbol="circle",
+                    line=dict(width=line_widths, color=line_colors),
+                    opacity=1.0,
                 ),
                 showlegend=False,
                 hovertemplate="%{text}<extra></extra>",
@@ -391,8 +413,14 @@ class MapUI:
             )
         )
 
-    @staticmethod
-    def _apply_geos(fig: go.Figure) -> None:
+    def _apply_geos(
+        self,
+        fig: go.Figure,
+        *,
+        targets,
+        point_ips,
+        selected_ip,
+    ) -> None:
         fig.update_geos(
             visible=True,
             projection_type="natural earth",
@@ -403,10 +431,20 @@ class MapUI:
             showlakes=True,
             lakecolor="black",
             bgcolor="black",
-            uirevision="keep",
+            # uirevision="keep",
         )
 
-    def _apply_layout(self, fig: go.Figure) -> None:
+        if selected_ip and targets and point_ips:
+            for i, (lon, lat) in enumerate(targets):
+                ips = set(point_ips.get(str(i), []))
+                if selected_ip in ips:
+                    fig.update_geos(
+                        center=dict(lon=lon, lat=lat),
+                        projection_scale=5,
+                    )
+                    break
+
+    def _apply_layout(self, fig: go.Figure, *, selected_ip: str | None) -> None:
         font_family = (
             "ui-monospace, SFMono-Regular, Menlo, Consolas, "
             "'Liberation Mono', 'Courier New', monospace"
@@ -419,7 +457,7 @@ class MapUI:
             clickmode="event",
             hovermode="closest",
             dragmode="pan",
-            uirevision="keep",
+            uirevision=selected_ip or "base",
             hoverlabel=dict(
                 bgcolor=self.HOVER_BG,
                 bordercolor=self.HOVER_BORDER,
@@ -435,6 +473,8 @@ class MapUI:
         self,
         point_sets: PointSets,
         summaries: dict[str, str] | None = None,
+        point_ips: dict[str, list[str]] | None = None,
+        selected_ip: str | None = None,
     ) -> go.Figure:
         """Build a world map figure.
 
@@ -468,13 +508,23 @@ class MapUI:
 
         if targets:
             self._add_target_markers(
-                fig, targets=targets, summaries=summaries, zoom_flags=zoom_flags
+                fig,
+                targets=targets,
+                summaries=summaries,
+                zoom_flags=zoom_flags,
+                point_ips=point_ips,
+                selected_ip=selected_ip,
             )
 
         if my_lon is not None and my_lat is not None:
             self._add_my_marker(fig, my_lon=my_lon, my_lat=my_lat)
 
-        self._apply_geos(fig)
-        self._apply_layout(fig)
+        self._apply_geos(
+            fig,
+            targets=targets,
+            point_ips=point_ips,
+            selected_ip=selected_ip,
+        )
+        self._apply_layout(fig, selected_ip=selected_ip)
 
         return fig
