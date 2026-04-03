@@ -31,6 +31,7 @@ def render_layout(
         className="app",
         children=[
             dcc.Store(id="menu_open", data=False),
+            dcc.Store(id="insights_on", data=True),
             dcc.Store(id="key_action", data=None),
             dcc.Store(id="status_flash", data=None),
             dcc.Store(id="model_snapshot", data=None),
@@ -80,7 +81,12 @@ def render_layout(
                 id="menu_panel",
                 className=menu_panel_class,
                 children=[
-                    html.Div("Actions", className="mx-panel__title"),
+                    html.Div(
+                        [
+                            _menu_button("Insights (I)", "menu_insights"),
+                        ],
+                        className="mx-menu-group",
+                    ),
                     html.Div(
                         [
                             _menu_button("Show unmapped public services (U)", "menu_unmapped"),
@@ -130,6 +136,25 @@ def render_layout(
                         ],
                     )
                 ],
+            ),
+            html.Div(
+                id="insights_panel",
+                className="insights-panel",
+                children=[
+                    html.Div("New", className="insights-title"),
+                    html.Div(
+                        id="insights_new",
+                        className="insights-list",
+                        children=[],
+                    ),
+                    html.Div("Returning", className="insights-title"),
+                    html.Div(
+                        id="insights_returning",
+                        className="insights-list",
+                        children=[],
+                    ),
+                ],
+                style={"display": "block"},
             ),
             html.Div(
                 id="status_bar",

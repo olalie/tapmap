@@ -31,7 +31,8 @@ class CacheItem(TypedDict):
     process_status: str | None
     city: str | None
     country: str | None
-    asn: str | None
+    country_code: str | None
+    asn: int | None
     asn_org: str | None
 
 
@@ -310,6 +311,7 @@ class Model:
             "process_status": conn.get("process_status"),
             "city": conn.get("city"),
             "country": conn.get("country"),
+            "country_code": conn.get("country_code"),
             "asn": conn.get("asn"),
             "asn_org": conn.get("asn_org"),
         }

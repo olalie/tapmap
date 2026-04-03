@@ -37,6 +37,7 @@ from config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
 from model.geoinfo import GeoInfo
 from model.model import Model
 from model.netinfo import NetInfo
+from state.insights import process_insights
 from model.public_ip import iter_public_ip_candidates
 from runtime import AppMeta, RuntimeContext, build_runtime
 from state.keyboard import build_key_action
@@ -134,6 +135,15 @@ class TapMap:
                 "hoverClosestGeo",
                 "toggleHover",
             ],
+        }
+
+        self.insights = {
+            "state": {},
+            "meta": {},
+            "ui": {
+                "selected_ip": None,
+                "expanded_ip": None,
+            },
         }
 
         start_fig = self.ui.create_figure(([], self.my_location))
@@ -524,9 +534,11 @@ class TapMap:
 
         @self.app.callback(
             Output("menu_open", "data"),
+            Output("insights_on", "data"),
             Input("btn_menu", "n_clicks"),
             Input("menu_overlay", "n_clicks"),
             Input("key_action", "data"),
+            Input("menu_insights", "n_clicks"),
             Input("menu_open_ports", "n_clicks"),
             Input("menu_unmapped", "n_clicks"),
             Input("menu_lan_local", "n_clicks"),
@@ -536,12 +548,14 @@ class TapMap:
             Input("menu_clear_cache", "n_clicks"),
             Input("menu_recheck_geoip", "n_clicks"),
             State("menu_open", "data"),
+            State("insights_on", "data"),
             prevent_initial_call=True,
         )
         def menu_controller(
             _btn: int,
             _overlay: int,
             key_action: Any,
+            _insights: int,
             _open_ports: int,
             _unmapped: int,
             _lan_local: int,
@@ -551,8 +565,16 @@ class TapMap:
             _clear: int,
             _recheck: int,
             menu_open: Any,
+            insights_on: Any,
         ) -> Any:
             trigger = ctx.triggered_id
+
+            if trigger == "menu_insights" or (
+                trigger == "key_action"
+                and isinstance(key_action, dict)
+                and key_action.get("action") == "menu_insights"
+            ):
+                return False, not bool(insights_on)
 
             next_state = compute_menu_open_state(
                 trigger=trigger,
@@ -563,8 +585,8 @@ class TapMap:
             )
 
             if next_state is None:
-                return no_update
-            return next_state
+                return no_update, no_update
+            return next_state, no_update
 
         @self.app.callback(
             Output("menu_panel", "className"),
@@ -574,6 +596,24 @@ class TapMap:
         def show_hide_menu(is_open: Any) -> tuple[str, str]:
             open_flag = bool(is_open)
             return self._menu_panel_class(open_flag), self._menu_overlay_class(open_flag)
+        
+        @self.app.callback(
+            Output("insights_panel", "style"),
+            Input("insights_on", "data"),
+        )
+        def toggle_insights_panel(is_on: Any) -> dict[str, str]:
+            if bool(is_on):
+                return {"display": "block"}
+            return {"display": "none"}
+        
+        @self.app.callback(
+            Output("map", "style"),
+            Input("insights_on", "data"),
+        )
+        def resize_map(is_on: Any) -> dict[str, str]:
+            if bool(is_on):
+                return {"width": "calc(100% - 250px)"}
+            return {"width": "100%"}
 
         @self.app.callback(
             Output("modal_state", "data"),
@@ -725,6 +765,84 @@ class TapMap:
                 myloc_label=self._myloc_label(),
                 to_int=self._to_int,
             )
+
+        @self.app.callback(
+            Output("insights_new", "children"),
+            Output("insights_returning", "children"),
+            Input("model_snapshot", "data"),
+        )
+        def update_insights(snapshot: Any):
+         
+            if not isinstance(snapshot, dict):
+                return [], []
+
+            now = datetime.now()
+
+            new, returning = process_insights(
+                snapshot.get("cache_items", []),
+                self.insights,
+                now,
+            )
+
+            def _flag(code: str | None) -> str:
+                """Return flag emoji from ISO country code."""
+                if not isinstance(code, str) or len(code) != 2:
+                    return "🌐"
+                
+                # Convert ASCII letters to regional indicator symbols (flag emoji)
+                code = code.upper()
+                return chr(127397 + ord(code[0])) + chr(127397 + ord(code[1]))
+
+            new_children = [
+                html.Div(
+                    [
+                        html.Span(
+                            _flag(item.get("country_code")),
+                            className="insights-flag",
+                        ),
+                        html.Span(
+                            item.get("country") or "Unknown",
+                            className="insights-country",
+                            title=item.get("country"),
+                        ),
+                        html.Span(
+                            item["ip"],
+                            className="insights-ip",
+                            title=item["ip"],
+                        ),
+                    ],
+                    className="insights-row",
+                    key=item["ip"],
+                )
+                for item in new
+
+            ]
+
+            returning_children = [
+                html.Div(
+                    [
+                        html.Span(
+                            _flag(item.get("country_code")),
+                            className="insights-flag",
+                        ),
+                        html.Span(
+                            item.get("country") or "Unknown",
+                            className="insights-country",
+                            title=item.get("country"),
+                        ),
+                        html.Span(
+                            item["ip"],
+                            className="insights-ip",
+                            title=item["ip"],
+                        ),
+                    ],
+                    className="insights-row",
+                    key=item["ip"],
+                )
+                for item in returning
+            ]
+
+            return new_children, returning_children
 
     def run(self) -> None:
         """Start the Dash server and launch the local UI."""

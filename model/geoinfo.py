@@ -20,11 +20,11 @@ import maxminddb
 
 class GeoResult(TypedDict):
     """Define a normalized lookup result for the application."""
-
     lat: float | None
     lon: float | None
     city: str | None
     country: str | None
+    country_code: str | None
     asn: int | None
     asn_org: str | None
 
@@ -34,6 +34,7 @@ _EMPTY_RESULT: Final[GeoResult] = {
     "lon": None,
     "city": None,
     "country": None,
+    "country_code": None,
     "asn": None,
     "asn_org": None,
 }
@@ -169,6 +170,7 @@ class GeoInfo:
             conn["lon"] = geo["lon"]
             conn["city"] = geo["city"]
             conn["country"] = geo["country"]
+            conn["country_code"] = geo["country_code"]
             conn["asn"] = geo["asn"]
             conn["asn_org"] = geo["asn_org"]
 
@@ -187,7 +189,7 @@ class GeoInfo:
         if cached is not None:
             return dict(cached)
 
-        result: GeoResult = dict(_EMPTY_RESULT)
+        result: GeoResult = {**_EMPTY_RESULT}
 
         if self._city_reader is not None:
             self._fill_city(ip, result)
@@ -249,6 +251,9 @@ class GeoInfo:
             if isinstance(names, dict):
                 name = names.get("en")
                 result["country"] = name if isinstance(name, str) and name else None
+
+            code = country_block.get("iso_code")
+            result["country_code"] = code if isinstance(code, str) and code else None
 
     def _fill_asn(self, ip: str, result: GeoResult) -> None:
         """Fill ASN-related fields into result if available."""
