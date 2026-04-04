@@ -27,8 +27,7 @@
   --mx-radius: 10px;
   --mx-radius-lg: 12px;
 
-  --mx-font: "DejaVu Sans Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", "Courier New",
-    monospace;
+  --mx-font: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", "Courier New", monospace;
 
   --mx-modal-max-h: 80vh;
   --mx-modal-w: min(900px, 68vw);
@@ -246,16 +245,39 @@ body {
 
 /* Row */
 .insights-row {
+  display: block;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.insights-row-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 0;
-  cursor: pointer;
   white-space: nowrap;
 }
 
 .insights-row:hover {
   opacity: 0.8;
+}
+
+.insights-details {
+  margin-top: 4px;
+  font-size: 12px;
+}
+.insights-detail-row {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.insights-label {
+  flex: 0 0 85px;
+  opacity: 0.55;
+}
+
+.insights-value {
+  flex: 1;
+  opacity: 0.70;
 }
 
 /* Cells */
@@ -280,7 +302,7 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12px;
-  opacity: 0.7;
+  opacity: 0.85;
 }
 
 /* Modal */

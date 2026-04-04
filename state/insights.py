@@ -105,10 +105,19 @@ def process_insights(
 
     def build(ip: str) -> dict[str, Any]:
         m = meta.get(ip, {})
+        s = state[ip]
+
+        days_seen = len({
+            t.date() for t in s["seen_times"]
+        })
+
         return {
             "ip": ip,
             "country": m.get("country"),
             "country_code": m.get("country_code"),
+            "first_seen": s["first_seen"],
+            "last_seen": s["last_seen"],
+            "days_seen": days_seen,
         }
     
     new_ips.sort(key=lambda ip: state[ip]["last_seen"], reverse=True)

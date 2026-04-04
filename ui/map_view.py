@@ -321,15 +321,27 @@ class MapUI:
         my_lon: float,
         my_lat: float,
         zoom_flags: list[bool],
+        point_ips: dict[str, list[str]] | None,
+        selected_ip: str | None,
     ) -> None:
         for i, (lon, lat) in enumerate(targets):
             line_color = self.COLOR_ZOOM if zoom_flags[i] else self.COLOR_NORMAL
+
+            ips = set(point_ips.get(str(i), [])) if point_ips else set()
+            is_selected = selected_ip in ips if selected_ip else False
+
+            if selected_ip:
+                opacity = 1.0 if is_selected else 0.4
+            else:
+                opacity = 1.0
+
             fig.add_trace(
                 go.Scattergeo(
                     lon=[my_lon, lon],
                     lat=[my_lat, lat],
                     mode="lines",
                     line=dict(width=3, color=line_color),
+                    opacity=opacity,
                     showlegend=False,
                     hoverinfo="skip",
                     hovertemplate=None,
@@ -360,6 +372,7 @@ class MapUI:
         sizes: list[int] = []
         line_widths: list[int] = []
         line_colors: list[str] = []
+        opacities: list[float] = []
 
         for i in range(len(targets)):
             colors.append(self.COLOR_ZOOM if zoom_flags[i] else self.COLOR_NORMAL)
@@ -369,10 +382,14 @@ class MapUI:
 
             ips = set(point_ips.get(str(i), [])) if point_ips else set()
             is_selected = selected_ip in ips if selected_ip else False
-            sizes.append(12 if is_selected else 10)
+            if selected_ip:
+                opacities.append(1.0 if is_selected else 0.4)
+            else:
+                opacities.append(1.0)
+            sizes.append(14 if is_selected else 10)
 
             if is_selected:
-                line_widths.append(3)
+                line_widths.append(4)
                 line_colors.append("white")
             else:
                 line_widths.append(0)
@@ -388,7 +405,7 @@ class MapUI:
                     color=colors,
                     symbol="circle",
                     line=dict(width=line_widths, color=line_colors),
-                    opacity=1.0,
+                    opacity=opacities,
                 ),
                 showlegend=False,
                 hovertemplate="%{text}<extra></extra>",
@@ -504,6 +521,8 @@ class MapUI:
                 my_lon=my_lon,
                 my_lat=my_lat,
                 zoom_flags=zoom_flags,
+                point_ips=point_ips,
+                selected_ip=selected_ip,
             )
 
         if targets:

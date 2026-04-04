@@ -780,20 +780,16 @@ class TapMap:
         @self.app.callback(
             Output("insights_new", "children"),
             Output("insights_returning", "children"),
-            Input("model_snapshot", "data"),
+            Input("insights_cache", "data"),
+            Input("selected_ip", "data"),
         )
-        def update_insights(snapshot: Any):
+        def update_insights(data: Any, _selected_ip: Any):
          
-            if not isinstance(snapshot, dict):
+            if not isinstance(data, dict):
                 return [], []
 
-            now = datetime.now()
-
-            new, returning = process_insights(
-                snapshot.get("cache_items", []),
-                self.insights,
-                now,
-            )
+            new = data.get("new", [])
+            returning = data.get("returning", [])
 
             def _flag(code: str | None) -> str:
                 """Return flag emoji from ISO country code."""
@@ -803,9 +799,23 @@ class TapMap:
                 # Convert ASCII letters to regional indicator symbols (flag emoji)
                 code = code.upper()
                 return chr(127397 + ord(code[0])) + chr(127397 + ord(code[1]))
+            
+            def _fmt(dt: Any) -> str:
+                if isinstance(dt, str):
+                    try:
+                        dt = datetime.fromisoformat(dt)
+                    except Exception:
+                        return "-"
+                if not isinstance(dt, datetime):
+                    return "-"
+                return dt.strftime("%Y-%m-%d %H:%M:%S")
 
-            new_children = [
-                html.Div(
+            expanded_ip = self.insights["ui"].get("expanded_ip")
+
+            def build_row(item: dict[str, Any]) -> Any:
+                is_expanded = item["ip"] == expanded_ip
+
+                header = html.Div(
                     [
                         html.Span(
                             _flag(item.get("country_code")),
@@ -822,42 +832,47 @@ class TapMap:
                             title=item["ip"],
                         ),
                     ],
+                    className="insights-row-header",
+                )
+
+                details = None
+                if is_expanded:
+                    details = html.Div(
+                        [
+                            html.Div(
+                                [
+                                    html.Span("Last seen", className="insights-label"),
+                                    html.Span(_fmt(item.get("last_seen")), className="insights-value"),
+                                ],
+                                className="insights-detail-row",
+                            ),
+                            html.Div(
+                                [
+                                    html.Span("First seen", className="insights-label"),
+                                    html.Span(_fmt(item.get("first_seen")), className="insights-value"),
+                                ],
+                                className="insights-detail-row",
+                            ),
+                            html.Div(
+                                [
+                                    html.Span("Days seen", className="insights-label"),
+                                    html.Span(str(item.get("days_seen")), className="insights-value"),
+                                ],
+                                className="insights-detail-row",
+                            ),
+                        ],
+                        className="insights-details",
+                    )
+
+                return html.Div(
+                    [header, details] if details else [header],
                     className="insights-row",
-                    # identify row for pattern matching callbacks
-                    id={"type": "insights-row", "ip": item["ip"]},  
-                    # stable identity for list rendering
+                    id={"type": "insights-row", "ip": item["ip"]},
                     key=item["ip"],
                 )
-                for item in new
 
-            ]
-
-            returning_children = [
-                html.Div(
-                    [
-                        html.Span(
-                            _flag(item.get("country_code")),
-                            className="insights-flag",
-                        ),
-                        html.Span(
-                            item.get("country") or "Unknown",
-                            className="insights-country",
-                            title=item.get("country"),
-                        ),
-                        html.Span(
-                            item["ip"],
-                            className="insights-ip",
-                            title=item["ip"],
-                        ),
-                    ],
-                    className="insights-row",
-                    # identify row for pattern matching callbacks
-                    id={"type": "insights-row", "ip": item["ip"]},  
-                    # stable identity for list rendering
-                    key=item["ip"],
-                )
-                for item in returning
-            ]
+            new_children = [build_row(item) for item in new]
+            returning_children = [build_row(item) for item in returning]
 
             return new_children, returning_children
         
@@ -872,7 +887,6 @@ class TapMap:
 
             trigger = ctx.triggered[0]
 
-            # Ignore if not clicked
             if not trigger["value"]:
                 return no_update
 
@@ -881,7 +895,45 @@ class TapMap:
             if not trigger_id or "ip" not in trigger_id:
                 return no_update
 
-            return trigger_id["ip"]
+            ip = trigger_id["ip"]
+
+            # toggle expanded row state
+            current = self.insights["ui"].get("expanded_ip")
+            if current == ip:
+                self.insights["ui"]["expanded_ip"] = None
+                return None  # clear selection to reset map state
+            else:
+                self.insights["ui"]["expanded_ip"] = ip
+                return ip
+        
+        @self.app.callback(
+            Output("insights_cache", "data"),
+            Input("model_snapshot", "data"),
+        )
+        def update_insights_data(snapshot: Any) -> Any:
+
+            if not isinstance(snapshot, dict):
+                return {"new": [], "returning": []}
+
+            now = datetime.now()
+
+            new, returning = process_insights(
+                snapshot.get("cache_items", []),
+                self.insights,
+                now,
+            )
+
+            def _serialize(item: dict[str, Any]) -> dict[str, Any]:
+                return {
+                    **item,
+                    "first_seen": item["first_seen"].isoformat() if item.get("first_seen") else None,
+                    "last_seen": item["last_seen"].isoformat() if item.get("last_seen") else None,
+                }
+
+            return {
+                "new": [_serialize(i) for i in new],
+                "returning": [_serialize(i) for i in returning],
+            }
 
     def run(self) -> None:
         """Start the Dash server and launch the local UI."""
