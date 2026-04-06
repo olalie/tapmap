@@ -33,6 +33,7 @@ def test_lookup_returns_empty_result_for_empty_ip(tmp_path: Path) -> None:
         "lon": None,
         "city": None,
         "country": None,
+        "country_code": None,
         "asn": None,
         "asn_org": None,
     }
@@ -50,7 +51,10 @@ def test_lookup_combines_city_and_asn_data(monkeypatch, tmp_path: Path) -> None:
             "203.0.113.10": {
                 "location": {"latitude": 59.91, "longitude": 10.75},
                 "city": {"names": {"en": "Oslo"}},
-                "country": {"names": {"en": "Norway"}},
+                "country": {
+                    "names": {"en": "Norway"},
+                    "iso_code": "NO",
+                },
             }
         }
     )
@@ -85,6 +89,7 @@ def test_lookup_combines_city_and_asn_data(monkeypatch, tmp_path: Path) -> None:
         "lon": 10.75,
         "city": "Oslo",
         "country": "Norway",
+        "country_code": "NO",
         "asn": 64500,
         "asn_org": "Example Networks",
     }
@@ -100,7 +105,10 @@ def test_lookup_uses_cache_for_repeated_ip(monkeypatch, tmp_path: Path) -> None:
             "203.0.113.20": {
                 "location": {"latitude": 60.0, "longitude": 11.0},
                 "city": {"names": {"en": "Test City"}},
-                "country": {"names": {"en": "Test Country"}},
+                "country": {
+                    "names": {"en": "Test Country"},
+                    "iso_code": "TC",
+                },
             }
         }
     )
@@ -128,7 +136,10 @@ def test_enrich_updates_connections_in_place(monkeypatch, tmp_path: Path) -> Non
             "203.0.113.30": {
                 "location": {"latitude": 51.5, "longitude": -0.1},
                 "city": {"names": {"en": "London"}},
-                "country": {"names": {"en": "United Kingdom"}},
+                "country": {
+                    "names": {"en": "United Kingdom"},
+                    "iso_code": "GB",
+                },
             }
         }
     )
@@ -166,6 +177,7 @@ def test_enrich_updates_connections_in_place(monkeypatch, tmp_path: Path) -> Non
     assert connections[0]["lon"] == -0.1
     assert connections[0]["city"] == "London"
     assert connections[0]["country"] == "United Kingdom"
+    assert connections[0]["country_code"] == "GB"
     assert connections[0]["asn"] == 64530
     assert connections[0]["asn_org"] == "Example ISP"
     assert "lat" not in connections[1]
