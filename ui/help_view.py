@@ -200,6 +200,13 @@ def render_help() -> list[Any]:
                     [
                         html.Tr(
                             [
+                                html.Td("I"),
+                                html.Td("Toggle Insights panel"),
+                                html.Td("Panel"),
+                            ]
+                        ),
+                        html.Tr(
+                            [
                                 html.Td("U"),
                                 html.Td("Show unmapped public services (missing geolocation)"),
                                 html.Td("Window"),
@@ -232,6 +239,23 @@ def render_help() -> list[Any]:
                     ]
                 ),
             ],
+        ),
+        html.H2("Insights"),
+        html.P("Shows IPs observed over time."),
+        html.Ul(
+            [
+                html.Li("New: IPs seen only today."),
+                html.Li("Seen before: IPs seen on 2-3 different days within the last 30 days."),
+            ]
+        ),
+        html.P(
+            [
+                "Click a row to show details. If the IP is present on the map, ",
+                "the view will zoom to it.",
+            ]
+        ),
+        html.P(
+            "Entries may appear even if they are not currently visible on the map."
         ),
         html.H2("Unmapped public services"),
         html.P(

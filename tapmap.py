@@ -21,12 +21,13 @@ requires one return value. For example, modal_controller returns:
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import platform
 import sys
 import threading
 import webbrowser
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, ClassVar, Final
 
@@ -145,14 +146,15 @@ class TapMap:
             },
         }
 
+        self.insights_path = self.runtime.app_data_dir / "insights.json"
+        self._load_insights()
+        self._last_insights_save = 0.0
+
         start_fig = self.ui.create_figure(([], self.my_location))
         self.app.layout = self._build_layout(start_fig)
         self._register_callbacks()
 
-    # ----------------------------
     # Layout helpers (CSS classes)
-    # ----------------------------
-
     @staticmethod
     def _menu_panel_class(is_open: bool) -> str:
         return "mx-panel is-open" if is_open else "mx-panel"
@@ -360,6 +362,8 @@ class TapMap:
             self.view_builder.debug_coords(updated_cache)
 
         view = self.view_builder.build_view_from_cache(updated_cache)
+        self._maybe_save_insights()
+
         return snap, updated_cache, status_cache.to_store(), view, no_update
 
     def _open_browser(self, url: str, delay_s: float = 0.8) -> None:
@@ -782,11 +786,21 @@ class TapMap:
             Output("insights_returning", "children"),
             Input("insights_cache", "data"),
             Input("selected_ip", "data"),
+            State("ui_view", "data"),
         )
-        def update_insights(data: Any, _selected_ip: Any):
+        def update_insights(data: Any, selected_ip: Any, ui_view: Any):
          
             if not isinstance(data, dict):
                 return [], []
+            
+            all_map_ips: set[str] = set()
+
+            if isinstance(ui_view, dict):
+                point_ips = ui_view.get("point_ips")
+                if isinstance(point_ips, dict):
+                    for v in point_ips.values():
+                        if isinstance(v, list):
+                            all_map_ips.update(v)
 
             new = data.get("new", [])
             returning = data.get("returning", [])
@@ -808,12 +822,16 @@ class TapMap:
                         return "-"
                 if not isinstance(dt, datetime):
                     return "-"
-                return dt.strftime("%Y-%m-%d %H:%M:%S")
+                return dt.strftime("%Y-%m-%d")
 
             expanded_ip = self.insights["ui"].get("expanded_ip")
 
             def build_row(item: dict[str, Any]) -> Any:
                 is_expanded = item["ip"] == expanded_ip
+
+                is_selected = item["ip"] == selected_ip
+                is_in_map = item["ip"] in all_map_ips
+                not_in_session = is_selected and not is_in_map
 
                 header = html.Div(
                     [
@@ -837,30 +855,52 @@ class TapMap:
 
                 details = None
                 if is_expanded:
+                    detail_rows = [
+                        html.Div(
+                            [
+                                html.Span("Last seen", className="insights-label"),
+                                html.Span(
+                                    _fmt(item.get("last_seen")),
+                                    className="insights-value",
+                                ),
+                            ],
+                            className="insights-detail-row",
+                        ),
+                        html.Div(
+                            [
+                                html.Span("First seen", className="insights-label"),
+                                html.Span(
+                                    _fmt(item.get("first_seen")),
+                                    className="insights-value",
+                                ),
+                            ],
+                            className="insights-detail-row",
+                        ),
+                        html.Div(
+                            [
+                                html.Span("Days seen", className="insights-label"),
+                                html.Span(
+                                    str(item.get("days_seen")),
+                                    className="insights-value",
+                                ),
+                            ],
+                            className="insights-detail-row",
+                        ),
+                    ]
+
+                    if not_in_session:
+                        detail_rows.append(
+                            html.Div(
+                                [
+                                    html.Span("Status", className="insights-label"),
+                                    html.Span("not on map", className="insights-value"),
+                                ],
+                                className="insights-detail-row",
+                            )
+                        )
+
                     details = html.Div(
-                        [
-                            html.Div(
-                                [
-                                    html.Span("Last seen", className="insights-label"),
-                                    html.Span(_fmt(item.get("last_seen")), className="insights-value"),
-                                ],
-                                className="insights-detail-row",
-                            ),
-                            html.Div(
-                                [
-                                    html.Span("First seen", className="insights-label"),
-                                    html.Span(_fmt(item.get("first_seen")), className="insights-value"),
-                                ],
-                                className="insights-detail-row",
-                            ),
-                            html.Div(
-                                [
-                                    html.Span("Days seen", className="insights-label"),
-                                    html.Span(str(item.get("days_seen")), className="insights-value"),
-                                ],
-                                className="insights-detail-row",
-                            ),
-                        ],
+                        detail_rows,
                         className="insights-details",
                     )
 
@@ -924,10 +964,20 @@ class TapMap:
             )
 
             def _serialize(item: dict[str, Any]) -> dict[str, Any]:
+                first_seen = (
+                    item["first_seen"].isoformat()
+                    if item.get("first_seen")
+                    else None
+                )
+                last_seen = (
+                    item["last_seen"].isoformat()
+                    if item.get("last_seen")
+                    else None
+                )
                 return {
                     **item,
-                    "first_seen": item["first_seen"].isoformat() if item.get("first_seen") else None,
-                    "last_seen": item["last_seen"].isoformat() if item.get("last_seen") else None,
+                    "first_seen": first_seen,
+                    "last_seen": last_seen,
                 }
 
             return {
@@ -948,9 +998,71 @@ class TapMap:
             debug=self.DASH_DEBUG,
             use_reloader=False,
         )
+    
+    def _load_insights(self) -> None:
+        """Load insights state from JSON file into memory."""
+        try:
+            if not self.insights_path.exists():
+                return
+
+            data = json.loads(self.insights_path.read_text(encoding="utf-8"))
+            state = data.get("state", {})
+            meta = data.get("meta", {})
+
+            for item in state.values():
+                try:
+                    if item.get("first_seen"):
+                        item["first_seen"] = date.fromisoformat(item["first_seen"])
+                    if item.get("last_seen"):
+                        item["last_seen"] = date.fromisoformat(item["last_seen"])
+                    item["seen_days"] = {
+                        date.fromisoformat(d) for d in item.get("seen_days", [])
+                    }
+                except Exception:
+                    continue
+
+            self.insights["state"] = state
+            self.insights["meta"] = meta
+
+        except Exception as exc:
+            self.logger.warning("Failed to load insights: %s", exc)
+
+    def _maybe_save_insights(self) -> None:
+        """Save insights periodically to limit disk writes."""
+        now = datetime.now().timestamp()
+
+        if now - self._last_insights_save >= 60:
+            self._save_insights()
+            self._last_insights_save = now
+
+    def _save_insights(self) -> None:
+        """Save insights state to JSON file."""
+        try:
+            state_out = {}
+
+            for ip, item in self.insights["state"].items():
+                state_out[ip] = {
+                    "first_seen": item["first_seen"].isoformat(),
+                    "last_seen": item["last_seen"].isoformat(),
+                    "seen_days": [d.isoformat() for d in item["seen_days"]],
+                }
+
+            data = {
+                "state": state_out,
+                "meta": self.insights["meta"],
+            }
+
+            self.insights_path.write_text(
+                json.dumps(data, indent=2),
+                encoding="utf-8",
+            )
+
+        except Exception as exc:
+            self.logger.warning("Failed to save insights: %s", exc)
 
     def close(self) -> None:
         """Close model resources."""
+        self._save_insights()
         close_fn = getattr(self.model.geoinfo, "close", None)
         if callable(close_fn):
             close_fn()

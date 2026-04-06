@@ -149,7 +149,7 @@ def render_layout(
                         className="insights-list",
                         children=[],
                     ),
-                    html.Div("Returning", className="insights-title"),
+                    html.Div("Seen before", className="insights-title"),
                     html.Div(
                         id="insights_returning",
                         className="insights-list",

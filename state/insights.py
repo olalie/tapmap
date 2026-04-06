@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any, TypedDict
 
 
 class InsightStateItem(TypedDict):
     """State for an IP address."""
-    first_seen: datetime
-    last_seen: datetime
-    seen_times: set[datetime]
+    first_seen: date
+    last_seen: date
+    seen_days: set[date]
 
 
 class InsightMetaItem(TypedDict, total=False):
@@ -32,7 +32,6 @@ class Insights(TypedDict):
 
 
 def process_insights(
-    
     items: list[dict[str, Any]],
     insights: dict[str, Any],
     now: datetime,
@@ -40,6 +39,7 @@ def process_insights(
     """Process snapshot items and return new and returning IP entries."""
     state: InsightsState = insights.setdefault("state", {})
     meta: InsightsMeta = insights.setdefault("meta", {})
+    today = now.date()
 
     ips: set[str] = set()
 
@@ -64,52 +64,49 @@ def process_insights(
                 "asn_org": item.get("asn_org"),
             }
 
-    new_ips: list[str] = []
-    returning_ips: list[str] = []
-
-    for ip in ips:
-        if ip not in state:
-            new_ips.append(ip)
-        else:
-            times = state[ip]["seen_times"]
-            if len(times) >= 2:
-                returning_ips.append(ip)
-
     for ip in ips:
         if ip not in state:
             state[ip] = {
-                "first_seen": now,
-                "last_seen": now,
-                "seen_times": {now},
+                "first_seen": today,
+                "last_seen": today,
+                "seen_days": {today},
             }
         else:
             item = state[ip]
-            item["last_seen"] = now
-            item.setdefault("seen_times", set()).add(now)
+            item["last_seen"] = today
+            item.setdefault("seen_days", set()).add(today)
 
-    cutoff = now - timedelta(seconds=30 * 5)
+    cutoff = today - timedelta(days=30)
 
     to_delete = []
 
     for ip, item in state.items():
-        times = item["seen_times"]
-        new_times = {t for t in times if t >= cutoff}
-        item["seen_times"] = new_times
+        days = item["seen_days"]
+        new_days = {d for d in days if d >= cutoff}
+        item["seen_days"] = new_days
 
-        if not new_times:
+        if not new_days:
             to_delete.append(ip)
 
     for ip in to_delete:
         state.pop(ip, None)
-        meta.pop(ip, None)
+    
+    new_ips = []
+    returning_ips = []
+
+    for ip in state:
+        days_seen = len(state[ip]["seen_days"])
+
+        if days_seen == 1:
+            new_ips.append(ip)
+        elif 2 <= days_seen <= 3:
+            returning_ips.append(ip)
 
     def build(ip: str) -> dict[str, Any]:
         m = meta.get(ip, {})
         s = state[ip]
 
-        days_seen = len({
-            t.date() for t in s["seen_times"]
-        })
+        days_seen = len(s["seen_days"])
 
         return {
             "ip": ip,

@@ -166,7 +166,8 @@ Redistribution is subject to the MaxMind license terms.
 - Nearby clusters highlighted visually  
 - Unmapped public services with missing geolocation   
 - Established LAN and LOCAL services  
-- Local open ports (TCP LISTEN and UDP bound)  
+- Local open ports (TCP LISTEN and UDP bound)
+- Insights panel showing new and returning IPs over time
 
 All data is collected locally on your machine.
 
@@ -368,6 +369,7 @@ If you access the app from another machine, use the host IP address instead.
 ### Notes
 
 - The mounted folder is used as the container data directory (`/data`)
+- The host folder name can be chosen freely
 - Process information may be unavailable in Docker mode, depending on host security policies
 - Requires Linux host (not supported on Docker Desktop for Windows or macOS)
 
