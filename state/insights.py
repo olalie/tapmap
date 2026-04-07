@@ -94,8 +94,11 @@ def process_insights(
     new_ips = []
     returning_ips = []
 
-    for ip in state:
-        days_seen = len(state[ip]["seen_days"])
+    for ip, item in state.items():
+        if item["last_seen"] != today:
+            continue
+
+        days_seen = len(item["seen_days"])
 
         if days_seen == 1:
             new_ips.append(ip)
