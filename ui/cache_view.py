@@ -124,7 +124,9 @@ class CacheViewBuilder:
             "country": candidate.get("country"),
             "asn": candidate.get("asn"),
             "asn_org": candidate.get("asn_org"),
-            "first_seen": self._now_text(),
+            "f": self._now_text(),
+            "l": self._now_text(),
+            "m": 0,
             "processes": [],
             "proc_pids": {},
         }

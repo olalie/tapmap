@@ -1,24 +1,35 @@
-"""Track new and returning IPs with minimal state."""
+"""Track new and seen-before IPs using epoch timestamps and bitmask."""
 
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import datetime
 from typing import Any, TypedDict
 
 
 class InsightStateItem(TypedDict):
-    """State for an IP address."""
-    first_seen: date
-    last_seen: date
-    seen_days: set[date]
+    """State for an IP address.
+
+    f: first_seen (epoch seconds)
+    l: last_seen (epoch seconds)
+    m: 30-day activity bitmask (bit 0 = today)
+    """
+    f: int
+    l: int   # noqa
+    m: int
 
 
 class InsightMetaItem(TypedDict, total=False):
-    """Metadata for an IP address."""
-    country: str | None
-    country_code: str | None
-    city: str | None
-    asn_org: str | None
+    """Metadata for an IP address.
+
+    co: country
+    cc: country_code
+    ci: city
+    ao: asn_org
+    """
+    co: str | None
+    cc: str | None
+    ci: str | None
+    ao: str | None
 
 
 InsightsState = dict[str, InsightStateItem]
@@ -30,16 +41,51 @@ class Insights(TypedDict):
     state: InsightsState
     meta: InsightsMeta
 
+def update_state(
+    ips: set[str],
+    state: InsightsState,
+    now: datetime,
+) -> None:
+    """Update state for all observed IPs."""
+    today = now.date()
+    ts = int(now.timestamp())
+
+    for ip in ips:
+        if ip not in state:
+            state[ip] = {
+                "f": ts,
+                "l": ts,
+                "m": 1,
+            }
+            continue
+
+        item = state[ip]
+
+        last_date = datetime.fromtimestamp(item["l"]).date()
+        delta = (today - last_date).days
+
+        if delta >= 30:
+            item["m"] = 0
+        elif delta > 0:
+            item["m"] <<= delta
+            item["m"] &= (1 << 30) - 1
+
+        item["m"] |= 1
+        item["l"] = ts
+
+    # prune after update
+    to_delete = [ip for ip, item in state.items() if item["m"] == 0]
+    for ip in to_delete:
+        del state[ip]
 
 def process_insights(
     items: list[dict[str, Any]],
     insights: dict[str, Any],
     now: datetime,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Process snapshot items and return new and returning IP entries."""
+    """Process snapshot and return new and seen-before entries."""
     state: InsightsState = insights.setdefault("state", {})
     meta: InsightsMeta = insights.setdefault("meta", {})
-    today = now.date()
 
     ips: set[str] = set()
 
@@ -58,72 +104,52 @@ def process_insights(
 
         if ip not in meta:
             meta[ip] = {
-                "country": item.get("country"),
-                "country_code": item.get("country_code"),
-                "city": item.get("city"),
-                "asn_org": item.get("asn_org"),
+                "co": item.get("country"),
+                "cc": item.get("country_code"),
+                "ci": item.get("city"),
+                "ao": item.get("asn_org"),
             }
-
-    for ip in ips:
-        if ip not in state:
-            state[ip] = {
-                "first_seen": today,
-                "last_seen": today,
-                "seen_days": {today},
-            }
-        else:
-            item = state[ip]
-            item["last_seen"] = today
-            item.setdefault("seen_days", set()).add(today)
-
-    cutoff = today - timedelta(days=30)
-
-    to_delete = []
+           
+    update_state(ips, state, now)
+    new_countries: set[str] = set()
 
     for ip, item in state.items():
-        days = item["seen_days"]
-        new_days = {d for d in days if d >= cutoff}
-        item["seen_days"] = new_days
+        mask = item["m"]
 
-        if not new_days:
-            to_delete.append(ip)
-
-    for ip in to_delete:
-        state.pop(ip, None)
-    
-    new_ips = []
-    returning_ips = []
-
-    for ip, item in state.items():
-        if item["last_seen"] != today:
+        if (mask & 1) != 1:
             continue
 
-        days_seen = len(item["seen_days"])
+        if (mask >> 1) != 0:
+            continue
 
-        if days_seen == 1:
-            new_ips.append(ip)
-        elif 2 <= days_seen <= 3:
-            returning_ips.append(ip)
+        m = meta.get(ip)
+        if not m:
+            continue
 
-    def build(ip: str) -> dict[str, Any]:
-        m = meta.get(ip, {})
-        s = state[ip]
+        cc = m.get("cc")
+        if isinstance(cc, str) and cc:
+            new_countries.add(cc)
 
-        days_seen = len(s["seen_days"])
+    new_countries = sorted(new_countries)
+    new = {
+        "countries": [],
+        "providers": [],
+        "ports": [],
+        "applications": [],
+    }
 
-        return {
-            "ip": ip,
-            "country": m.get("country"),
-            "country_code": m.get("country_code"),
-            "first_seen": s["first_seen"],
-            "last_seen": s["last_seen"],
-            "days_seen": days_seen,
-        }
-    
-    new_ips.sort(key=lambda ip: state[ip]["last_seen"], reverse=True)
-    returning_ips.sort(key=lambda ip: state[ip]["last_seen"], reverse=True)
-    new = [build(ip) for ip in new_ips]
-    returning = [build(ip) for ip in returning_ips]
+    for cc in new_countries:
+        country_name = next(
+            (m.get("co") for m in meta.values() if m.get("cc") == cc),
+            None,
+        )
 
-    return new, returning
+        new["countries"].append(
+            {
+                "value": cc,
+                "name": country_name,
+            }
+        )
 
+    seen_before = []
+    return new, seen_before
