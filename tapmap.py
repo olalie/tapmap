@@ -745,7 +745,6 @@ class TapMap:
 
             points = self._ensure_list(view.get("points"))
             summaries = self._ensure_dict(view.get("summaries"))
-            point_ips = self._ensure_dict(view.get("point_ips"))
 
             if not points:
                 return self.ui.create_figure(
