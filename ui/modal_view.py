@@ -584,7 +584,7 @@ class ModalTextBuilder:
             - nested list or tuple structures
         """
         if isinstance(customdata, dict):
-            if customdata.get("kind") in {"target", "line"}:
+            if customdata.get("kind") in {"geo_point", "line"}:
                 idx = customdata.get("idx")
                 return idx if isinstance(idx, int) else None
             return None

@@ -233,10 +233,21 @@ body {
 }
 
 .insights-title {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 600;
-  opacity: 0.9;
-  margin: 8px 0 6px 0;
+  opacity: 0.95;
+  margin: 10px 0 8px 0;
+}
+
+.insights-subtitle {
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0.85;
+  margin: 6px 0 4px 0;
+}
+
+.insights-subtitle.dimmed {
+  opacity: 0.55;
 }
 
 .insights-list {

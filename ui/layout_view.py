@@ -32,7 +32,7 @@ def render_layout(
         children=[
             dcc.Store(id="menu_open", data=False),
             dcc.Store(id="insights_on", data=True),
-            dcc.Store(id="selected_ip", data=None),
+            dcc.Store(id="selected_country", data=None),
             dcc.Store(id="key_action", data=None),
             dcc.Store(id="status_flash", data=None),
             dcc.Store(id="model_snapshot", data=None),
@@ -143,22 +143,50 @@ def render_layout(
                 id="insights_panel",
                 className="insights-panel",
                 children=[
-                    html.Div("New", className="insights-title"),
+                    html.Div("Today", className="insights-title"),
+
                     html.Div(
                         [
-                            html.Div("Countries", className="insights-subtitle"),
                             html.Div(
-                                id="insights_new",
-                                className="insights-list",
-                                children=[],
+                                id="insights_apps_title",
+                                children="New applications",
+                                className="insights-subtitle",
                             ),
+                            html.Div(id="insights_apps", className="insights-list", children=[]),
                         ]
                     ),
-                    html.Div("Seen before", className="insights-title"),
+
                     html.Div(
-                        id="insights_seen_before",
-                        className="insights-list",
-                        children=[],
+                        [
+                            html.Div(
+                                id="insights_providers_title",
+                                children="New providers",
+                                className="insights-subtitle",
+                            ),
+                            html.Div(id="insights_providers", className="insights-list", children=[]),
+                        ]
+                    ),
+
+                    html.Div(
+                        [
+                            html.Div(
+                                id="insights_countries_title",
+                                children="New countries",
+                                className="insights-subtitle",
+                            ),
+                            html.Div(id="insights_new", className="insights-list", children=[]),
+                        ]
+                    ),
+
+                    html.Div(
+                        [
+                            html.Div(
+                                id="insights_ports_title",
+                                children="New ports",
+                                className="insights-subtitle",
+                            ),
+                            html.Div(id="insights_ports", className="insights-list", children=[]),
+                        ]
                     ),
                 ],
             ),

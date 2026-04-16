@@ -79,7 +79,7 @@ class TapMap:
         {"menu_clear_cache", "menu_cache_terminal", "menu_recheck_geoip"}
     )
 
-    DASH_DEBUG = False
+    DASH_DEBUG = True
     DEBUG_COORDS = False
     DEBUG_COORDS_EVERY_N_TICKS = 6
 
@@ -735,9 +735,9 @@ class TapMap:
         @self.app.callback(
             Output("map", "figure"),
             Input("ui_view", "data"),
-            Input("selected_ip", "data"),
+            Input("selected_country", "data"),
         )
-        def render_map(ui_view: Any, selected_ip: Any) -> Any:
+        def render_map(ui_view: Any, selected_country: Any) -> Any:
             view = self._ensure_dict(ui_view)
 
             if "points" not in view:
@@ -751,15 +751,13 @@ class TapMap:
                 return self.ui.create_figure(
                     ([], self.my_location),
                     summaries=summaries,
-                    point_ips=point_ips,
-                    selected_ip=selected_ip,
+                    selected_country=selected_country,
                 )
 
             return self.ui.create_figure(
                 (points, self.my_location),
                 summaries=summaries,
-                point_ips=point_ips,
-                selected_ip=selected_ip,
+                selected_country=selected_country,
             )
 
         @self.app.callback(
@@ -783,138 +781,82 @@ class TapMap:
 
         @self.app.callback(
             Output("insights_new", "children"),
-            Output("insights_seen_before", "children"),
-            Input("insights_cache", "data"),
-            Input("selected_ip", "data"),
-            State("ui_view", "data"),
-        )
-        def update_insights(data: Any, selected_ip: Any, ui_view: Any):
-         
-            if not isinstance(data, dict):
-                return [], []
-            
-            all_map_ips: set[str] = set()
+            Output("insights_apps", "children"),
+            Output("insights_providers", "children"),
+            Output("insights_ports", "children"),
 
-            if isinstance(ui_view, dict):
-                point_ips = ui_view.get("point_ips")
-                if isinstance(point_ips, dict):
-                    for v in point_ips.values():
-                        if isinstance(v, list):
-                            all_map_ips.update(v)
-            
-            new = data.get("new") or []
-            seen_before = data.get("seen_before") or []
+            Output("insights_countries_title", "className"),
+            Output("insights_apps_title", "className"),
+            Output("insights_providers_title", "className"),
+            Output("insights_ports_title", "className"),
+
+            Input("insights_cache", "data"),
+        )
+        def update_insights(data: Any):
+
+            base = "insights-subtitle"
+            dim = "insights-subtitle dimmed"
+
+            if not isinstance(data, dict):
+                return [], [], [], [], dim, dim, dim, dim
+
+            new = data.get("new") or {}
+            countries = new.get("countries") or []
 
             def _flag(code: str | None) -> str:
-                """Return flag emoji from ISO country code."""
                 if not isinstance(code, str) or len(code) != 2:
                     return "🌐"
-                
-                # Convert ASCII letters to regional indicator symbols (flag emoji)
                 code = code.upper()
                 return chr(127397 + ord(code[0])) + chr(127397 + ord(code[1]))
-        
-            expanded_ip = self.insights["ui"].get("expanded_ip")
 
             def build_row(item: dict[str, Any]) -> Any:
-                if "ip" not in item:
-                    return html.Div(
-                        f"{_flag(item['value'])} {item.get('name') or item['value']}",
-                        className="insights-row",
-                    )
-                is_expanded = item["ip"] == expanded_ip
-                is_selected = item["ip"] == selected_ip
-                is_in_map = item["ip"] in all_map_ips
-                not_in_session = is_selected and not is_in_map
-                days = item["days"]
-                last_seen_str = item["last_seen"]
-                first_seen_str = item["first_seen"]
-                header = html.Div(
-                    [
-                        html.Span(
-                            _flag(item.get("country_code")),
-                            className="insights-flag",
-                        ),
-                        html.Span(
-                            item.get("country") or "Unknown",
-                            className="insights-country",
-                            title=item.get("country"),
-                        ),
-                        html.Span(
-                            item["ip"],
-                            className="insights-ip",
-                            title=item["ip"],
-                        ),
-                    ],
-                    className="insights-row-header",
-                )
-
-                details = None
-                if is_expanded:
-                    detail_rows = [
-                        html.Div(
-                            [
-                                html.Span("Last seen", className="insights-label"),
-                                html.Span(last_seen_str, className="insights-value"),
-                            ],
-                            className="insights-detail-row",
-                        ),
-                        html.Div(
-                            [
-                                html.Span("First seen", className="insights-label"),
-                                html.Span(first_seen_str, className="insights-value"),
-                            ],
-                            className="insights-detail-row",
-                        ),
-                    ]
-
-                    if days >= 2:
-                        detail_rows.append(
-                            html.Div(
-                                [
-                                    html.Span("Seen", className="insights-label"),
-                                    html.Span(f"{days} days", className="insights-value"),
-                                ],
-                                className="insights-detail-row",
-                            )
-                        )
-
-                    if not_in_session:
-                        detail_rows.append(
-                            html.Div(
-                                [
-                                    html.Span("Status", className="insights-label"),
-                                    html.Span("not on map", className="insights-value"),
-                                ],
-                                className="insights-detail-row",
-                            )
-                        )
-
-                    details = html.Div(
-                        detail_rows,
-                        className="insights-details",
-                    )
-
                 return html.Div(
-                    [header, details] if details else [header],
+                    [
+                        html.Div(
+                            [
+                                html.Span(
+                                    _flag(item.get("value")),
+                                    className="insights-flag",
+                                ),
+                                html.Span(
+                                    item.get("name") or item.get("value"),
+                                    className="insights-country",
+                                ),
+                            ],
+                            className="insights-row-header",
+                        )
+                    ],
                     className="insights-row",
-                    id={"type": "insights-row", "ip": item["ip"]},
-                    key=item["ip"],
+                    id={"type": "insights-country", "cc": item["value"]},
+                    n_clicks=0,
                 )
-            countries = []
-            if isinstance(new, dict):
-                countries = new.get("countries", [])
 
             new_children = [build_row(item) for item in countries]
-            seen_before_children = [build_row(item) for item in seen_before]
-            return new_children, seen_before_children
+
+            countries_cls = base if countries else dim
+
+            apps_cls = dim
+            providers_cls = dim
+            ports_cls = dim
+
+            return (
+                new_children,
+                [],
+                [],
+                [],
+                countries_cls,
+                apps_cls,
+                providers_cls,
+                ports_cls,
+            )
         
         @self.app.callback(
-            Output("selected_ip", "data"),
-            Input({"type": "insights-row", "ip": ALL}, "n_clicks"),
+            Output("selected_country", "data"),
+            Input({"type": "insights-country", "cc": ALL}, "n_clicks"),
+            State("selected_country", "data"),
             prevent_initial_call=True,
         )
-        def select_insights_ip(_clicks: list[int]) -> Any:
+        def select_insight(_clicks_country: list[int], current: str | None) -> Any:
             if not ctx.triggered:
                 return no_update
 
@@ -925,19 +867,16 @@ class TapMap:
 
             trigger_id = ctx.triggered_id
 
-            if not trigger_id or "ip" not in trigger_id:
+            if not trigger_id or "cc" not in trigger_id:
                 return no_update
 
-            ip = trigger_id["ip"]
+            country_code = trigger_id["cc"]
 
-            # toggle expanded row state
-            current = self.insights["ui"].get("expanded_ip")
-            if current == ip:
-                self.insights["ui"]["expanded_ip"] = None
-                return None  # clear selection to reset map state
-            else:
-                self.insights["ui"]["expanded_ip"] = ip
-                return ip
+            if current == country_code:
+                return None
+
+            return country_code
+
         
         @self.app.callback(
             Output("insights_cache", "data"),
@@ -946,22 +885,17 @@ class TapMap:
         def update_insights_data(snapshot: Any) -> Any:
 
             if not isinstance(snapshot, dict):
-                return {"new": [], "seen_before": []}
+                return {"new": {}}
 
             now = datetime.now()
-
-            new, seen_before = process_insights(
+            new, _ = process_insights(
                 snapshot.get("cache_items", []),
                 self.insights,
                 now,
             )
 
-            def _serialize(item: dict[str, Any]) -> dict[str, Any]:
-                return item
-
             return {
                 "new": new,
-                "seen_before": [_serialize(i) for i in seen_before],
             }
 
     def run(self) -> None:

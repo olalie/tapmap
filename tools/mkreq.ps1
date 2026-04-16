@@ -6,6 +6,7 @@ $root = Split-Path -Parent $PSScriptRoot
 
 Set-Location $root
 
-pipreqs . --force --encoding utf-8 --ignore ".venv,venv,dist,build"
+pipreqs . --force --encoding utf-8 `
+  --ignore ".venv,venv,dist,build,docs,tests,tools"
 
 Write-Host "requirements.txt generated in $root"

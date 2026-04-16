@@ -1,10 +1,4 @@
-"""Define Plotly map rendering for TapMap.
-
-Build a dark-themed world map with:
-- a base choropleth layer
-- connection lines from a "my location" marker when enabled
-- target markers with hover summaries
-"""
+"""Render TapMap world map with country layer, connections and geo points."""
 
 from __future__ import annotations
 
@@ -13,228 +7,20 @@ import math
 from typing import Final, TypeAlias
 
 import plotly.graph_objects as go
+import pycountry
+
+from country_centers import get_center
 
 LonLat: TypeAlias = tuple[float, float]
-PointSets: TypeAlias = tuple[list[LonLat], list[LonLat]]  # (targets, my_location)
+PointSets: TypeAlias = tuple[list[LonLat], list[LonLat]]  # (geo_points, my_location)
 CustomData: TypeAlias = dict[str, object]
 
 
 class MapUI:
-    """Build Plotly figures for the TapMap UI."""
+    """Build Plotly map figures for TapMap."""
 
-    COUNTRY_CODES: Final[tuple[str, ...]] = (
-        "AFG",
-        "ALB",
-        "DZA",
-        "AND",
-        "AGO",
-        "ATG",
-        "ARG",
-        "ARM",
-        "AUS",
-        "AUT",
-        "AZE",
-        "BHS",
-        "BHR",
-        "BGD",
-        "BRB",
-        "BLR",
-        "BEL",
-        "BLZ",
-        "BEN",
-        "BTN",
-        "BOL",
-        "BIH",
-        "BWA",
-        "BRA",
-        "BRN",
-        "BGR",
-        "BFA",
-        "BDI",
-        "KHM",
-        "CMR",
-        "CAN",
-        "CPV",
-        "CAF",
-        "TCD",
-        "CHL",
-        "CHN",
-        "COL",
-        "COM",
-        "COD",
-        "COG",
-        "CRI",
-        "CIV",
-        "HRV",
-        "CUB",
-        "CYP",
-        "CZE",
-        "DNK",
-        "DJI",
-        "DMA",
-        "DOM",
-        "ECU",
-        "EGY",
-        "SLV",
-        "GNQ",
-        "ERI",
-        "EST",
-        "SWZ",
-        "ETH",
-        "FJI",
-        "FIN",
-        "FRA",
-        "GAB",
-        "GMB",
-        "GEO",
-        "DEU",
-        "GHA",
-        "GRC",
-        "GRD",
-        "GTM",
-        "GIN",
-        "GNB",
-        "GUY",
-        "HTI",
-        "HND",
-        "HUN",
-        "ISL",
-        "IND",
-        "IDN",
-        "IRN",
-        "IRQ",
-        "IRL",
-        "ISR",
-        "ITA",
-        "JAM",
-        "JPN",
-        "JOR",
-        "KAZ",
-        "KEN",
-        "KIR",
-        "PRK",
-        "KOR",
-        "KWT",
-        "KGZ",
-        "LAO",
-        "LVA",
-        "LBN",
-        "LSO",
-        "LBR",
-        "LBY",
-        "LIE",
-        "LTU",
-        "LUX",
-        "MDG",
-        "MWI",
-        "MYS",
-        "MDV",
-        "MLI",
-        "MLT",
-        "MHL",
-        "MRT",
-        "MUS",
-        "MEX",
-        "FSM",
-        "MDA",
-        "MCO",
-        "MNG",
-        "MNE",
-        "MAR",
-        "MOZ",
-        "MMR",
-        "NAM",
-        "NRU",
-        "NPL",
-        "NLD",
-        "NZL",
-        "NIC",
-        "NER",
-        "NGA",
-        "MKD",
-        "NOR",
-        "OMN",
-        "PAK",
-        "PLW",
-        "PAN",
-        "PNG",
-        "PRY",
-        "PER",
-        "PHL",
-        "POL",
-        "PRT",
-        "QAT",
-        "ROU",
-        "RUS",
-        "RWA",
-        "KNA",
-        "LCA",
-        "VCT",
-        "WSM",
-        "SMR",
-        "STP",
-        "SAU",
-        "SEN",
-        "SRB",
-        "SYC",
-        "SLE",
-        "SGP",
-        "SVK",
-        "SVN",
-        "SLB",
-        "SOM",
-        "ZAF",
-        "SSD",
-        "ESP",
-        "LKA",
-        "SDN",
-        "SUR",
-        "SWE",
-        "CHE",
-        "SYR",
-        "TWN",
-        "TJK",
-        "TZA",
-        "THA",
-        "TLS",
-        "TGO",
-        "TON",
-        "TTO",
-        "TUN",
-        "TUR",
-        "TKM",
-        "TUV",
-        "UGA",
-        "UKR",
-        "ARE",
-        "GBR",
-        "USA",
-        "URY",
-        "UZB",
-        "VUT",
-        "VAT",
-        "VEN",
-        "VNM",
-        "YEM",
-        "ZMB",
-        "ZWE",
-        "GRL",
-        "ATA",
-        "CXR",
-        "CCK",
-        "FRO",
-        "GLP",
-        "GUF",
-        "MTQ",
-        "MYT",
-        "REU",
-        "SHN",
-        "SPM",
-        "WLF",
-        "ALA",
-        "BES",
-        "CUW",
-        "CYM",
+    COUNTRY_CODES: Final[tuple[str, ...]] = tuple(
+        c.alpha_3 for c in pycountry.countries if hasattr(c, "alpha_3")
     )
     VALUES: Final[tuple[int, ...]] = (1,) * len(COUNTRY_CODES)
 
@@ -254,11 +40,13 @@ class MapUI:
         self.logger = logging.getLogger(__name__)
 
     @staticmethod
-    def _cd_target(idx: int) -> CustomData:
-        return {"kind": "target", "idx": idx}
+    def _cd_geo_point(idx: int) -> CustomData:
+        """Return customdata for a geo point."""
+        return {"kind": "geo_point", "idx": idx}
 
     @staticmethod
     def _cd_line(idx: int) -> CustomData:
+        """Return customdata for a connection line."""
         return {"kind": "line", "idx": idx}
 
     @staticmethod
@@ -267,7 +55,7 @@ class MapUI:
 
     @staticmethod
     def _haversine_km(a: LonLat, b: LonLat, radius_km: float) -> float:
-        """Compute great-circle distance between two (lon, lat) points in kilometers."""
+        """Return great-circle distance in kilometers between two (lon, lat) points."""
         lon1, lat1 = a
         lon2, lat2 = b
 
@@ -282,29 +70,50 @@ class MapUI:
         h = sin_dlat * sin_dlat + math.cos(lat1_rad) * math.cos(lat2_rad) * sin_dlon * sin_dlon
         return 2.0 * radius_km * math.asin(min(1.0, math.sqrt(h)))
 
-    def _add_world_layer(self, fig: go.Figure) -> None:
+    def _add_world_layer(
+        self,
+        fig: go.Figure,
+        *,
+        selected_country: str | None
+    ) -> None:
+        """Add world layer. Highlight selected country when provided."""
+        line_colors = ["#66FF66"] * len(self.COUNTRY_CODES)
+        line_widths = [0.5] * len(self.COUNTRY_CODES)
+
+        if isinstance(selected_country, str):
+            country_code = selected_country
+
+            try:
+                iso3 = pycountry.countries.get(alpha_2=country_code.upper()).alpha_3
+                idx = self.COUNTRY_CODES.index(iso3)
+                line_colors[idx] = "white"
+                line_widths[idx] = 3
+            except Exception:
+                pass
+
         fig.add_trace(
             go.Choropleth(
                 locations=self.COUNTRY_CODES,
                 z=self.VALUES,
                 showscale=False,
                 colorscale=[[0, "#00AA00"], [1, "#00AA00"]],
-                marker_line_color="#66FF66",
-                marker_line_width=0.5,
+                marker_line_color=line_colors,
+                marker_line_width=line_widths,
                 hoverinfo="skip",
                 showlegend=False,
                 name="world",
             )
         )
 
-    def _compute_zoom_flags(self, targets: list[LonLat]) -> list[bool]:
-        zoom_flags = [False] * len(targets)
-        for i in range(len(targets)):
-            for j in range(i + 1, len(targets)):
+    def _compute_zoom_flags(self, geo_points: list[LonLat]) -> list[bool]:
+        """Return flags for geo_points with neighbors within zoom distance."""
+        zoom_flags = [False] * len(geo_points)
+        for i in range(len(geo_points)):
+            for j in range(i + 1, len(geo_points)):
                 if (
                     self._haversine_km(
-                        targets[i],
-                        targets[j],
+                        geo_points[i],
+                        geo_points[j],
                         radius_km=self.EARTH_RADIUS_KM,
                     )
                     <= self.zoom_near_km
@@ -314,27 +123,18 @@ class MapUI:
         return zoom_flags
 
     def _add_connection_lines(
-        self,
-        fig: go.Figure,
-        *,
-        targets: list[LonLat],
-        my_lon: float,
-        my_lat: float,
-        zoom_flags: list[bool],
-        point_ips: dict[str, list[str]] | None,
-        selected_ip: str | None,
-    ) -> None:
-        for i, (lon, lat) in enumerate(targets):
+            self,
+            fig: go.Figure,
+            *,
+            geo_points: list[LonLat],
+            my_lon: float,
+            my_lat: float,
+            zoom_flags: list[bool],
+        ) -> None:
+        """Add lines from local position to each geo_point."""
+        for i, (lon, lat) in enumerate(geo_points):
             line_color = self.COLOR_ZOOM if zoom_flags[i] else self.COLOR_NORMAL
-
-            ips = set(point_ips.get(str(i), [])) if point_ips else set()
-            is_selected = selected_ip in ips if selected_ip else False
-
-            if selected_ip:
-                opacity = 1.0 if is_selected else 0.4
-            else:
-                opacity = 1.0
-
+            opacity = 1.0
             fig.add_trace(
                 go.Scattergeo(
                     lon=[my_lon, lon],
@@ -350,50 +150,34 @@ class MapUI:
                 )
             )
 
-    def _add_target_markers(
+    def _add_geo_point_markers(
         self,
         fig: go.Figure,
         *,
-        targets: list[LonLat],
+        geo_points: list[LonLat],
         summaries: dict[str, str],
         zoom_flags: list[bool],
-        point_ips: dict[str, list[str]] | None,
-        selected_ip: str | None,
     ) -> None:
-        lons = [lon for lon, _ in targets]
-        lats = [lat for _, lat in targets]
+        """Add markers for geo_points with hover text."""
+        lons = [lon for lon, _ in geo_points]
+        lats = [lat for _, lat in geo_points]
 
         if self.debug:
             unique_xy = len(set(zip(lons, lats, strict=False)))
-            self.logger.debug("Figure targets: count=%s unique_xy=%s", len(lons), unique_xy)
+            self.logger.debug(
+                "Figure geo_points: count=%s unique_xy=%s", len(lons), unique_xy
+            )
 
         colors: list[str] = []
         texts: list[str] = []
-        sizes: list[int] = []
-        line_widths: list[int] = []
-        line_colors: list[str] = []
-        opacities: list[float] = []
 
-        for i in range(len(targets)):
+        for i in range(len(geo_points)):
+            # Color based on proximity (unchanged logic)
             colors.append(self.COLOR_ZOOM if zoom_flags[i] else self.COLOR_NORMAL)
 
+            # Hover text
             base = summaries.get(str(i), f"Summary {i}")
             texts.append(base)
-
-            ips = set(point_ips.get(str(i), [])) if point_ips else set()
-            is_selected = selected_ip in ips if selected_ip else False
-            if selected_ip:
-                opacities.append(1.0 if is_selected else 0.4)
-            else:
-                opacities.append(1.0)
-            sizes.append(14 if is_selected else 10)
-
-            if is_selected:
-                line_widths.append(4)
-                line_colors.append("white")
-            else:
-                line_widths.append(0)
-                line_colors.append("white")
 
         fig.add_trace(
             go.Scattergeo(
@@ -401,21 +185,21 @@ class MapUI:
                 lat=lats,
                 mode="markers",
                 marker=dict(
-                    size=sizes,
+                    size=10,
                     color=colors,
                     symbol="circle",
-                    line=dict(width=line_widths, color=line_colors),
-                    opacity=opacities,
+                    opacity=1.0,
                 ),
                 showlegend=False,
                 hovertemplate="%{text}<extra></extra>",
                 text=texts,
-                customdata=[self._cd_target(i) for i in range(len(targets))],
-                name="targets",
+                customdata=[self._cd_geo_point(i) for i in range(len(geo_points))],
+                name="geo_points",
             )
         )
 
     def _add_my_marker(self, fig: go.Figure, *, my_lon: float, my_lat: float) -> None:
+        """Add marker for local position."""
         fig.add_trace(
             go.Scattergeo(
                 lon=[my_lon],
@@ -434,10 +218,10 @@ class MapUI:
         self,
         fig: go.Figure,
         *,
-        targets,
-        point_ips,
-        selected_ip,
+        geo_points,
+        selected_country,
     ) -> None:
+        """Configure projection. Center view on selected country when provided."""
         fig.update_geos(
             visible=True,
             projection_type="natural earth",
@@ -448,20 +232,23 @@ class MapUI:
             showlakes=True,
             lakecolor="black",
             bgcolor="black",
-            # uirevision="keep",
         )
 
-        if selected_ip and targets and point_ips:
-            for i, (lon, lat) in enumerate(targets):
-                ips = set(point_ips.get(str(i), []))
-                if selected_ip in ips:
-                    fig.update_geos(
-                        center=dict(lon=lon, lat=lat),
-                        projection_scale=5,
-                    )
-                    break
+        if isinstance(selected_country, str):
+            country_code = selected_country
 
-    def _apply_layout(self, fig: go.Figure, *, selected_ip: str | None) -> None:
+            try:
+                lat, lon = get_center(country_code.upper())
+
+                fig.update_geos(
+                    center=dict(lon=lon, lat=lat),
+                    projection_scale=2,
+                )
+            except Exception:
+                pass
+
+    def _apply_layout(self, fig: go.Figure) -> None:
+        """Apply layout styling and interaction settings."""
         font_family = (
             "ui-monospace, SFMono-Regular, Menlo, Consolas, "
             "'Liberation Mono', 'Courier New', monospace"
@@ -474,7 +261,7 @@ class MapUI:
             clickmode="event",
             hovermode="closest",
             dragmode="pan",
-            uirevision=selected_ip or "base",
+            uirevision="constant",
             hoverlabel=dict(
                 bgcolor=self.HOVER_BG,
                 bordercolor=self.HOVER_BORDER,
@@ -490,49 +277,38 @@ class MapUI:
         self,
         point_sets: PointSets,
         summaries: dict[str, str] | None = None,
-        point_ips: dict[str, list[str]] | None = None,
-        selected_ip: str | None = None,
+        selected_country: str | None = None,
     ) -> go.Figure:
-        """Build a world map figure.
-
-        Color rules:
-            - MAGENTA: normal remote targets and lines
-            - YELLOW: targets and lines with nearby neighbors (zoom recommended)
-            - CYAN: local marker when enabled
-        """
+        """Return map figure with world layer, connections, markers, and layout."""
         summaries = summaries or {}
-        targets, my_location = point_sets
+        geo_points, my_location = point_sets
 
         fig = go.Figure()
 
-        self._add_world_layer(fig)
+        self._add_world_layer(fig, selected_country=selected_country)
 
         my_lon: float | None = None
         my_lat: float | None = None
         if my_location:
             my_lon, my_lat = my_location[0]
 
-        zoom_flags = self._compute_zoom_flags(targets) if targets else []
+        zoom_flags = self._compute_zoom_flags(geo_points) if geo_points else []
 
-        if targets and my_lon is not None and my_lat is not None:
+        if geo_points and my_lon is not None and my_lat is not None:
             self._add_connection_lines(
                 fig,
-                targets=targets,
+                geo_points=geo_points,
                 my_lon=my_lon,
                 my_lat=my_lat,
                 zoom_flags=zoom_flags,
-                point_ips=point_ips,
-                selected_ip=selected_ip,
             )
 
-        if targets:
-            self._add_target_markers(
+        if geo_points:
+            self._add_geo_point_markers(
                 fig,
-                targets=targets,
+                geo_points=geo_points,
                 summaries=summaries,
                 zoom_flags=zoom_flags,
-                point_ips=point_ips,
-                selected_ip=selected_ip,
             )
 
         if my_lon is not None and my_lat is not None:
@@ -540,10 +316,10 @@ class MapUI:
 
         self._apply_geos(
             fig,
-            targets=targets,
-            point_ips=point_ips,
-            selected_ip=selected_ip,
+            geo_points=geo_points,
+            selected_country=selected_country,
         )
-        self._apply_layout(fig, selected_ip=selected_ip)
+
+        self._apply_layout(fig)
 
         return fig
