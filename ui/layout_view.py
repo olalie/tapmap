@@ -163,7 +163,11 @@ def render_layout(
                                 children="New providers",
                                 className="insights-subtitle",
                             ),
-                            html.Div(id="insights_providers", className="insights-list", children=[]),
+                            html.Div(
+                                id="insights_providers",
+                                className="insights-list",
+                                children=[],
+                            ),
                         ]
                     ),
 
@@ -174,7 +178,11 @@ def render_layout(
                                 children="New countries",
                                 className="insights-subtitle",
                             ),
-                            html.Div(id="insights_countries", className="insights-list", children=[]),
+                            html.Div(
+                                id="insights_countries",
+                                className="insights-list",
+                                children=[],
+                            ),
                         ]
                     ),
 
