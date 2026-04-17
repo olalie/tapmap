@@ -36,7 +36,7 @@ def render_layout(
             dcc.Store(id="key_action", data=None),
             dcc.Store(id="status_flash", data=None),
             dcc.Store(id="model_snapshot", data=None),
-            dcc.Store(id="insights_cache", data={"new": [], "seen_before": []}),
+            dcc.Store(id="insights_cache", data={"new": {}}),
             dcc.Store(id="ui_cache", data={}),
             dcc.Store(id="status_cache", data=status_cache_store),
             dcc.Store(id="ui_view", data={"points": [], "summaries": {}, "details": {}}),
@@ -174,7 +174,7 @@ def render_layout(
                                 children="New countries",
                                 className="insights-subtitle",
                             ),
-                            html.Div(id="insights_new", className="insights-list", children=[]),
+                            html.Div(id="insights_countries", className="insights-list", children=[]),
                         ]
                     ),
 

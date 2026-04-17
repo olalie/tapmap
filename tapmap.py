@@ -779,19 +779,21 @@ class TapMap:
             )
 
         @self.app.callback(
-            Output("insights_new", "children"),
             Output("insights_apps", "children"),
             Output("insights_providers", "children"),
+            Output("insights_countries", "children"),
             Output("insights_ports", "children"),
 
-            Output("insights_countries_title", "className"),
             Output("insights_apps_title", "className"),
             Output("insights_providers_title", "className"),
+            Output("insights_countries_title", "className"),
             Output("insights_ports_title", "className"),
 
             Input("insights_cache", "data"),
         )
         def update_insights(data: Any):
+
+    
 
             base = "insights-subtitle"
             dim = "insights-subtitle dimmed"
@@ -800,7 +802,10 @@ class TapMap:
                 return [], [], [], [], dim, dim, dim, dim
 
             new = data.get("new") or {}
+            apps = new.get("applications") or []
+            providers = new.get("providers") or []
             countries = new.get("countries") or []
+            ports = new.get("ports") or []
 
             def _flag(code: str | None) -> str:
                 if not isinstance(code, str) or len(code) != 2:
@@ -808,54 +813,63 @@ class TapMap:
                 code = code.upper()
                 return chr(127397 + ord(code[0])) + chr(127397 + ord(code[1]))
 
-            def build_row(item: dict[str, Any]) -> Any:
-                return html.Div(
+            def build_row(item: dict[str, Any], category: str) -> Any:
+                """Build a row for insights list. Countries are clickable."""
+                value = item.get("value")
+                name = item.get("name") or value or ""
+
+                is_country = category == "countries"
+
+                flag = _flag(value) if is_country else ""
+
+                header = html.Div(
                     [
-                        html.Div(
-                            [
-                                html.Span(
-                                    _flag(item.get("value")),
-                                    className="insights-flag",
-                                ),
-                                html.Span(
-                                    item.get("name") or item.get("value"),
-                                    className="insights-country",
-                                ),
-                            ],
-                            className="insights-row-header",
-                        )
+                        html.Span(flag, className="insights-flag"),
+                        html.Span(name, className="insights-country"),
                     ],
-                    className="insights-row",
-                    id={"type": "insights-country", "cc": item["value"]},
-                    n_clicks=0,
+                    className="insights-row-header",
                 )
 
-            new_children = [build_row(item) for item in countries]
+                if is_country and isinstance(value, str):
+                    return html.Div(
+                        header,
+                        className="insights-row clickable",
+                        id={"type": "insights-country", "country_code": value},
+                        n_clicks=0,
+                    )
 
+                return html.Div(
+                    header,
+                    className="insights-row",
+                )
+
+            apps_children = [build_row(item, "applications") for item in apps]
+            providers_children = [build_row(item, "providers") for item in providers]
+            countries_children = [build_row(item, "countries") for item in countries]
+            ports_children = [build_row(item, "ports") for item in ports]
+
+            apps_cls = base if apps else dim
+            providers_cls = base if providers else dim
             countries_cls = base if countries else dim
-
-            apps_cls = dim
-            providers_cls = dim
-            ports_cls = dim
+            ports_cls = base if ports else dim
 
             return (
-                new_children,
-                [],
-                [],
-                [],
-                countries_cls,
+                apps_children,
+                providers_children,
+                countries_children,
+                ports_children,
                 apps_cls,
                 providers_cls,
+                countries_cls,
                 ports_cls,
             )
         
         @self.app.callback(
             Output("selected_country", "data"),
-            Input({"type": "insights-country", "cc": ALL}, "n_clicks"),
-            State("selected_country", "data"),
+            Input({"type": "insights-country", "country_code": ALL}, "n_clicks"),
             prevent_initial_call=True,
         )
-        def select_insight(_clicks_country: list[int], current: str | None) -> Any:
+        def select_insight(_clicks_country: list[int]) -> Any:
             if not ctx.triggered:
                 return no_update
 
@@ -866,14 +880,22 @@ class TapMap:
 
             trigger_id = ctx.triggered_id
 
-            if not trigger_id or "cc" not in trigger_id:
+            if not isinstance(trigger_id, dict):
                 return no_update
 
-            country_code = trigger_id["cc"]
+            if "country_code" not in trigger_id:
+                return no_update
+
+            country_code = trigger_id["country_code"]
+
+            ui = self.insights.setdefault("ui", {})
+            current = ui.get("selected_country")
 
             if current == country_code:
+                ui["selected_country"] = None
                 return None
 
+            ui["selected_country"] = country_code
             return country_code
 
         
@@ -887,7 +909,7 @@ class TapMap:
                 return {"new": {}}
 
             now = datetime.now()
-            new, _ = process_insights(
+            new = process_insights(
                 snapshot.get("cache_items", []),
                 self.insights,
                 now,
@@ -912,15 +934,22 @@ class TapMap:
         )
     
     def _load_insights(self) -> None:
-        """Load insights state from JSON file into memory."""
+        """Load insights data from JSON file into memory."""
         try:
             if not self.insights_path.exists():
+                self.insights = {}
                 return
 
             data = json.loads(self.insights_path.read_text(encoding="utf-8"))
 
-            self.insights["state"] = data.get("state", {})
-            self.insights["meta"] = data.get("meta", {})
+            insights = data.get("insights")
+            if not isinstance(insights, dict):
+                insights = {}
+
+            for key in ("countries", "providers", "ports", "applications"):
+                insights.setdefault(key, {})
+
+            self.insights = insights
 
         except Exception as exc:
             self.logger.warning("Failed to load insights: %s", exc)
@@ -934,11 +963,10 @@ class TapMap:
             self._last_insights_save = now
 
     def _save_insights(self) -> None:
-        """Save insights state to JSON file."""
+        """Save insights data to JSON file."""
         try:
             data = {
-                "state": self.insights["state"],
-                "meta": self.insights["meta"],
+                "insights": self.insights
             }
 
             self.insights_path.write_text(

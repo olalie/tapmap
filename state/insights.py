@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, TypedDict
 
+import pycountry
+
 
 class InsightStateItem(TypedDict):
     """State for an IP address.
@@ -82,74 +84,102 @@ def process_insights(
     items: list[dict[str, Any]],
     insights: dict[str, Any],
     now: datetime,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Process snapshot and return new and seen-before entries."""
-    state: InsightsState = insights.setdefault("state", {})
-    meta: InsightsMeta = insights.setdefault("meta", {})
+) -> dict[str, Any]:
+    """Process snapshot and return new insights entries."""
 
-    ips: set[str] = set()
+    def update_dimension(
+        values: set[str],
+        state: dict[str, dict[str, int]],
+    ) -> None:
+        today = now.date()
+        ts = int(now.timestamp())
+
+        for value in values:
+            if value not in state:
+                state[value] = {"l": ts, "m": 1}
+                continue
+
+            item = state[value]
+
+            last_date = datetime.fromtimestamp(item["l"]).date()
+            delta = (today - last_date).days
+
+            if delta >= 30:
+                item["m"] = 0
+            elif delta > 0:
+                item["m"] <<= delta
+                item["m"] &= (1 << 30) - 1
+
+            item["m"] |= 1
+            item["l"] = ts
+
+        # prune
+        to_delete = [k for k, v in state.items() if v["m"] == 0]
+        for k in to_delete:
+            del state[k]
+
+    # ensure structure
+    countries_state = insights.setdefault("countries", {})
+    providers_state = insights.setdefault("providers", {})
+    ports_state = insights.setdefault("ports", {})
+    apps_state = insights.setdefault("applications", {})
+
+    countries: set[str] = set()
+    providers: set[str] = set()
+    ports: set[str] = set()
+    apps: set[str] = set()
 
     for item in items:
         if not isinstance(item, dict):
             continue
 
-        ip = item.get("ip")
-        if not isinstance(ip, str) or not ip:
-            continue
-
         if item.get("service_scope") != "PUBLIC":
             continue
 
-        ips.add(ip)
-
-        if ip not in meta:
-            meta[ip] = {
-                "co": item.get("country"),
-                "cc": item.get("country_code"),
-                "ci": item.get("city"),
-                "ao": item.get("asn_org"),
-            }
-           
-    update_state(ips, state, now)
-    new_countries: set[str] = set()
-
-    for ip, item in state.items():
-        mask = item["m"]
-
-        if (mask & 1) != 1:
-            continue
-
-        if (mask >> 1) != 0:
-            continue
-
-        m = meta.get(ip)
-        if not m:
-            continue
-
-        cc = m.get("cc")
+        cc = item.get("country_code")
         if isinstance(cc, str) and cc:
-            new_countries.add(cc)
+            countries.add(cc)
 
-    new_countries = sorted(new_countries)
+        ao = item.get("asn_org")
+        if isinstance(ao, str) and ao:
+            providers.add(ao)
+
+        port = item.get("port")
+        if isinstance(port, int):
+            ports.add(str(port))
+
+        app = item.get("process_name")
+        if isinstance(app, str) and app:
+            apps.add(app)
+
+    update_dimension(countries, countries_state)
+    update_dimension(providers, providers_state)
+    update_dimension(ports, ports_state)
+    update_dimension(apps, apps_state)
+
+    def build_new(state: dict[str, dict[str, int]], category: str) -> list[dict[str, Any]]:
+        items = []
+        for k, v in state.items():
+            if v["m"] != 1:
+                continue
+
+            if category == "countries":
+                try:
+                    country = pycountry.countries.get(alpha_2=k.upper())
+                    name = country.name if country else k
+                except Exception:
+                    name = k
+                items.append({"value": k, "name": name})
+            else:
+                items.append({"value": k})
+
+        return items
+
     new = {
-        "countries": [],
-        "providers": [],
-        "ports": [],
-        "applications": [],
+        "countries": build_new(countries_state, "countries"),
+        "providers": build_new(providers_state, "providers"),
+        "ports": build_new(ports_state, "ports"),
+        "applications": build_new(apps_state, "applications"),
     }
 
-    for cc in new_countries:
-        country_name = next(
-            (m.get("co") for m in meta.values() if m.get("cc") == cc),
-            None,
-        )
-
-        new["countries"].append(
-            {
-                "value": cc,
-                "name": country_name,
-            }
-        )
-
-    seen_before = []
-    return new, seen_before
+    return new

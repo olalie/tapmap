@@ -236,7 +236,7 @@ body {
   font-size: 18px;
   font-weight: 600;
   opacity: 0.95;
-  margin: 10px 0 8px 0;
+  margin: 10px 0 14px 0;
 }
 
 .insights-subtitle {
@@ -258,6 +258,10 @@ body {
 .insights-row {
   display: block;
   padding: 4px 0;
+  cursor: default;
+}
+
+.insights-row.clickable {
   cursor: pointer;
 }
 
@@ -269,6 +273,10 @@ body {
 }
 
 .insights-row:hover {
+  opacity: 1;
+}
+
+.insights-row.clickable:hover {
   opacity: 0.8;
 }
 
@@ -297,6 +305,10 @@ body {
   flex: 0 0 21px;
   font-size: 17px;
   text-align: center;
+}
+
+.insights-flag:empty {
+  display: none;
 }
 
 .insights-country {
