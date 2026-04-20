@@ -63,6 +63,7 @@ def process_insights(
             elif delta > 0:
                 item["m"] <<= delta
                 item["m"] &= (1 << 30) - 1
+                item["l"] = today_day
 
         # 2. Apply today's observations
         for value in values:
