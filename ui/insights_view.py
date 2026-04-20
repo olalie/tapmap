@@ -19,7 +19,7 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
         code = code.upper()
         return chr(127397 + ord(code[0])) + chr(127397 + ord(code[1]))
 
-    def build_row(item: dict[str, Any], category: str) -> Any:
+    def build_row(item: dict[str, Any], category: str, section: str) -> Any:
         value = item.get("value")
         name = item.get("name") or value or ""
 
@@ -38,7 +38,11 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
             return html.Div(
                 header,
                 className="insights-row clickable",
-                id={"type": "insights-country", "country_code": value},
+                id={
+                    "type": "insights-country",
+                    "country_code": value,
+                    "section": section,
+                },
                 n_clicks=0,
             )
 
@@ -55,7 +59,7 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
             [
                 subtitle("New applications", new.get("applications") or []),
                 html.Div(
-                    [build_row(i, "applications") for i in (new.get("applications") or [])],
+                    [build_row(i, "applications", "today") for i in (new.get("applications") or [])],
                     className="insights-list",
                 ),
             ]
@@ -65,7 +69,7 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
             [
                 subtitle("New providers", new.get("providers") or []),
                 html.Div(
-                    [build_row(i, "providers") for i in (new.get("providers") or [])],
+                    [build_row(i, "providers", "today") for i in (new.get("providers") or [])],
                     className="insights-list",
                 ),
             ]
@@ -75,7 +79,7 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
             [
                 subtitle("New countries", new.get("countries") or []),
                 html.Div(
-                    [build_row(i, "countries") for i in (new.get("countries") or [])],
+                    [build_row(i, "countries", "today") for i in (new.get("countries") or [])],
                     className="insights-list",
                 ),
             ]
@@ -85,7 +89,7 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
             [
                 subtitle("New ports", new.get("ports") or []),
                 html.Div(
-                    [build_row(i, "ports") for i in (new.get("ports") or [])],
+                    [build_row(i, "ports", "today") for i in (new.get("ports") or [])],
                     className="insights-list",
                 ),
             ]
@@ -97,7 +101,7 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
             [
                 subtitle("Applications", top.get("applications") or []),
                 html.Div(
-                    [build_row(i, "applications") for i in (top.get("applications") or [])],
+                    [build_row(i, "applications", "top") for i in (top.get("applications") or [])],
                     className="insights-list",
                 ),
             ]
@@ -107,7 +111,7 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
             [
                 subtitle("Providers", top.get("providers") or []),
                 html.Div(
-                    [build_row(i, "providers") for i in (top.get("providers") or [])],
+                    [build_row(i, "providers", "top") for i in (top.get("providers") or [])],
                     className="insights-list",
                 ),
             ]
@@ -117,7 +121,7 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
             [
                 subtitle("Countries", top.get("countries") or []),
                 html.Div(
-                    [build_row(i, "countries") for i in (top.get("countries") or [])],
+                    [build_row(i, "countries", "top") for i in (top.get("countries") or [])],
                     className="insights-list",
                 ),
             ]
@@ -127,7 +131,7 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
             [
                 subtitle("Ports", top.get("ports") or []),
                 html.Div(
-                    [build_row(i, "ports") for i in (top.get("ports") or [])],
+                    [build_row(i, "ports", "top") for i in (top.get("ports") or [])],
                     className="insights-list",
                 ),
             ]

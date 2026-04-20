@@ -80,7 +80,7 @@ class TapMap:
         {"menu_clear_cache", "menu_cache_terminal", "menu_recheck_geoip"}
     )
 
-    DASH_DEBUG = True
+    DASH_DEBUG = False
     DEBUG_COORDS = False
     DEBUG_COORDS_EVERY_N_TICKS = 6
 
@@ -791,7 +791,14 @@ class TapMap:
         
         @self.app.callback(
             Output("selected_country", "data"),
-            Input({"type": "insights-country", "country_code": ALL}, "n_clicks"),
+            Input(
+                {
+                    "type": "insights-country",
+                    "country_code": ALL,
+                    "section": ALL,
+                },
+                "n_clicks",
+            ),
             State("selected_country", "data"),
             prevent_initial_call=True,
         )
