@@ -9,13 +9,11 @@ import pycountry
 
 
 class InsightStateItem(TypedDict):
-    """State for an IP address.
+    """State for an entry.
 
-    f: first_seen (epoch seconds)
-    l: last_seen (epoch seconds)
+    l: last_seen_day (epoch day)
     m: 30-day activity bitmask (bit 0 = today)
     """
-    f: int
     l: int   # noqa
     m: int
 
@@ -43,43 +41,6 @@ class Insights(TypedDict):
     state: InsightsState
     meta: InsightsMeta
 
-def update_state(
-    ips: set[str],
-    state: InsightsState,
-    now: datetime,
-) -> None:
-    """Update state for all observed IPs."""
-    today = now.date()
-    ts = int(now.timestamp())
-
-    for ip in ips:
-        if ip not in state:
-            state[ip] = {
-                "f": ts,
-                "l": ts,
-                "m": 1,
-            }
-            continue
-
-        item = state[ip]
-
-        last_date = datetime.fromtimestamp(item["l"]).date()
-        delta = (today - last_date).days
-
-        if delta >= 30:
-            item["m"] = 0
-        elif delta > 0:
-            item["m"] <<= delta
-            item["m"] &= (1 << 30) - 1
-
-        item["m"] |= 1
-        item["l"] = ts
-
-    # prune after update
-    to_delete = [ip for ip, item in state.items() if item["m"] == 0]
-    for ip in to_delete:
-        del state[ip]
-
 def process_insights(
     items: list[dict[str, Any]],
     insights: dict[str, Any],
@@ -91,18 +52,11 @@ def process_insights(
         values: set[str],
         state: dict[str, dict[str, int]],
     ) -> None:
-        today = now.date()
-        ts = int(now.timestamp())
+        today_day = now.date().toordinal()
 
-        for value in values:
-            if value not in state:
-                state[value] = {"l": ts, "m": 1}
-                continue
-
-            item = state[value]
-
-            last_date = datetime.fromtimestamp(item["l"]).date()
-            delta = (today - last_date).days
+        # 1. Age all entries
+        for item in state.values():
+            delta = today_day - item["l"]
 
             if delta >= 30:
                 item["m"] = 0
@@ -110,10 +64,17 @@ def process_insights(
                 item["m"] <<= delta
                 item["m"] &= (1 << 30) - 1
 
-            item["m"] |= 1
-            item["l"] = ts
+        # 2. Apply today's observations
+        for value in values:
+            if value not in state:
+                state[value] = {"l": today_day, "m": 1}
+                continue
 
-        # prune
+            item = state[value]
+            item["m"] |= 1
+            item["l"] = today_day
+
+        # 3. Prune
         to_delete = [k for k, v in state.items() if v["m"] == 0]
         for k in to_delete:
             del state[k]
@@ -175,6 +136,37 @@ def process_insights(
 
         return items
 
+    def build_top(
+        state: dict[str, dict[str, int]],
+        category: str,
+        limit: int = 5,
+    ) -> list[dict[str, Any]]:
+        items = []
+
+        for k, v in state.items():
+            score = v["m"].bit_count()
+            if score == 0:
+                continue
+
+            items.append((k, score))
+
+        # sort descending by score
+        items.sort(key=lambda x: x[1], reverse=True)
+
+        result = []
+        for k, _ in items[:limit]:
+            if category == "countries":
+                try:
+                    country = pycountry.countries.get(alpha_2=k.upper())
+                    name = country.name if country else k
+                except Exception:
+                    name = k
+                result.append({"value": k, "name": name})
+            else:
+                result.append({"value": k})
+
+        return result
+
     new = {
         "countries": build_new(countries_state, "countries"),
         "providers": build_new(providers_state, "providers"),
@@ -182,4 +174,14 @@ def process_insights(
         "applications": build_new(apps_state, "applications"),
     }
 
-    return new
+    top = {
+        "countries": build_top(countries_state, "countries"),
+        "providers": build_top(providers_state, "providers"),
+        "ports": build_top(ports_state, "ports"),
+        "applications": build_top(apps_state, "applications"),
+    }
+
+    return {
+        "new": new,
+        "top": top,
+    }

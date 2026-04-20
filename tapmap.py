@@ -55,6 +55,7 @@ from state.poll import (
 from state.status_cache import StatusCache
 from state.status_line import render_status_text
 from ui.cache_view import CacheViewBuilder
+from ui.insights_view import render_insights_panel
 from ui.layout_view import render_layout
 from ui.map_view import MapUI
 from ui.modal_view import ModalTextBuilder
@@ -779,97 +780,22 @@ class TapMap:
             )
 
         @self.app.callback(
-            Output("insights_apps", "children"),
-            Output("insights_providers", "children"),
-            Output("insights_countries", "children"),
-            Output("insights_ports", "children"),
-
-            Output("insights_apps_title", "className"),
-            Output("insights_providers_title", "className"),
-            Output("insights_countries_title", "className"),
-            Output("insights_ports_title", "className"),
-
+            Output("insights_panel", "children"),
             Input("insights_cache", "data"),
         )
-        def update_insights(data: Any):
-
-    
-
-            base = "insights-subtitle"
-            dim = "insights-subtitle dimmed"
-
+        def update_insights(data: dict[str, Any] | None) -> list[Any]:
             if not isinstance(data, dict):
-                return [], [], [], [], dim, dim, dim, dim
+                return []
 
-            new = data.get("new") or {}
-            apps = new.get("applications") or []
-            providers = new.get("providers") or []
-            countries = new.get("countries") or []
-            ports = new.get("ports") or []
-
-            def _flag(code: str | None) -> str:
-                if not isinstance(code, str) or len(code) != 2:
-                    return "🌐"
-                code = code.upper()
-                return chr(127397 + ord(code[0])) + chr(127397 + ord(code[1]))
-
-            def build_row(item: dict[str, Any], category: str) -> Any:
-                """Build a row for insights list. Countries are clickable."""
-                value = item.get("value")
-                name = item.get("name") or value or ""
-
-                is_country = category == "countries"
-
-                flag = _flag(value) if is_country else ""
-
-                header = html.Div(
-                    [
-                        html.Span(flag, className="insights-flag"),
-                        html.Span(name, className="insights-country"),
-                    ],
-                    className="insights-row-header",
-                )
-
-                if is_country and isinstance(value, str):
-                    return html.Div(
-                        header,
-                        className="insights-row clickable",
-                        id={"type": "insights-country", "country_code": value},
-                        n_clicks=0,
-                    )
-
-                return html.Div(
-                    header,
-                    className="insights-row",
-                )
-
-            apps_children = [build_row(item, "applications") for item in apps]
-            providers_children = [build_row(item, "providers") for item in providers]
-            countries_children = [build_row(item, "countries") for item in countries]
-            ports_children = [build_row(item, "ports") for item in ports]
-
-            apps_cls = base if apps else dim
-            providers_cls = base if providers else dim
-            countries_cls = base if countries else dim
-            ports_cls = base if ports else dim
-
-            return (
-                apps_children,
-                providers_children,
-                countries_children,
-                ports_children,
-                apps_cls,
-                providers_cls,
-                countries_cls,
-                ports_cls,
-            )
+            return render_insights_panel(data)
         
         @self.app.callback(
             Output("selected_country", "data"),
             Input({"type": "insights-country", "country_code": ALL}, "n_clicks"),
+            State("selected_country", "data"),
             prevent_initial_call=True,
         )
-        def select_insight(_clicks_country: list[int]) -> Any:
+        def select_insight(_clicks_country: list[int], current: Any) -> Any:
             if not ctx.triggered:
                 return no_update
 
@@ -883,21 +809,14 @@ class TapMap:
             if not isinstance(trigger_id, dict):
                 return no_update
 
-            if "country_code" not in trigger_id:
+            country_code = trigger_id.get("country_code")
+            if not isinstance(country_code, str):
                 return no_update
 
-            country_code = trigger_id["country_code"]
-
-            ui = self.insights.setdefault("ui", {})
-            current = ui.get("selected_country")
-
             if current == country_code:
-                ui["selected_country"] = None
                 return None
 
-            ui["selected_country"] = country_code
             return country_code
-
         
         @self.app.callback(
             Output("insights_cache", "data"),
@@ -906,18 +825,15 @@ class TapMap:
         def update_insights_data(snapshot: Any) -> Any:
 
             if not isinstance(snapshot, dict):
-                return {"new": {}}
+                return {"new": {}, "top": {}}
 
             now = datetime.now()
-            new = process_insights(
+
+            return process_insights(
                 snapshot.get("cache_items", []),
                 self.insights,
                 now,
             )
-
-            return {
-                "new": new,
-            }
 
     def run(self) -> None:
         """Start the Dash server and launch the local UI."""
