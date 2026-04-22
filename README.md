@@ -259,23 +259,52 @@ Requirements:
 
 - Python 3.10+
 
+Create virtual environment:
+
+    python -m venv .venv
+
+Activate:
+
+    source .venv/bin/activate   (Linux/macOS)
+    .venv\Scripts\activate      (Windows)
+
 Install dependencies:
 
-```
-pip install -r requirements.txt
-```
+    pip install -r requirements.txt
 
 Run:
 
-```
-python tapmap.py
-```
+    python tapmap.py
+
+Alternatively:
+
+    python -m tapmap
 
 Run tests:
 
-```
-pytest
-```
+    pytest
+
+---
+
+### Build executable (optional)
+
+Build a standalone executable using PyInstaller:
+
+    python tools/build.py
+
+Output:
+
+- Linux/macOS: dist/tapmap
+- Windows: dist/tapmap.exe
+
+Run:
+
+    ./dist/tapmap      (Linux/macOS)
+    dist\tapmap.exe    (Windows)
+
+Note:
+
+The executable must be built on the target operating system.
 
 ---
 
