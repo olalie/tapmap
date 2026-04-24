@@ -21,11 +21,10 @@ def render_help() -> list[Any]:
         html.H1("Help"),
         html.P(
             [
-                "TapMap shows the locations of the systems your computer connects to on a "
-                "world map.",
+                "TapMap shows where your computer connects on a world map.",
                 html.Br(),
                 "Explore each location for summaries and details about the systems and the local ",
-                "programs involved.",
+                "apps involved.",
             ]
         ),
         html.H2("Quick start"),
@@ -241,21 +240,27 @@ def render_help() -> list[Any]:
             ],
         ),
         html.H2("Insights"),
-        html.P("Shows IPs observed over time."),
+        html.P(
+            "Shows activity observed over the last 30 days and highlights what is "
+            "unusual and what is most frequent."
+        ),
         html.Ul(
             [
-                html.Li("New: IPs seen only today."),
-                html.Li("Seen before: IPs seen on 2-3 different days within the last 30 days."),
+                html.Li("Today: Items seen today that were not observed in the last 30 days."),
+                html.Li("Top 5: Most frequently observed items over the last 30 days."),
+                html.Li("Categories include apps, providers, countries, and ports."),
             ]
+        ),
+        html.P(
+            "Click a country to zoom to its location on the map."
         ),
         html.P(
             [
-                "Click a row to show details. If the IP is present on the map, ",
-                "the view will zoom to it.",
+                "Entries may appear even if they are not currently visible on the map.",
+                html.Br(),
+                "Insights include activity observed over the last 30 days, while the "
+                "map shows only recent data (see CACHE).",
             ]
-        ),
-        html.P(
-            "Entries may appear even if they are not currently visible on the map."
         ),
         html.H2("Unmapped public services"),
         html.P(
@@ -360,7 +365,13 @@ def render_help() -> list[Any]:
         ),
         html.P("TCP includes states such as TIME_WAIT, SYN_SENT, and CLOSE_WAIT."),
         html.H3("CACHE"),
-        html.P("CACHE shows aggregated counters since the last Clear cache or app start."),
+        html.P(
+            [
+                "CACHE shows aggregated counters since the last Clear cache or app start.",
+                html.Br(),
+                "The map view is based on this cached data.",
+            ]
+        ),
         html.Table(
             className="mx-table mx-kv",
             children=[

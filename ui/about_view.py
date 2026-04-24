@@ -98,15 +98,15 @@ def render_about(
     return [
         html.H1(f"About {app_name}"),
         html.P(
-            "TapMap inspects local socket data, enriches IP addresses "
-            "with geolocation, and visualizes their locations on an interactive map."
+            "TapMap inspects local socket data, enriches IP addresses with "
+            "geolocation, and shows them on an interactive map."
         ),
         html.P(
             "It reads active socket data using a platform-specific backend, "
             "local MaxMind GeoLite2 databases for geolocation, "
             "and Dash with Plotly for visualization."
         ),
-        html.P("All processing is local. TapMap does not inspect traffic contents."),
+        html.P("Runs locally. No telemetry. TapMap does not inspect traffic contents."),
         kv_table(tapmap_rows),
         html.H2("Command line"),
         html.Ul(

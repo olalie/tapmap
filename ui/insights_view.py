@@ -57,9 +57,12 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
 
         html.Div(
             [
-                subtitle("[NEW APPLICATIONS]", new.get("applications") or []),
+                subtitle("[NEW APPS]", new.get("applications") or []),
                 html.Div(
-                    [build_row(i, "applications", "today") for i in (new.get("applications") or [])],
+                    [
+                        build_row(i, "applications", "today")
+                        for i in (new.get("applications") or [])
+                    ],
                     className="insights-list",
                 ),
             ]
@@ -69,7 +72,10 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
             [
                 subtitle("[NEW PROVIDERS]", new.get("providers") or []),
                 html.Div(
-                    [build_row(i, "providers", "today") for i in (new.get("providers") or [])],
+                    [
+                        build_row(i, "providers", "today")
+                        for i in (new.get("providers") or [])
+                    ],
                     className="insights-list",
                 ),
             ]
@@ -79,7 +85,10 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
             [
                 subtitle("[NEW COUNTRIES]", new.get("countries") or []),
                 html.Div(
-                    [build_row(i, "countries", "today") for i in (new.get("countries") or [])],
+                    [
+                        build_row(i, "countries", "today")
+                        for i in (new.get("countries") or [])
+                    ],
                     className="insights-list",
                 ),
             ]
@@ -89,7 +98,10 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
             [
                 subtitle("[NEW PORTS]", new.get("ports") or []),
                 html.Div(
-                    [build_row(i, "ports", "today") for i in (new.get("ports") or [])],
+                    [
+                        build_row(i, "ports", "today")
+                        for i in (new.get("ports") or [])
+                    ],
                     className="insights-list",
                 ),
             ]
@@ -99,9 +111,12 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
 
         html.Div(
             [
-                subtitle("[APPLICATIONS]", top.get("applications") or []),
+                subtitle("[APPS]", top.get("applications") or []),
                 html.Div(
-                    [build_row(i, "applications", "top") for i in (top.get("applications") or [])],
+                    [
+                        build_row(i, "applications", "top")
+                        for i in (top.get("applications") or [])
+                    ],
                     className="insights-list",
                 ),
             ]
@@ -111,7 +126,10 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
             [
                 subtitle("[PROVIDERS]", top.get("providers") or []),
                 html.Div(
-                    [build_row(i, "providers", "top") for i in (top.get("providers") or [])],
+                    [
+                        build_row(i, "providers", "top")
+                        for i in (top.get("providers") or [])
+                    ],
                     className="insights-list",
                 ),
             ]
@@ -121,7 +139,10 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
             [
                 subtitle("[COUNTRIES]", top.get("countries") or []),
                 html.Div(
-                    [build_row(i, "countries", "top") for i in (top.get("countries") or [])],
+                    [
+                        build_row(i, "countries", "top")
+                        for i in (top.get("countries") or [])
+                    ],
                     className="insights-list",
                 ),
             ]
@@ -131,7 +152,10 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
             [
                 subtitle("[PORTS]", top.get("ports") or []),
                 html.Div(
-                    [build_row(i, "ports", "top") for i in (top.get("ports") or [])],
+                    [
+                        build_row(i, "ports", "top")
+                        for i in (top.get("ports") or [])
+                    ],
                     className="insights-list",
                 ),
             ]

@@ -2,23 +2,80 @@
 
 ![TapMap demo](docs/images/demo.gif)
 
-**See where your computer connects on a live world map.**
+**See where your computer connects, and what stands out.**
+
+TapMap shows what your computer normally connects to over the last 30 days and highlights what is unusual and what is most frequent.
+
+Runs locally on Windows, Linux, and macOS. No telemetry. Docker supported on Linux.
 
 TapMap inspects local socket data, enriches IP addresses with geolocation, and visualizes the locations on an interactive map.
 
-It uses:
+TapMap uses:
 
-- `psutil` (Windows and Linux) or `lsof` (macOS) to read active network connections
+- `psutil` (Windows and Linux) or `lsof` (macOS) to read active network connections  
 - MaxMind GeoLite2 databases for IP geolocation  
 - Dash and Plotly to render an interactive world map  
 
-Architecture: local socket scan → IP extraction → GeoIP lookup → map rendering.
+It is an awareness tool, not a firewall or a full security suite. 
+It makes network activity visible and easy to explore.
 
-TapMap runs entirely on your own machine.  
-It is not a firewall or a full security suite.  
-It makes network activity visible on a world map and easy to inspect with hover and click.
+---
 
-TapMap can also run in Docker on Linux, with limited process visibility.
+## New: Insights
+
+TapMap shows what your computer normally connects to over the last 30 days and highlights what is unusual and what is most frequent.
+
+- New apps, services (ASN), countries, and ports  
+- Frequent activity (Top 5)  
+- Click countries to zoom and inspect on the map
+
+This turns constant background traffic into something you can actually understand.
+
+Insights are based on activity observed over time.  
+To build a complete 30-day history, keep TapMap running while your system is in use. Running it at startup is recommended.
+
+---
+
+## Why TapMap
+
+Your computer connects to many systems without you noticing.
+
+TapMap makes this visible so you can:
+
+- See where connections go  
+- Notice when something new appears  
+- Understand what is normal over time  
+- Explore connections with hover and click
+
+---
+
+## What TapMap shows
+
+- Services your computer connects to  
+- Their approximate locations on a world map  
+- Nearby locations highlighted visually  
+- Insights panel showing new and frequent activity over time  
+- Unmapped public services with missing geolocation  
+- Established LAN and LOCAL services  
+- Local open ports (TCP LISTEN and UDP bound)
+
+All data is collected locally on your machine.
+
+---
+
+## How it works
+
+TapMap follows a simple local pipeline:
+
+    socket scan → IP extraction → GeoIP lookup → map rendering
+
+---
+
+## How to use
+
+- Hover map markers for a summary  
+- Click map markers for detailed information  
+- Click countries in Insights to zoom to the location
 
 ---
 
@@ -26,7 +83,7 @@ TapMap can also run in Docker on Linux, with limited process visibility.
 
 Full documentation, including API reference and platform behavior notes:
 
-    https://olalie.github.io/tapmap/
+https://olalie.github.io/tapmap/
 
 ---
 
@@ -78,7 +135,7 @@ This is normal for new applications that are not digitally signed.
 
 To start the program:
 
-1. Click **More info**.  
+1. Click **More info**.
 2. Click **Run anyway**.
 
 ---
@@ -104,13 +161,11 @@ Alternatively, you can remove the warning using Terminal:
 
 ## How it runs
 
-TapMap runs locally and opens in your browser.
+TapMap runs locally and opens in your browser:
 
-The web interface runs on a local server at:
+http://127.0.0.1:8050/
 
-    http://127.0.0.1:8050/
-
-If it does not open automatically, enter the address manually in your browser.
+If it does not open automatically, enter the address manually.
 
 The default port is defined by `SERVER_PORT` in `config.py`.
 
@@ -126,7 +181,7 @@ PowerShell:
 
     $env:TAPMAP_PORT="8060"
     python tapmap.py
-    
+
 ---
 
 ## GeoIP databases (required for map locations)
@@ -141,50 +196,18 @@ Required files:
 - GeoLite2-City.mmdb  
 - GeoLite2-ASN.mmdb  
 
-Download is free from MaxMind, but requires an account and acceptance of license terms:
-
-```
-https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
-```
+Download (free, account required):
+    https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
 
 After downloading:
 
-1. Start TapMap.  
-2. Open the **data folder** from the app.  
-3. Copy the `.mmdb` files into that folder.  
+1. Start TapMap.
+2. Follow the setup window to open the **data folder**.
+3. Copy the `.mmdb` files into that folder.
 4. Click **Recheck GeoIP databases**.
 
 Update recommendation: download updated databases regularly, for example monthly.  
 Redistribution is subject to the MaxMind license terms.
-
----
-
-## What TapMap shows
-
-- Services your computer connects to  
-- Their approximate locations on a world map  
-- Nearby clusters highlighted visually  
-- Unmapped public services with missing geolocation   
-- Established LAN and LOCAL services  
-- Local open ports (TCP LISTEN and UDP bound)
-- Insights panel showing new and returning IPs over time
-
-All data is collected locally on your machine.
-
----
-
-## Why TapMap
-
-Most computers communicate with dozens of remote systems every day.  
-You usually cannot see them.
-
-TapMap makes these connections visible within seconds.
-
-- See unexpected connections  
-- Understand where traffic goes  
-- Get a quick overview of network activity  
-
-Unexpected connections may indicate misconfiguration, background services, or unwanted software.
 
 ---
 
@@ -197,6 +220,9 @@ Unexpected connections may indicate misconfiguration, background services, or un
 
 ### Actions menu
 ![Actions menu](docs/images/actions-menu.png)
+
+### Insights panel
+![Insights panel](docs/images/insights.png)
 
 ### Unmapped services
 ![Unmapped services](docs/images/unmapped-services.png)
@@ -213,6 +239,7 @@ Unexpected connections may indicate misconfiguration, background services, or un
 
 | Key | Action |
 |-----|--------|
+| I   | Toggle Insights panel |
 | U   | Unmapped public services |
 | L   | Established LAN/LOCAL services |
 | O   | Open ports |
@@ -228,9 +255,9 @@ Unexpected connections may indicate misconfiguration, background services, or un
 ## Privacy
 
 - TapMap runs locally.  
-- No connection data is sent anywhere.  
-- Geolocation uses local MaxMind databases.  
-- If `MY_LOCATION = "auto"`, TapMap makes a small request to detect your public IP.  
+- No connection data is sent anywhere.
+- Geolocation uses local MaxMind databases.
+- If `MY_LOCATION = "auto"`, TapMap makes a small request to detect your public IP.
 - To detect offline status, TapMap performs short connection checks to 1.1.1.1 and 8.8.8.8.
 
 ---
@@ -241,10 +268,10 @@ TapMap reads settings from `config.py`.
 
 Common settings:
 
-- `SERVER_PORT`
-- `MY_LOCATION`
-- `POLL_INTERVAL_MS`
-- `COORD_PRECISION`
+- `SERVER_PORT`  
+- `MY_LOCATION`  
+- `POLL_INTERVAL_MS`  
+- `COORD_PRECISION`  
 - `ZOOM_NEAR_KM`
 
 `SERVER_PORT` defines the default port used by the local Dash server.
@@ -314,9 +341,9 @@ TapMap can run in Docker on Linux hosts.
 
 ### Requirements
 
-- Linux host
-- Docker installed
-- GeoLite2 `.mmdb` files
+- Linux host  
+- Docker installed  
+- GeoLite2 `.mmdb` files  
 
 ### Setup
 
@@ -336,14 +363,14 @@ Override in compose if needed:
 
 Open in browser on the host:
 
-    http://127.0.0.1:8050
+http://127.0.0.1:8050
 
 If you access the app from another machine, use the host IP address instead.
 
 ### Notes
 
-- Docker provides full TCP and UDP socket data
-- Process information may be unavailable in Docker mode, depending on host security policies
+- Docker provides full TCP and UDP socket data  
+- Process information may be unavailable in Docker mode, depending on host security policies  
 - Requires Linux host (not supported on Docker Desktop for Windows or macOS)
 
 Process visibility in Docker depends on host security policies.
@@ -391,15 +418,15 @@ To override the bind address:
 
 Open in browser on the host:
 
-    http://127.0.0.1:8050
+http://127.0.0.1:8050
 
 If you access the app from another machine, use the host IP address instead.
 
 ### Notes
 
-- The mounted folder is used as the container data directory (`/data`)
-- The host folder name can be chosen freely
-- Process information may be unavailable in Docker mode, depending on host security policies
+- The mounted folder is used as the container data directory (`/data`)  
+- The host folder name can be chosen freely  
+- Process information may be unavailable in Docker mode, depending on host security policies  
 - Requires Linux host (not supported on Docker Desktop for Windows or macOS)
 
 ---
@@ -410,11 +437,8 @@ TapMap is free and open source.
 
 If you find it useful, consider supporting the project:
 
-- Buy Me a Coffee  
-  https://www.buymeacoffee.com/olalie  
-
-- PayPal  
-  https://www.paypal.com/donate/?hosted_button_id=ELLXBK9BY8EDU  
+- https://www.buymeacoffee.com/olalie  
+- https://www.paypal.com/donate/?hosted_button_id=ELLXBK9BY8EDU  
 
 You can also give the project a star on GitHub.
 
@@ -428,8 +452,6 @@ MIT License
 
 ## Acknowledgements
 
-Thanks to @TechnVision for raising the configurable port use case.
-
-Thanks to @desrod for suggesting a solution for configurable port support.
-
+Thanks to @TechnVision for raising the configurable port use case.  
+Thanks to @desrod for suggesting a solution for configurable port support.  
 Thanks to @hugalafutro for suggesting optional SYS_PTRACE support for process visibility on Linux.
