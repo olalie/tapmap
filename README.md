@@ -2,9 +2,9 @@
 
 ![TapMap demo](docs/images/demo.gif)
 
-**See where your computer connects, and what stands out.**
+**See where your computer connects and what stands out on a live world map.**
 
-TapMap shows what your computer normally connects to over the last 30 days and highlights what is unusual and what is most frequent.
+Discover what is unusual and what is most frequent over time.
 
 Runs locally on Windows, Linux, and macOS. No telemetry. Docker supported on Linux.
 
