@@ -23,15 +23,13 @@ It makes network activity visible and easy to explore.
 
 ## New: Insights
 
-TapMap shows what your computer normally connects to over the last 30 days and highlights what is unusual and what is most frequent.
+TapMap tracks activity over the last 30 days and highlights what is unusual and what is most frequent.
 
 - New apps, services (ASN), countries, and ports  
 - Frequent activity (Top 5)  
 - Click countries to zoom and inspect on the map
 
-This turns constant background traffic into something you can actually understand.
-
-Insights are based on activity observed over time.  
+While the map is limited to connections in the current session, insights are based on activity observed over time.
 To build a complete 30-day history, keep TapMap running while your system is in use. Running it at startup is recommended.
 
 ---
