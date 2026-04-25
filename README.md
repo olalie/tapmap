@@ -30,6 +30,7 @@ TapMap tracks activity over the last 30 days and highlights what is unusual and 
 - Click countries to zoom and inspect on the map
 
 While the map is limited to connections in the current session, insights are based on activity observed over time.
+
 To build a complete 30-day history, keep TapMap running while your system is in use. Running it at startup is recommended.
 
 ---
