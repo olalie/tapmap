@@ -5,6 +5,11 @@ on:
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - "docs/**"
+      - "mkdocs.yaml"
+      - "README.md"
+      - ".github/workflows/docs.yaml"
 
 jobs:
   build:
