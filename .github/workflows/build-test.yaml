@@ -9,6 +9,7 @@ on:
       - "docs/**"
       - "mkdocs.yaml"
       - "README.md"
+      - "CHANGELOG.md"
       - ".github/workflows/docs.yaml"
 
 jobs:
