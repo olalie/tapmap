@@ -9,7 +9,7 @@ from typing import Final, TypeAlias
 import plotly.graph_objects as go
 import pycountry
 
-from country_centers import get_center
+from .country_centers import get_center
 
 LonLat: TypeAlias = tuple[float, float]
 PointSets: TypeAlias = tuple[list[LonLat], list[LonLat]]  # (geo_points, my_location)

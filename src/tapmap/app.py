@@ -33,39 +33,40 @@ from typing import Any, ClassVar, Final
 
 from dash import ALL, Dash, Input, Output, State, ctx, html, no_update
 
-from app_dirs import open_folder
-from config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
-from model.geoinfo import GeoInfo
-from model.model import Model
-from model.netinfo import NetInfo
-from model.public_ip import iter_public_ip_candidates
-from runtime import AppMeta, RuntimeContext, build_runtime
-from state.insights import process_insights
-from state.keyboard import build_key_action
-from state.menu import compute_menu_open_state
-from state.modal import decide_modal_route
-from state.open_ports_prefs import set_show_system_pref
-from state.poll import (
+from tapmap import __version__
+from tapmap.model.geoinfo import GeoInfo
+from tapmap.model.model import Model
+from tapmap.model.netinfo import NetInfo
+from tapmap.model.public_ip import iter_public_ip_candidates
+from tapmap.state.insights import process_insights
+from tapmap.state.keyboard import build_key_action
+from tapmap.state.menu import compute_menu_open_state
+from tapmap.state.modal import decide_modal_route
+from tapmap.state.open_ports_prefs import set_show_system_pref
+from tapmap.state.poll import (
     ACTION_CACHE_TERMINAL,
     ACTION_CLEAR_CACHE,
     ACTION_GEO_RECHECK,
     ACTION_NORMAL_POLL,
     decide_poll_action,
 )
-from state.status_cache import StatusCache
-from state.status_line import render_status_text
-from ui.cache_view import CacheViewBuilder
-from ui.insights_view import render_insights_panel
-from ui.layout_view import render_layout
-from ui.map_view import MapUI
-from ui.modal_view import ModalTextBuilder
-from version import get_display_version
+from tapmap.state.status_cache import StatusCache
+from tapmap.state.status_line import render_status_text
+from tapmap.ui.cache_view import CacheViewBuilder
+from tapmap.ui.insights_view import render_insights_panel
+from tapmap.ui.layout_view import render_layout
+from tapmap.ui.map_view import MapUI
+from tapmap.ui.modal_view import ModalTextBuilder
+
+from .app_dirs import open_folder
+from .config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
+from .runtime import AppMeta, RuntimeContext, build_runtime
 
 LonLat = tuple[float, float]
 
 APP_META: Final[AppMeta] = AppMeta(
     name="TapMap",
-    version=get_display_version(),
+    version=__version__,
     author="Ola Lie",
 )
 

@@ -10,8 +10,8 @@ from typing import Any
 
 from dash import dcc, html
 
-from ui.about_view import render_about
-from ui.formatting import (
+from .about_view import render_about
+from .formatting import (
     port_from_local,
     pretty_bind_ip,
     safe_int,
@@ -19,8 +19,8 @@ from ui.formatting import (
     scope_rank,
     strip_port,
 )
-from ui.help_view import render_help
-from ui.tables import ColumnSpec, build_table, cell
+from .help_view import render_help
+from .tables import ColumnSpec, build_table, cell
 
 
 class ModalTextBuilder:

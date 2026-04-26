@@ -6,8 +6,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-from app_dirs import ensure_app_data_dir, ensure_native_app_data_dir
-from config import SERVER_PORT
+from .app_dirs import ensure_app_data_dir, ensure_native_app_data_dir
+from .config import SERVER_PORT
 
 
 @dataclass(frozen=True)

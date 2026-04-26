@@ -1,10 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 a = Analysis(
-    ['tapmap.py'],
-    pathex=[],
+    ['src/tapmap/__main__.py'],
+    pathex=['src'],
     binaries=[],
-    datas=[('assets', 'assets'), ('pyproject.toml', '.')],
+    datas=[
+        ('src/tapmap/assets', 'tapmap/assets'),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -29,9 +31,4 @@ exe = EXE(
     strip=False,
     upx=True,
     console=True,
-    disable_windowed_traceback=False,
-    argv_emulation=False,
-    target_arch=None,
-    codesign_identity=None,
-    entitlements_file=None,
 )

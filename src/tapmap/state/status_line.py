@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from state.status_cache import StatusCache
+from .status_cache import StatusCache
 
 
 def render_status_text(

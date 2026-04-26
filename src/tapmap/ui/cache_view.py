@@ -11,7 +11,7 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from typing import Any
 
-from ui.formatting import safe_int, safe_str
+from .formatting import safe_int, safe_str
 
 
 class CacheViewBuilder:
