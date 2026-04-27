@@ -1,6 +1,6 @@
 """Tests for modal state transition logic."""
 
-from state.modal import (
+from tapmap.state.modal import (
     ModalRoute,
     _decide_close,
     _decide_map_click,

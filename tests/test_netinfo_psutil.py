@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import psutil
 
-from model.netinfo_psutil import PsutilNetInfo
+from tapmap.model.netinfo_psutil import PsutilNetInfo
 
 
 class FakeProcess:

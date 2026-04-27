@@ -2,7 +2,7 @@
 
 import pytest
 
-import state.status_line as status_line
+from tapmap.state import status_line
 
 
 class DummyStatusCache:

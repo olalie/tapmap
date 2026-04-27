@@ -1,6 +1,6 @@
 """Tests for Open Ports preference handling."""
 
-import state.open_ports_prefs as prefs
+import tapmap.state.open_ports_prefs as prefs
 
 
 def test_set_show_system_pref_turns_on_flag() -> None:

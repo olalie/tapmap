@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-import model.geoinfo as geoinfo
-from model.geoinfo import GeoInfo
+from tapmap.model import geoinfo
+from tapmap.model.geoinfo import GeoInfo
 
 
 class FakeReader:

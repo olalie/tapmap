@@ -2,7 +2,7 @@
 
 from urllib.error import URLError
 
-import model.public_ip as public_ip
+from tapmap.model import public_ip
 
 
 class FakeResponse:

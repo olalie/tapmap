@@ -1,6 +1,6 @@
 """Test backend selection and delegation in netinfo facade."""
 
-from model.netinfo import NetInfo
+from tapmap.model.netinfo import NetInfo
 
 
 def test_select_backend_windows_uses_psutil(monkeypatch) -> None:

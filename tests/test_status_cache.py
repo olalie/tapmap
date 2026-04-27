@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import state.status_cache as status_cache
+from tapmap.state import status_cache
 
 
 def test_clear_removes_all_cached_keys() -> None:

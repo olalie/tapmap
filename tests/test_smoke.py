@@ -1,7 +1,7 @@
 """Smoke tests for TapMap application bootstrap."""
 
 import tapmap
-from runtime import build_runtime
+from tapmap.runtime import build_runtime
 
 
 def test_tapmap_module_imports() -> None:

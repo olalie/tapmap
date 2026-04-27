@@ -2,7 +2,7 @@
 
 from types import SimpleNamespace
 
-from model.netinfo_lsof import LsofNetInfo
+from tapmap.model.netinfo_lsof import LsofNetInfo
 
 
 def test_lsof_ipv4_and_ipv6_normalized(monkeypatch) -> None:

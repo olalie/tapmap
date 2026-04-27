@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-import app_dirs
+from tapmap import app_dirs
 
 
 def test_get_native_app_data_dir_uses_appdata_on_windows(monkeypatch) -> None:

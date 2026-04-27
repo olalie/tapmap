@@ -1,6 +1,6 @@
 """Tests for menu open/close decision logic."""
 
-from state.menu import compute_menu_open_state
+from tapmap.state.menu import compute_menu_open_state
 
 
 def test_btn_menu_toggles_menu_open_state() -> None:

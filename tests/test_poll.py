@@ -1,6 +1,6 @@
 """Tests for poll decision logic."""
 
-import state.poll as poll
+from tapmap.state import poll
 
 
 def test_recheck_trigger_from_menu() -> None:

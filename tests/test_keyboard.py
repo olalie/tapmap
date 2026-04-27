@@ -1,6 +1,6 @@
 """Tests for keyboard action parsing."""
 
-import state.keyboard as keyboard
+from tapmap.state import keyboard
 
 
 class DummyDatetime:

@@ -1,6 +1,6 @@
 """Test classification helpers in model.Model."""
 
-from model.model import Model
+from tapmap.model.model import Model
 
 
 def test_service_scope_classifies_addresses() -> None:
