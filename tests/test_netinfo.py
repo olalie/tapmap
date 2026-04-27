@@ -7,7 +7,7 @@ def test_select_backend_windows_uses_psutil(monkeypatch) -> None:
     """Verify Windows selects psutil backend."""
     monkeypatch.setattr("platform.system", lambda: "Windows")
 
-    from model.netinfo_psutil import PsutilNetInfo
+    from tapmap.model.netinfo_psutil import PsutilNetInfo
 
     netinfo = NetInfo()
 
@@ -18,7 +18,7 @@ def test_select_backend_linux_uses_psutil(monkeypatch) -> None:
     """Verify Linux selects psutil backend."""
     monkeypatch.setattr("platform.system", lambda: "Linux")
 
-    from model.netinfo_psutil import PsutilNetInfo
+    from tapmap.model.netinfo_psutil import PsutilNetInfo
 
     netinfo = NetInfo()
 
@@ -29,7 +29,7 @@ def test_select_backend_macos_uses_lsof(monkeypatch) -> None:
     """Verify macOS selects lsof backend."""
     monkeypatch.setattr("platform.system", lambda: "Darwin")
 
-    from model.netinfo_lsof import LsofNetInfo
+    from tapmap.model.netinfo_lsof import LsofNetInfo
 
     netinfo = NetInfo()
 
