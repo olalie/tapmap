@@ -105,6 +105,10 @@ Start TapMap:
 
     ./tapmap
 
+Or run as module:
+
+    python -m tapmap
+
 On Windows, double-click `tapmap.exe`.
 
 On Linux, you may need:
@@ -174,12 +178,13 @@ Examples:
 
 Linux / macOS:
 
-    TAPMAP_PORT=8060 python tapmap.py
+    TAPMAP_PORT=8060 python -m tapmap
+    TAPMAP_PORT=8060 tapmap
 
 PowerShell:
 
     $env:TAPMAP_PORT="8060"
-    python tapmap.py
+    python -m tapmap
 
 ---
 
@@ -281,6 +286,8 @@ The port can be overridden at runtime using the environment variable `TAPMAP_POR
 
 ## Build from source
 
+TapMap uses a src-layout and must be installed before running.
+
 Requirements:
 
 - Python 3.10+
@@ -294,15 +301,12 @@ Activate:
     source .venv/bin/activate   (Linux/macOS)
     .venv\Scripts\activate      (Windows)
 
-Install dependencies:
+Install dependencies and package:
 
     pip install -r requirements.txt
+    pip install -e .
 
 Run:
-
-    python tapmap.py
-
-Alternatively:
 
     python -m tapmap
 
@@ -359,10 +363,13 @@ The server binds to 0.0.0.0 by default in Docker.
 Override in compose if needed:
 
     TAPMAP_HOST: "127.0.0.1"
+    TAPMAP_PORT: "8060"
 
 Open in browser on the host:
 
-http://127.0.0.1:8050
+http://127.0.0.1:8050 (default)
+
+If you override `TAPMAP_PORT`, use that port instead.
 
 If you access the app from another machine, use the host IP address instead.
 
@@ -403,21 +410,24 @@ Place the GeoLite2 database files in that folder:
 ### Run
 
     docker run --rm \
-      --network host \
-      --pid host \
-      -v ~/tapmap-data:/data \
-      -e TAPMAP_IN_DOCKER=1 \
-      olalie/tapmap:latest
+    --network host \
+    --pid host \
+    -v ~/tapmap-data:/data \
+    -e TAPMAP_IN_DOCKER=1 \
+    olalie/tapmap:latest
 
 The server binds to 0.0.0.0 by default in Docker.
 
-To override the bind address:
+To override the bind address or port:
 
     -e TAPMAP_HOST=127.0.0.1
+    -e TAPMAP_PORT=8060
 
 Open in browser on the host:
 
-http://127.0.0.1:8050
+http://127.0.0.1:8050 (default)
+
+If you override `TAPMAP_PORT`, use that port instead.
 
 If you access the app from another machine, use the host IP address instead.
 

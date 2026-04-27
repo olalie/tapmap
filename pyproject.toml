@@ -5,6 +5,15 @@ version = "1.5.0"
 [project.scripts]
 tapmap = "tapmap.app:main"
 
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+tapmap = ["assets/*"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py310"
@@ -23,12 +32,6 @@ per-file-ignores = { "tests/*" = ["D101", "D102", "D103"] }
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
-
-[tool.setuptools]
-package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

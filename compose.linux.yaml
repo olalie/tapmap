@@ -1,5 +1,7 @@
+name: tapmap
+
 services:
-  tapmap:
+  app:
     build:
       context: .
       dockerfile: Dockerfile

@@ -87,7 +87,7 @@ jobs:
 
       - name: Run version check in container
         run: |
-          docker run --rm tapmap:test python tapmap.py --version | grep -q "tapmap"
+          docker run --rm tapmap:test -v | grep -q "tapmap"
 
   docker-smoke-arm64:
     name: Docker smoke test arm64
@@ -123,4 +123,4 @@ jobs:
 
       - name: Run version check in arm64 container
         run: |
-          docker run --rm --platform linux/arm64 tapmap:test-arm64 python tapmap.py --version | grep -q "tapmap"
+          docker run --rm --platform linux/arm64 tapmap:test-arm64 -v | grep -q "tapmap"
