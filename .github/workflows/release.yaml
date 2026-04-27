@@ -190,6 +190,11 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Docker smoke test (release)
+        run: |
+          docker build -t tapmap:release .
+          docker run --rm tapmap:release -v | grep -q "tapmap"
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v7
         with:
