@@ -1,4 +1,21 @@
-## Unreleased (2026-04-26)
+## Unreleased
+
+## 1.6.0 (2026-04-28)
+
+### Refactor
+- Move codebase to src/tapmap
+- Switch to python -m tapmap
+- Align imports and test structure
+
+### CI
+- Update workflows to use CLI instead of file execution
+- Add Docker smoke test to release workflow
+- Ensure CI reflects real runtime usage
+
+### Docker
+- Install package with pip install .
+- Use module entrypoint instead of direct script execution
+- Align Docker and compose configuration
 
 ### Documentation
 - Improve README introduction
@@ -29,15 +46,11 @@
 ### Documentation
 - Add repository setup and workflow documentation
 
-### Maintenance
-- Bump version to 1.5.0
-
 
 ## 1.4.3 (2026-03-29)
 
 ### Maintenance
 - Change release workflow to draft, upload and publish flow
-- Bump version to 1.4.3
 
 
 ## 1.4.2 (2026-03-28)
@@ -48,9 +61,6 @@
 ### Documentation
 - Clarify CLI usage
 - Clarify Docker process visibility
-
-### Maintenance
-- Bump version to 1.4.2
 
 
 ## 1.4.1 (2026-03-26)
@@ -63,7 +73,6 @@
 ### Maintenance
 - Add Docker Hub publish to release workflow
 - Push Docker images with latest and version tags
-- Bump version to 1.4.1
 
 
 ## 1.4.0 (2026-03-25)
