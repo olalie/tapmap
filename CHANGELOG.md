@@ -1,5 +1,17 @@
 ## Unreleased
 
+## 1.6.1 (2026-04-28)
+
+### CI
+- Fix Docker latest tag publishing in release workflow
+
+### Docker
+- Ensure latest tag always points to current release
+
+### Notes
+- No functional changes
+- No changes to application behavior
+
 ## 1.6.0 (2026-04-28)
 
 ### Refactor
