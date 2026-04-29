@@ -262,7 +262,6 @@ Redistribution is subject to the MaxMind license terms.
 - No connection data is sent anywhere.
 - Geolocation uses local MaxMind databases.
 - If `MY_LOCATION = "auto"`, TapMap makes a small request to detect your public IP.
-- To detect offline status, TapMap performs short connection checks to 1.1.1.1 and 8.8.8.8.
 
 ---
 
