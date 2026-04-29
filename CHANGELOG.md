@@ -1,5 +1,8 @@
 ## Unreleased
 
+### Insights
+- Include all tied items in Top 5 lists based on 30-day activity
+
 ## 1.6.1 (2026-04-28)
 
 ### CI

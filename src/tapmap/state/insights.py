@@ -151,11 +151,17 @@ def process_insights(
 
             items.append((k, score))
 
-        # sort descending by score
+        # sort descending by score, selection uses cutoff
         items.sort(key=lambda x: x[1], reverse=True)
 
+        if len(items) <= limit:
+            selected = items
+        else:
+            cutoff = items[limit - 1][1]
+            selected = [x for x in items if x[1] >= cutoff]
+
         result = []
-        for k, _ in items[:limit]:
+        for k, _ in selected:
             if category == "countries":
                 try:
                     country = pycountry.countries.get(alpha_2=k.upper())

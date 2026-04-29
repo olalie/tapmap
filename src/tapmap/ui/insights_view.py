@@ -107,7 +107,7 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
             ]
         ),
 
-        html.Div("Top 5", className="insights-title"),
+        html.Div("Top 5+", className="insights-title"),
 
         html.Div(
             [

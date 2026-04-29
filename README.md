@@ -25,8 +25,8 @@ It makes network activity visible and easy to explore.
 
 TapMap tracks activity over the last 30 days and highlights what is unusual and what is most frequent.
 
-- New apps, services (ASN), countries, and ports  
-- Frequent activity (Top 5)  
+- New apps, services (ASN), countries, and ports
+- Frequent activity (Top 5+, including ties)
 - Click countries to zoom and inspect on the map
 
 While the map is limited to connections in the current session, insights are based on activity observed over time.
