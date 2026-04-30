@@ -88,7 +88,7 @@ https://olalie.github.io/tapmap/
 
 ## Download & run
 
-Download the latest version from the  
+Download the latest executable from the
 [Releases page](https://github.com/olalie/tapmap/releases)
 
 Available builds:
@@ -99,15 +99,11 @@ Available builds:
 
 Tested on Windows 11, Ubuntu, and macOS (Apple Silicon).
 
-No installation required. Download, extract, and run.
+No installation required. Download, extract, and run the executable.
 
 Start TapMap:
 
     ./tapmap
-
-Or run as module:
-
-    python -m tapmap
 
 On Windows, double-click `tapmap.exe`.
 
@@ -305,7 +301,7 @@ Install dependencies and package:
     pip install -r requirements.txt
     pip install -e .
 
-Run:
+Run (development mode):
 
     python -m tapmap
 
