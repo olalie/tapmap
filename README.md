@@ -1,5 +1,7 @@
 # TapMap
 
+[![Release](https://github.com/olalie/tapmap/actions/workflows/release.yaml/badge.svg)](https://github.com/olalie/tapmap/actions/workflows/release.yaml) [![Latest version](https://img.shields.io/github/v/release/olalie/tapmap)](https://github.com/olalie/tapmap/releases) [![Docker Pulls](https://img.shields.io/docker/pulls/olalie/tapmap)](https://hub.docker.com/r/olalie/tapmap) [![License](https://img.shields.io/github/license/olalie/tapmap)](https://github.com/olalie/tapmap/blob/main/LICENSE)
+
 ![TapMap demo](docs/images/demo.gif)
 
 **See where your computer connects and what stands out on a live world map.**
@@ -10,14 +12,36 @@ Runs locally on Windows, Linux, and macOS. No telemetry. Docker supported on Lin
 
 TapMap inspects local socket data, enriches IP addresses with geolocation, and visualizes the locations on an interactive map.
 
-TapMap uses:
-
-- `psutil` (Windows and Linux) or `lsof` (macOS) to read active network connections  
-- MaxMind GeoLite2 databases for IP geolocation  
-- Dash and Plotly to render an interactive world map  
-
-It is an awareness tool, not a firewall or a full security suite. 
+It is an awareness tool, not a firewall or a full security suite.
 It makes network activity visible and easy to explore.
+
+## Quick start
+
+### Download and run (Windows, Linux, macOS)
+
+Download from Releases:
+https://github.com/olalie/tapmap/releases  
+
+Extract and run:
+
+    ./tapmap
+
+On Windows:
+
+    tapmap.exe
+
+Note:
+Windows and macOS may show a security warning the first time you run TapMap.
+See below for how to allow the application.
+
+### Docker (Linux host only)
+
+    docker run --rm \
+    --network host \
+    --pid host \
+    -v ~/tapmap-data:/data \
+    -e TAPMAP_IN_DOCKER=1 \
+    olalie/tapmap:latest
 
 ---
 
@@ -68,6 +92,12 @@ TapMap follows a simple local pipeline:
 
     socket scan → IP extraction → GeoIP lookup → map rendering
 
+It uses:
+
+- `psutil` (Windows and Linux) or `lsof` (macOS) to read active network connections
+- MaxMind GeoLite2 databases for IP geolocation
+- Dash and Plotly to render an interactive world map
+
 ---
 
 ## How to use
@@ -86,7 +116,7 @@ https://olalie.github.io/tapmap/
 
 ---
 
-## Download & run
+## Installation
 
 Download the latest executable from the
 [Releases page](https://github.com/olalie/tapmap/releases)
