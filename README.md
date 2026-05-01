@@ -1,6 +1,6 @@
 # TapMap
 
-[![Release](https://github.com/olalie/tapmap/actions/workflows/release.yaml/badge.svg)](https://github.com/olalie/tapmap/actions/workflows/release.yaml) [![Latest version](https://img.shields.io/github/v/release/olalie/tapmap)](https://github.com/olalie/tapmap/releases) [![Docker Pulls](https://img.shields.io/docker/pulls/olalie/tapmap)](https://hub.docker.com/r/olalie/tapmap) [![License](https://img.shields.io/github/license/olalie/tapmap)](https://github.com/olalie/tapmap/blob/main/LICENSE)
+[![Latest version](https://img.shields.io/github/v/release/olalie/tapmap)](https://github.com/olalie/tapmap/releases) [![platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-blue)](https://github.com/olalie/tapmap/releases) [![Docker Pulls](https://img.shields.io/docker/pulls/olalie/tapmap)](https://hub.docker.com/r/olalie/tapmap) [![License](https://img.shields.io/github/license/olalie/tapmap?cacheSeconds=0)](https://github.com/olalie/tapmap/blob/main/LICENSE)
 
 ![TapMap demo](docs/images/demo.gif)
 
@@ -8,7 +8,7 @@
 
 Discover what is unusual and what is most frequent over time.
 
-Runs locally on Windows, Linux, and macOS. No telemetry. Docker supported on Linux.
+Runs locally. No telemetry. Docker supported on Linux.
 
 TapMap inspects local socket data, enriches IP addresses with geolocation, and visualizes the locations on an interactive map.
 
