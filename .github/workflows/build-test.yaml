@@ -19,7 +19,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        include:
+          - os: windows-latest
+          - os: ubuntu-latest
+          - os: macos-latest
+            arch: arm64
+          - os: macos-latest
+            arch: x86_64
 
     steps:
       - name: Checkout
@@ -33,7 +39,7 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: |
-          if [[ "$RUNNER_OS" == "macOS" ]]; then
+          if [[ "$RUNNER_OS" == "macOS" && "${{ matrix.arch }}" == "x86_64" ]]; then
             arch -x86_64 python -m pip install --upgrade pip
             arch -x86_64 python -m pip install -r requirements-tests.txt
             arch -x86_64 python -m pip install pyinstaller
@@ -46,7 +52,7 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          if [[ "$RUNNER_OS" == "macOS" ]]; then
+          if [[ "$RUNNER_OS" == "macOS" && "${{ matrix.arch }}" == "x86_64" ]]; then
             arch -x86_64 python -m pytest -q
           else
             pytest -q
@@ -55,7 +61,7 @@ jobs:
       - name: Build (same as local)
         shell: bash
         run: |
-          if [[ "$RUNNER_OS" == "macOS" ]]; then
+          if [[ "$RUNNER_OS" == "macOS" && "${{ matrix.arch }}" == "x86_64" ]]; then
             arch -x86_64 python tools/build.py
           else
             python tools/build.py
@@ -63,6 +69,8 @@ jobs:
 
       - name: Package artifact
         shell: bash
+        env:
+          matrix_arch: ${{ matrix.arch }}
         run: |
           python - << 'PY'
           import os
@@ -75,7 +83,9 @@ jobs:
           if not exe.exists():
               raise FileNotFoundError(f"Expected build output not found: {exe}")
 
-          out = Path(f"tapmap-artifact-{os_name}.zip")
+          arch = os.environ.get("matrix_arch", "")
+          suffix = f"-{arch}" if arch else ""
+          out = Path(f"tapmap-artifact-{os_name}{suffix}.zip")
           with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
               zf.write(exe, exe.name)
 
