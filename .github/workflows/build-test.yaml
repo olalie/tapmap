@@ -21,10 +21,14 @@ jobs:
       matrix:
         include:
           - os: windows-latest
+            name: windows
           - os: ubuntu-latest
+            name: linux
           - os: macos-latest
+            name: macos-arm64
             arch: arm64
           - os: macos-latest
+            name: macos-x86_64
             arch: x86_64
 
     steps:
@@ -95,7 +99,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: tapmap-${{ runner.os }}
+          name: tapmap-${{ matrix.name }}
           path: tapmap-artifact-*.zip
           if-no-files-found: error
           retention-days: 7
