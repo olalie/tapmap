@@ -31,6 +31,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
+        shell: bash
         run: |
           if [[ "$RUNNER_OS" == "macOS" ]]; then
             arch -x86_64 python -m pip install --upgrade pip
@@ -43,8 +44,13 @@ jobs:
           fi
 
       - name: Run tests
+        shell: bash
         run: |
-          pytest -q
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            arch -x86_64 python -m pytest -q
+          else
+            pytest -q
+          fi
 
       - name: Build (same as local)
         shell: bash
