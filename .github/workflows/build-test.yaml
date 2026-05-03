@@ -41,8 +41,13 @@ jobs:
           pytest -q
 
       - name: Build (same as local)
+        shell: bash
         run: |
-          python tools/build.py
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            arch -x86_64 python tools/build.py
+          else
+            python tools/build.py
+          fi
 
       - name: Package artifact
         shell: bash
