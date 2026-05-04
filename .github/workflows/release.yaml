@@ -198,12 +198,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "${{ github.ref_name }}" \
-            release-assets/tapmap-Windows/tapmap-windows.zip \
-            release-assets/tapmap-Windows/tapmap-windows.zip.sha256 \
-            release-assets/tapmap-Linux/tapmap-linux.zip \
-            release-assets/tapmap-Linux/tapmap-linux.zip.sha256 \
-            release-assets/tapmap-macOS/tapmap-macos.zip \
-            release-assets/tapmap-macOS/tapmap-macos.zip.sha256
+            release-assets/tapmap-windows/tapmap-windows.zip \
+            release-assets/tapmap-windows/tapmap-windows.zip.sha256 \
+            release-assets/tapmap-linux/tapmap-linux.zip \
+            release-assets/tapmap-linux/tapmap-linux.zip.sha256 \
+            release-assets/tapmap-macos-arm64/tapmap-macos-arm64.zip \
+            release-assets/tapmap-macos-arm64/tapmap-macos-arm64.zip.sha256 \
+            release-assets/tapmap-macos-x86_64/tapmap-macos-x86_64.zip \
+            release-assets/tapmap-macos-x86_64/tapmap-macos-x86_64.zip.sha256
 
       # Build and push Docker image before publishing release
       # Ensures all distribution channels are ready at publish time
