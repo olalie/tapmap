@@ -486,6 +486,12 @@ MIT License
 
 ## Acknowledgements
 
+Thanks to @faxotherapy for reporting macOS compatibility issues and testing Intel builds.  
+Thanks to @nafarinha for confirming architecture support and validating macOS behavior.
+
+Thanks to @totti4ever for reporting Docker multi-arch issues and confirming the fix on arm64.  
+Thanks to @khadanja for suggesting a Docker-based workaround.
+
 Thanks to @TechnVision for raising the configurable port use case.  
 Thanks to @desrod for suggesting a solution for configurable port support.  
 Thanks to @hugalafutro for suggesting optional SYS_PTRACE support for process visibility on Linux.
