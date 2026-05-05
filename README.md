@@ -4,7 +4,7 @@
 
 ![TapMap demo](docs/images/demo.gif)
 
-**See where your computer connects and what stands out on a live world map.**
+**See where your computer connects on a live world map. Spot unusual connections.**
 
 Discover what is unusual and what is most frequent over time.
 

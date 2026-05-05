@@ -1,5 +1,16 @@
 ## Unreleased
 
+## 1.6.3 (2026-05-04)
+
+### Improvements
+- Add macOS x86_64 build (Intel)
+- Improve artifact naming and consistency
+
+### Notes
+- No breaking changes
+- No changes to application functionality
+- Distribution and packaging improvements only
+
 ## 1.6.2 (2026-04-29)
 
 ### Insights
