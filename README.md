@@ -1,12 +1,14 @@
+<p align="center">
+  <img src="docs/images/tapmap-logo-512.png" width="70">
+</p>
+
 # TapMap
 
 [![Latest version](https://img.shields.io/github/v/release/olalie/tapmap)](https://github.com/olalie/tapmap/releases) [![platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-blue)](https://github.com/olalie/tapmap/releases) [![Docker Pulls](https://img.shields.io/docker/pulls/olalie/tapmap)](https://hub.docker.com/r/olalie/tapmap) [![License](https://img.shields.io/github/license/olalie/tapmap?cacheSeconds=0)](https://github.com/olalie/tapmap/blob/main/LICENSE)
 
 ![TapMap demo](docs/images/demo.gif)
 
-**See where your computer connects on a live world map. Spot unusual connections.**
-
-Discover what is unusual and what is most frequent over time.
+**Watch your computer connect across the internet in real time. Discover the world behind your apps.**
 
 Runs locally. No telemetry. Docker supported on Linux.
 
