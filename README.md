@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/tapmap-logo-512.png" width="70">
+  <img src="docs/images/tapmap-logo.svg" width="100">
 </p>
 
 # TapMap
