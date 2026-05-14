@@ -450,10 +450,8 @@ class ModalTextBuilder:
         cleaned: list[dict[str, Any]] = [r for r in rows if isinstance(r, dict)]
 
         def is_established_tcp(row: dict[str, Any]) -> bool:
-            state = row.get("state")
-            if isinstance(state, str) and state.strip() and state.strip().upper() != "ESTABLISHED":
-                return False
-
+            # CacheItem rows only contain ESTABLISHED TCP or remote UDP endpoints.
+            # The model pre-filters all other TCP states, so no explicit state check is needed here.
             proto = row.get("proto")
             return not (isinstance(proto, str) and proto.strip() and proto.strip().lower() != "tcp")
 

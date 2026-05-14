@@ -244,9 +244,11 @@ class Model:
         local_address = self._format_local_address(l_ip, l_port)
 
         process_status = conn.get("process_status") or "Unavailable"
+        # Raw OS process name if available.
         process_name = conn.get("process_name") or None
         exe = conn.get("exe") or None
 
+        # User-facing display label with fallback semantics.
         if process_name:
             process_label = process_name
         elif process_status == "No process":
@@ -305,6 +307,10 @@ class Model:
             "lat": lat_value,
             "lon": lon_value,
             "pid": conn.get("pid"),
+            # CacheItem.process_name intentionally stores the display-oriented
+            # process label, not the raw backend process name. Cache items are
+            # used for UI aggregation, grouping, and summaries where fallback
+            # labels such as "System" are required.
             "process_name": conn.get("process_label"),
             "exe": conn.get("exe"),
             "cmdline": conn.get("cmdline"),
