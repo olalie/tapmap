@@ -66,13 +66,22 @@ def render_layout(
                 config=graph_config,
                 clear_on_unhover=True,
             ),
-            html.Div(app_name, className="app-title"),
-            html.Button(
-                "☰",
-                id="btn_menu",
-                n_clicks=0,
-                className="mx-btn mx-btn--icon",
-                type="button",
+            html.Div(
+                className="app-header",
+                children=[
+                    html.Button(
+                        "☰",
+                        id="btn_menu",
+                        n_clicks=0,
+                        className="mx-btn mx-btn--icon",
+                        type="button",
+                    ),
+                    html.Img(
+                        src="/assets/globe-logo.svg",
+                        className="app-logo",
+                    ),
+                    html.Div(app_name, className="app-title"),
+                ],
             ),
             html.Div(
                 id="menu_overlay",

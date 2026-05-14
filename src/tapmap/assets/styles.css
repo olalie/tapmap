@@ -62,11 +62,25 @@ body {
   z-index: 0;
 }
 
-.app-title {
+.app-header {
   position: absolute;
   top: 10px;
-  left: 52px;
+  left: 10px;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
   z-index: 10;
+}
+.app-logo {
+  width: 16px;
+  height: 16px;
+
+  pointer-events: none;
+}
+
+.app-title {
   color: var(--mx-green);
   font-size: 17px;
   font-weight: 650;
@@ -144,14 +158,6 @@ body {
 }
 
 /* Menu */
-
-#btn_menu {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 10;
-}
-
 .mx-overlay {
   position: absolute;
   inset: 0;
