@@ -55,9 +55,25 @@
         return;
       }
 
-      if (k === "i" || k === "u" || k === "o" || k === "l" || k === "t" || k === "c" || k === "r" || k === "h" || k === "a") {
+      if (k === "i" || k === "u" || k === "o" || k === "l" || k === "t" || k === "c" || k === "r" || k === "h" || k === "a" || k === "d") {
         sendToken("__" + k + "__");
       }
+    },
+    true
+  );
+
+  // Enforce mutual exclusion: only one accordion section open at a time.
+  // Scoped to #menu_panel — ignores <details> elements elsewhere in the page.
+  document.addEventListener(
+    "toggle",
+    function (e) {
+      if (!e.target || e.target.tagName !== "DETAILS") return;
+      if (!e.target.open) return;
+      var panel = document.getElementById("menu_panel");
+      if (!panel || !panel.contains(e.target)) return;
+      panel.querySelectorAll("details.mx-acc-section").forEach(function (d) {
+        if (d !== e.target) d.open = false;
+      });
     },
     true
   );

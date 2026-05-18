@@ -208,8 +208,56 @@ body {
   letter-spacing: 0.2px;
 }
 
-.mx-menu-group + .mx-menu-group {
-  margin-top: 20px;
+.mx-acc-section {
+  list-style: none;
+}
+
+.mx-acc-section + .mx-acc-section {
+  margin-top: 2px;
+}
+
+summary.mx-acc-header {
+  list-style: none;
+  cursor: pointer;
+  padding: 6px 10px;
+  color: var(--mx-green);
+  font-family: var(--mx-font);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  opacity: 0.6;
+  user-select: none;
+  border-radius: var(--mx-radius);
+  transition: opacity 80ms linear, background-color 80ms linear;
+}
+
+summary.mx-acc-header::-webkit-details-marker {
+  display: none;
+}
+
+summary.mx-acc-header::marker {
+  display: none;
+  content: "";
+}
+
+summary.mx-acc-header::before {
+  content: "\25B6  ";
+  font-size: 8px;
+  vertical-align: middle;
+}
+
+details[open] > summary.mx-acc-header::before {
+  content: "\25BC  ";
+}
+
+summary.mx-acc-header:hover {
+  opacity: 1;
+  background: var(--mx-bg-hover);
+}
+
+.mx-acc-body {
+  padding: 2px 0 4px 0;
 }
 
 /* Insights panel */

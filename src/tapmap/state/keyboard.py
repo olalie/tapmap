@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Any
 
 KEY_MAP = {
+    "__d__": "menu_daily_report",
     "__i__": "menu_insights",
     "__u__": "menu_unmapped",
     "__l__": "menu_lan_local",

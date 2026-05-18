@@ -92,31 +92,60 @@ def render_layout(
                 id="menu_panel",
                 className=menu_panel_class,
                 children=[
-                    html.Div(
+                    html.Details(
                         [
-                            _menu_button("Insights (I)", "menu_insights"),
-                        ],
-                        className="mx-menu-group",
-                    ),
-                    html.Div(
-                        [
-                            _menu_button("Show unmapped public services (U)", "menu_unmapped"),
-                            _menu_button(
-                                "Show established LAN/LOCAL services (L)", "menu_lan_local"
+                            html.Summary("Insights", className="mx-acc-header"),
+                            html.Div(
+                                [
+                                    _menu_button("Daily activity report (D)", "menu_daily_report"),
+                                    _menu_button("Insights panel (I)", "menu_insights"),
+                                ],
+                                className="mx-acc-body",
                             ),
-                            _menu_button("Show open ports (O)", "menu_open_ports"),
-                            _menu_button("Show cache in terminal (T)", "menu_cache_terminal"),
-                            _menu_button("Clear cache (C)", "menu_clear_cache"),
                         ],
-                        className="mx-menu-group",
+                        className="mx-acc-section",
+                        open=True,
                     ),
-                    html.Div(
+                    html.Details(
                         [
-                            _menu_button("Recheck GeoIP databases (R)", "menu_recheck_geoip"),
-                            _menu_button("Help (H)", "menu_help"),
-                            _menu_button("About (A)", "menu_about"),
+                            html.Summary("Network", className="mx-acc-header"),
+                            html.Div(
+                                [
+                                    _menu_button("Unmapped public services (U)", "menu_unmapped"),
+                                    _menu_button("LAN/LOCAL services (L)", "menu_lan_local"),
+                                    _menu_button("Open ports (O)", "menu_open_ports"),
+                                ],
+                                className="mx-acc-body",
+                            ),
                         ],
-                        className="mx-menu-group",
+                        className="mx-acc-section",
+                    ),
+                    html.Details(
+                        [
+                            html.Summary("Actions", className="mx-acc-header"),
+                            html.Div(
+                                [
+                                    _menu_button("Show cache in terminal (T)", "menu_cache_terminal"),
+                                    _menu_button("Clear cache (C)", "menu_clear_cache"),
+                                    _menu_button("Recheck GeoIP databases (R)", "menu_recheck_geoip"),
+                                ],
+                                className="mx-acc-body",
+                            ),
+                        ],
+                        className="mx-acc-section",
+                    ),
+                    html.Details(
+                        [
+                            html.Summary("Info", className="mx-acc-header"),
+                            html.Div(
+                                [
+                                    _menu_button("Help (H)", "menu_help"),
+                                    _menu_button("About (A)", "menu_about"),
+                                ],
+                                className="mx-acc-body",
+                            ),
+                        ],
+                        className="mx-acc-section",
                     ),
                 ],
             ),

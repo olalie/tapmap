@@ -75,7 +75,7 @@ class TapMap:
     """Coordinate Dash callbacks, model polling, and UI state."""
 
     MENU_SCREENS: ClassVar[frozenset[str]] = frozenset(
-        {"menu_unmapped", "menu_lan_local", "menu_open_ports", "menu_help", "menu_about"}
+        {"menu_unmapped", "menu_lan_local", "menu_open_ports", "menu_help", "menu_about", "menu_daily_report"}
     )
     MENU_COMMANDS: ClassVar[frozenset[str]] = frozenset(
         {"menu_clear_cache", "menu_cache_terminal", "menu_recheck_geoip"}
@@ -544,6 +544,7 @@ class TapMap:
             Input("menu_overlay", "n_clicks"),
             Input("key_action", "data"),
             Input("menu_insights", "n_clicks"),
+            Input("menu_daily_report", "n_clicks"),
             Input("menu_open_ports", "n_clicks"),
             Input("menu_unmapped", "n_clicks"),
             Input("menu_lan_local", "n_clicks"),
@@ -561,6 +562,7 @@ class TapMap:
             _overlay: int,
             key_action: Any,
             _insights: int,
+            _daily_report: int,
             _open_ports: int,
             _unmapped: int,
             _lan_local: int,
@@ -724,6 +726,28 @@ class TapMap:
                 # fall through to default no_update return
 
             return no_update, no_update, no_update, no_update
+
+        @self.app.callback(
+            Output("modal_state", "data", allow_duplicate=True),
+            Output("modal_overlay", "className", allow_duplicate=True),
+            Output("modal_body", "children", allow_duplicate=True),
+            Output("modal_body", "className", allow_duplicate=True),
+            Input("menu_daily_report", "n_clicks"),
+            State("model_snapshot", "data"),
+            State("ui_view", "data"),
+            prevent_initial_call=True,
+        )
+        def daily_report_controller(
+            _n_clicks: int,
+            snapshot: Any,
+            ui_view: Any,
+        ) -> tuple[Any, str, list[Any], str]:
+            geo_path = str(self.runtime.geo_data_dir)
+            now_iso = datetime.now().isoformat()
+            modal_state = {"screen": "menu_daily_report", "t": now_iso, "payload": {}}
+            children, body_class = self._render_modal(modal_state, snapshot, ui_view, geo_path)
+            overlay_class = self._modal_overlay_class(True)
+            return modal_state, overlay_class, children, body_class
 
         @self.app.callback(
             Output("open_ports_prefs", "data"),
