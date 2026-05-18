@@ -89,6 +89,17 @@ body {
   text-shadow: 0 0 10px rgba(0, 255, 102, 0.18);
 }
 
+#key_capture {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  z-index: 1000;
+  pointer-events: none;
+}
+
 /* Buttons */
 
 .mx-btn {
@@ -150,11 +161,9 @@ body {
   white-space: nowrap;
 }
 
-.mx-btn--floating {
-  position: absolute;
-  right: 48px;
-  bottom: 16px;
-  z-index: 5;
+a.mx-btn {
+  display: inline-block;
+  text-decoration: none;
 }
 
 /* Menu */
@@ -198,14 +207,6 @@ body {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
-}
-
-.mx-panel__title {
-  margin: 0 0 8px 0;
-  color: var(--mx-green);
-  font-size: 14px;
-  opacity: 0.9;
-  letter-spacing: 0.2px;
 }
 
 .mx-acc-section {
@@ -334,26 +335,6 @@ summary.mx-acc-header:hover {
   opacity: 0.8;
 }
 
-.insights-details {
-  margin-top: 4px;
-  margin-left: 29px;
-  font-size: 12px;
-}
-.insights-detail-row {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-}
-.insights-label {
-  flex: 0 0 85px;
-  opacity: 0.55;
-}
-
-.insights-value {
-  flex: 1;
-  opacity: 0.70;
-}
-
 /* Cells */
 .insights-flag {
   flex: 0 0 21px;
@@ -371,16 +352,6 @@ summary.mx-acc-header:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.insights-ip {
-  flex: 1 1 auto;
-  min-width: 85px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-  opacity: 0.85;
 }
 
 /* Modal */
@@ -663,6 +634,43 @@ summary.mx-acc-header:hover {
   letter-spacing: 0.2px;
   opacity: 0.96;
   user-select: none;
+}
+
+/* Daily Activity Report */
+
+.rpt-h2 {
+  margin-top: 32px;
+}
+
+.rpt-recurrence {
+  margin-top: 16px;
+  margin-left: 140px;
+}
+
+.rpt-cat-label {
+  display: inline-block;
+  min-width: 140px;
+  color: #00e85c;
+  font-weight: bold;
+  font-size: 11px;
+}
+
+.rpt-day-strip {
+  letter-spacing: 1px;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.rpt-day--on {
+  color: rgba(0, 220, 88, 0.80);
+  text-shadow: none;
+  -webkit-text-stroke: 0px;
+}
+
+.rpt-day--off {
+  color: rgba(0, 185, 72, 0.70);
+  text-shadow: none;
+  -webkit-text-stroke: 0.6px rgba(0, 185, 72, 0.90);
 }
 
 /* Reduced motion */

@@ -47,16 +47,6 @@ def render_layout(
                 type="text",
                 value="",
                 autoFocus=False,
-                style={
-                    "position": "fixed",
-                    "left": "0",
-                    "top": "0",
-                    "width": "1px",
-                    "height": "1px",
-                    "opacity": "0",
-                    "zIndex": "1000",
-                    "pointerEvents": "none",
-                },
             ),
             dcc.Interval(id="tick_model", interval=poll_interval_ms, n_intervals=0),
             dcc.Graph(

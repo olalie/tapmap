@@ -11,7 +11,6 @@ from typing import Any
 from dash import dcc, html
 
 from .about_view import render_about
-from .daily_activity_report_view import render_daily_activity_report
 from .formatting import (
     port_from_local,
     pretty_bind_ip,
@@ -65,9 +64,6 @@ class ModalTextBuilder:
         Returns:
             Dash components for the modal body.
         """
-        if action == "menu_daily_report":
-            return render_daily_activity_report()
-
         if action == "menu_unmapped":
             return self._render_unmapped(snapshot)
 

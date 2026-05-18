@@ -21,6 +21,7 @@ requires one return value. For example, modal_controller returns:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import logging
 import platform
@@ -38,7 +39,9 @@ from tapmap.model.geoinfo import GeoInfo
 from tapmap.model.model import Model
 from tapmap.model.netinfo import NetInfo
 from tapmap.model.public_ip import iter_public_ip_candidates
+from tapmap.state.daily_report import build_report_data
 from tapmap.state.insights import process_insights
+from tapmap.state.insights_log import write_insights_log
 from tapmap.state.keyboard import build_key_action
 from tapmap.state.menu import compute_menu_open_state
 from tapmap.state.modal import decide_modal_route
@@ -53,12 +56,13 @@ from tapmap.state.poll import (
 from tapmap.state.status_cache import StatusCache
 from tapmap.state.status_line import render_status_text
 from tapmap.ui.cache_view import CacheViewBuilder
+from tapmap.ui.daily_activity_report_view import render_daily_activity_report
 from tapmap.ui.insights_view import render_insights_panel
 from tapmap.ui.layout_view import render_layout
 from tapmap.ui.map_view import MapUI
 from tapmap.ui.modal_view import ModalTextBuilder
 
-from .app_dirs import open_folder
+from .app_dirs import open_file, open_folder
 from .config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
 from .runtime import AppMeta, RuntimeContext, build_runtime
 
@@ -155,6 +159,7 @@ class TapMap:
         start_fig = self.ui.create_figure(([], self.my_location))
         self.app.layout = self._build_layout(start_fig)
         self._register_callbacks()
+        self._register_routes()
 
     # Layout helpers (CSS classes)
     @staticmethod
@@ -449,6 +454,19 @@ class TapMap:
                 return [], "modal-body"
             return self._as_children(body), "modal-body"
 
+        if screen == "menu_daily_report":
+            report = build_report_data(self.insights)
+            log_path = None
+            with contextlib.suppress(Exception):
+                log_path = write_insights_log(
+                    self.insights,
+                    self.insights_path.with_suffix(".log"),
+                )
+            return (
+                render_daily_activity_report(report, log_path=log_path),
+                self._class_for_modal_screen(screen),
+            )
+
         if screen in self.MENU_SCREENS:
             show_system = bool(payload.get("show_system", False))
             body = self.modal_text.for_action(
@@ -489,7 +507,7 @@ class TapMap:
             State("ui_cache", "data"),
             State("status_cache", "data"),
             State("status_flash", "data"),
-            prevent_initial_call=False,
+            prevent_initial_call=True,
         )
         def poll_model(
             tick_n: int,
@@ -865,6 +883,20 @@ class TapMap:
                 snapshot.get("cache_items", []),
                 self.insights,
                 now,
+            )
+
+    def _register_routes(self) -> None:
+        """Register Flask routes."""
+        from flask import Response
+
+        @self.app.server.route("/open-log")
+        def _open_log_route() -> Response:
+            if not self.runtime.is_docker:
+                open_file(self.insights_path.with_suffix(".log"))
+            return Response(
+                b"<html><head><title>TapMap</title></head>"
+                b"<body onload=\"window.close()\">&#10003;</body></html>",
+                mimetype="text/html",
             )
 
     def run(self) -> None:

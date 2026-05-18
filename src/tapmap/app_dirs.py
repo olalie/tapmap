@@ -103,3 +103,38 @@ def open_folder(path: Path) -> tuple[bool, str]:
 
     except Exception as exc:
         return False, f"Failed to open folder: {path}. Error: {exc}"
+
+
+def open_file(path: Path) -> tuple[bool, str]:
+    """Open path with the system default application."""
+    try:
+        path = path.expanduser()
+        if not path.is_file():
+            return False, f"File not found: {path}"
+
+        system = platform.system()
+
+        if system == "Windows":
+            os.startfile(str(path))
+            return True, f"Opened: {path}"
+
+        if system == "Darwin":
+            subprocess.Popen(["open", str(path)])
+            return True, f"Opened: {path}"
+
+        xdg_open = shutil.which("xdg-open")
+        if not xdg_open:
+            return False, "xdg-open is not available on this system."
+
+        cp = subprocess.run([xdg_open, str(path)], capture_output=True, text=True, check=False)
+        if cp.returncode == 0:
+            return True, f"Opened: {path}"
+
+        detail = (cp.stderr or cp.stdout or "").strip()
+        msg = "xdg-open failed."
+        if detail:
+            msg += f" {detail}"
+        return False, msg
+
+    except Exception as exc:
+        return False, f"Failed to open file: {path}. Error: {exc}"
