@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import argparse
 import contextlib
-import json
 import logging
 import os
 import platform
@@ -37,11 +36,17 @@ import psutil
 from dash import ALL, Dash, Input, Output, State, ctx, html, no_update
 
 from tapmap import __version__
+from tapmap.insights_persistence import (
+    build_daily_report as persist_build_daily_report,
+)
+from tapmap.insights_persistence import (
+    load_insights,
+    save_insights,
+)
 from tapmap.model.geoinfo import GeoInfo
 from tapmap.model.model import Model
 from tapmap.model.netinfo import NetInfo
 from tapmap.model.public_ip import iter_public_ip_candidates
-from tapmap.state.daily_report import build_report_data
 from tapmap.state.insights import process_insights
 from tapmap.state.insights_log import write_insights_log
 from tapmap.state.keyboard import build_key_action
@@ -465,7 +470,7 @@ class TapMap:
             return self._as_children(body), "modal-body"
 
         if screen == "menu_daily_report":
-            report = build_report_data(self.insights)
+            report = persist_build_daily_report(self.insights)
             log_path = None
             with contextlib.suppress(Exception):
                 log_path = write_insights_log(
@@ -928,31 +933,9 @@ class TapMap:
         return {"countries": {}, "providers": {}, "ports": {}, "applications": {}}
 
     def _load_insights(self) -> None:
-        """Load insights data from JSON file into memory."""
+        """Load insights data from JSON file into memory (delegated)."""
         try:
-            if not self.insights_path.exists():
-                self.insights = self._empty_insights()
-                return
-
-            data = json.loads(self.insights_path.read_text(encoding="utf-8"))
-
-            insights = data.get("insights")
-            if not isinstance(insights, dict):
-                self.logger.warning(
-                    "insights.json has unexpected structure; starting fresh."
-                )
-                self.insights = self._empty_insights()
-                return
-
-            for key in ("countries", "providers", "ports", "applications"):
-                insights.setdefault(key, {})
-
-            # Keep only recognised top-level sections.
-            self.insights = {
-                k: insights[k]
-                for k in ("countries", "providers", "ports", "applications")
-            }
-
+            self.insights = load_insights(self.insights_path)
         except Exception as exc:
             self.logger.warning("Failed to load insights: %s. Starting fresh.", exc)
             self.insights = self._empty_insights()
@@ -966,16 +949,11 @@ class TapMap:
             self._last_insights_save = now
 
     def _save_insights(self) -> None:
-        """Write insights data to disk atomically."""
-        tmp = self.insights_path.with_suffix(".json.tmp")
+        """Write insights data to disk atomically (delegated)."""
         try:
-            data = {"insights": self.insights}
-            tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
-            tmp.replace(self.insights_path)
+            save_insights(self.insights_path, self.insights)
         except Exception as exc:
             self.logger.warning("Failed to save insights: %s", exc)
-            with contextlib.suppress(Exception):
-                tmp.unlink(missing_ok=True)
 
     def _acquire_lock(self) -> None:
         """Write a PID lock file, or exit if another instance is already running."""
