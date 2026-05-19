@@ -24,6 +24,7 @@ import argparse
 import contextlib
 import json
 import logging
+import os
 import platform
 import sys
 import threading
@@ -32,6 +33,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, ClassVar, Final
 
+import psutil
 from dash import ALL, Dash, Input, Output, State, ctx, html, no_update
 
 from tapmap import __version__
@@ -96,6 +98,8 @@ class TapMap:
     def __init__(self, runtime_ctx: RuntimeContext) -> None:
         self.runtime = runtime_ctx
         self.logger = logging.getLogger(__name__)
+        self._lock_path = self.runtime.app_data_dir / "tapmap.lock"
+        self._acquire_lock()
 
         self.app = Dash(
             __name__,
@@ -144,12 +148,11 @@ class TapMap:
             ],
         }
 
-        self.insights = {
-            "state": {},
-            "meta": {},
-            "ui": {
-                "expanded_ip": None,
-            },
+        self.insights: dict[str, Any] = {
+            "countries": {},
+            "providers": {},
+            "ports": {},
+            "applications": {},
         }
 
         self.insights_path = self.runtime.app_data_dir / "insights.json"
@@ -913,26 +916,39 @@ class TapMap:
             use_reloader=False,
         )
     
+    @staticmethod
+    def _empty_insights() -> dict[str, Any]:
+        return {"countries": {}, "providers": {}, "ports": {}, "applications": {}}
+
     def _load_insights(self) -> None:
         """Load insights data from JSON file into memory."""
         try:
             if not self.insights_path.exists():
-                self.insights = {}
+                self.insights = self._empty_insights()
                 return
 
             data = json.loads(self.insights_path.read_text(encoding="utf-8"))
 
             insights = data.get("insights")
             if not isinstance(insights, dict):
-                insights = {}
+                self.logger.warning(
+                    "insights.json has unexpected structure; starting fresh."
+                )
+                self.insights = self._empty_insights()
+                return
 
             for key in ("countries", "providers", "ports", "applications"):
                 insights.setdefault(key, {})
 
-            self.insights = insights
+            # Keep only recognised top-level sections.
+            self.insights = {
+                k: insights[k]
+                for k in ("countries", "providers", "ports", "applications")
+            }
 
         except Exception as exc:
-            self.logger.warning("Failed to load insights: %s", exc)
+            self.logger.warning("Failed to load insights: %s. Starting fresh.", exc)
+            self.insights = self._empty_insights()
 
     def _maybe_save_insights(self) -> None:
         """Save insights periodically to limit disk writes."""
@@ -943,23 +959,40 @@ class TapMap:
             self._last_insights_save = now
 
     def _save_insights(self) -> None:
-        """Save insights data to JSON file."""
+        """Write insights data to disk atomically."""
+        tmp = self.insights_path.with_suffix(".json.tmp")
         try:
-            data = {
-                "insights": self.insights
-            }
-
-            self.insights_path.write_text(
-                json.dumps(data, indent=2),
-                encoding="utf-8",
-            )
-
+            data = {"insights": self.insights}
+            tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            tmp.replace(self.insights_path)
         except Exception as exc:
             self.logger.warning("Failed to save insights: %s", exc)
+            with contextlib.suppress(Exception):
+                tmp.unlink(missing_ok=True)
+
+    def _acquire_lock(self) -> None:
+        """Write a PID lock file, or exit if another instance is already running."""
+        if self._lock_path.exists():
+            try:
+                pid = int(self._lock_path.read_text(encoding="utf-8").strip())
+            except (ValueError, OSError):
+                pid = None
+            if pid is not None and psutil.pid_exists(pid) and pid != os.getpid():
+                self.logger.warning(
+                    "Another TapMap instance is already running (PID %d). Exiting.", pid
+                )
+                sys.exit(1)
+        self._lock_path.write_text(str(os.getpid()), encoding="utf-8")
+
+    def _release_lock(self) -> None:
+        """Remove the PID lock file."""
+        with contextlib.suppress(OSError):
+            self._lock_path.unlink(missing_ok=True)
 
     def close(self) -> None:
         """Close model resources."""
         self._save_insights()
+        self._release_lock()
         close_fn = getattr(self.model.geoinfo, "close", None)
         if callable(close_fn):
             close_fn()
