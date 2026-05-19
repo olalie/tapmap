@@ -8,23 +8,35 @@ from tapmap.state.daily_report import DailyReportData, build_report_data
 
 
 def load_insights(path: Path) -> dict[str, Any]:
-    """Load insights from a JSON file.
+    """Load insights from a JSON file, restoring historical contract.
 
     Args:
         path: Path to the insights file.
 
     Returns:
-        Raw dict loaded from JSON.
+        Normalized insights dict with only the four expected keys.
 
     Raises:
         OSError, json.JSONDecodeError
     """
-    with path.open(encoding="utf-8") as f:
-        return json.load(f)
+    expected_keys = {"countries", "providers", "ports", "applications"}
+    try:
+        with path.open(encoding="utf-8") as f:
+            data = json.load(f)
+        insights = data.get("insights")
+        if not isinstance(insights, dict):
+            raise ValueError("insights is not a dict")
+        # Normalize: only keep expected keys, fill missing with empty dicts
+        normalized = {k: dict(insights[k]) if isinstance(insights.get(k), dict) else {} for k in expected_keys}
+        # Strip unknown keys (ignore extras)
+        return normalized
+    except Exception:
+        # Safe fallback: empty structure
+        return {k: {} for k in ["countries", "providers", "ports", "applications"]}
 
 
 def save_insights(path: Path, data: dict[str, Any]) -> None:
-    """Save insights to a JSON file.
+    """Save insights to a JSON file, using historical wrapper contract.
 
     Args:
         path: Path to the insights file.
@@ -34,7 +46,7 @@ def save_insights(path: Path, data: dict[str, Any]) -> None:
         OSError
     """
     with path.open("w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+        json.dump({"insights": data}, f, ensure_ascii=False, indent=2)
 
 
 def build_daily_report(insights: dict[str, Any]) -> DailyReportData:
