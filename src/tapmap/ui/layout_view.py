@@ -118,9 +118,15 @@ def render_layout(
                             html.Summary("Actions", className="mx-acc-header"),
                             html.Div(
                                 [
-                                    _menu_button("Show cache in terminal (T)", "menu_cache_terminal"),
+                                    _menu_button(
+                                        "Show cache in terminal (T)",
+                                        "menu_cache_terminal",
+                                    ),
                                     _menu_button("Clear cache (C)", "menu_clear_cache"),
-                                    _menu_button("Recheck GeoIP databases (R)", "menu_recheck_geoip"),
+                                    _menu_button(
+                                        "Recheck GeoIP databases (R)",
+                                        "menu_recheck_geoip",
+                                    ),
                                 ],
                                 className="mx-acc-body",
                             ),

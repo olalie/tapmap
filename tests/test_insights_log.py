@@ -12,7 +12,6 @@ from tapmap.state.insights_log import (
     _timeline,
 )
 
-
 # --- _timeline ---
 
 

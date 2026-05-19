@@ -81,7 +81,14 @@ class TapMap:
     """Coordinate Dash callbacks, model polling, and UI state."""
 
     MENU_SCREENS: ClassVar[frozenset[str]] = frozenset(
-        {"menu_unmapped", "menu_lan_local", "menu_open_ports", "menu_help", "menu_about", "menu_daily_report"}
+        {
+            "menu_unmapped",
+            "menu_lan_local",
+            "menu_open_ports",
+            "menu_help",
+            "menu_about",
+            "menu_daily_report",
+        }
     )
     MENU_COMMANDS: ClassVar[frozenset[str]] = frozenset(
         {"menu_clear_cache", "menu_cache_terminal", "menu_recheck_geoip"}

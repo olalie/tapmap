@@ -101,9 +101,11 @@ def test_acquire_lock_blocks_when_pid_running(tmp_path: Path) -> None:
     app = _bare_app(tmp_path)
     fake_pid = 99999
     app._lock_path.write_text(str(fake_pid), encoding="utf-8")
-    with patch("tapmap.app.psutil.pid_exists", return_value=True):
-        with pytest.raises(SystemExit) as exc_info:
-            app._acquire_lock()
+    with (
+        patch("tapmap.app.psutil.pid_exists", return_value=True),
+        pytest.raises(SystemExit) as exc_info,
+    ):
+        app._acquire_lock()
     assert exc_info.value.code == 1
 
 

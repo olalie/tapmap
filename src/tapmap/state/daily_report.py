@@ -38,11 +38,15 @@ RecurrenceExample = tuple[str, str | None, list[bool] | None]
 
 
 class ProviderConcentration(TypedDict):
+    """Provider concentration metrics."""
+
     total_providers: int
     cumulative_pcts: list[float]
 
 
 class CountryMapPoint(TypedDict):
+    """Geographical point for a country on the activity map."""
+
     lat: float
     lon: float
     active_days: int
@@ -50,6 +54,8 @@ class CountryMapPoint(TypedDict):
 
 
 class DailyReportData(TypedDict):
+    """Aggregated data for the daily activity report."""
+
     history_days: int
     intro_text: str
     today_text: str
