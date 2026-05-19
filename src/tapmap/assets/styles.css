@@ -89,15 +89,11 @@ body {
   text-shadow: 0 0 10px rgba(0, 255, 102, 0.18);
 }
 
-#key_capture {
-  position: fixed;
-  left: 0;
-  top: 0;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  z-index: 1000;
-  pointer-events: none;
+/* key_capture input: hide the Dash-generated container entirely.
+   keys.js uses the native value setter + a dispatched input event,
+   so the element does not need to be visible or focusable. */
+.app > .dash-input-container.dash-input {
+  display: none !important;
 }
 
 /* Buttons */

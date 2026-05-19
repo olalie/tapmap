@@ -42,11 +42,14 @@ def render_layout(
             dcc.Store(id="ui_view", data={"points": [], "summaries": {}, "details": {}}),
             dcc.Store(id="modal_state", data=initial_modal_state),
             dcc.Store(id="open_ports_prefs", data={"show_system": False}),
-            dcc.Input(
-                id="key_capture",
-                type="text",
-                value="",
-                autoFocus=False,
+            html.Div(
+                dcc.Input(
+                    id="key_capture",
+                    type="text",
+                    value="",
+                    autoFocus=False,
+                ),
+                style={"display": "none"},
             ),
             dcc.Interval(id="tick_model", interval=poll_interval_ms, n_intervals=0),
             dcc.Graph(
