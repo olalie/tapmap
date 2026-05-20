@@ -1,15 +1,42 @@
 """Tests for insights persistence robustness and the single-instance lock guard."""
+
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
+import unittest.mock
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
 from tapmap.app import TapMap
+
+
+def test_failed_save_does_not_corrupt_state(tmp_path: Path) -> None:
+    """A failed save does not corrupt or clear in-memory state."""
+    app = _bare_app(tmp_path)
+    app.insights = {
+        "countries": {"NO": 1},
+        "providers": {},
+        "ports": {},
+        "applications": {},
+    }
+    # Simulate save failure by patching Path.open to raise OSError
+    with (
+        unittest.mock.patch.object(Path, "open", side_effect=OSError("disk full")),
+        contextlib.suppress(OSError),
+    ):
+        app._save_insights()
+    # State should be unchanged
+    assert app.insights == {
+        "countries": {"NO": 1},
+        "providers": {},
+        "ports": {},
+        "applications": {},
+    }
+
 
 _EMPTY: dict = {"countries": {}, "providers": {}, "ports": {}, "applications": {}}
 
@@ -41,9 +68,7 @@ def test_load_insights_corrupt_json_fallback(tmp_path: Path) -> None:
 def test_load_insights_wrong_structure_fallback(tmp_path: Path) -> None:
     """A non-dict 'insights' value must fall back to the empty structure."""
     app = _bare_app(tmp_path)
-    app.insights_path.write_text(
-        json.dumps({"insights": ["not", "a", "dict"]}), encoding="utf-8"
-    )
+    app.insights_path.write_text(json.dumps({"insights": ["not", "a", "dict"]}), encoding="utf-8")
     app._load_insights()
     assert app.insights == _EMPTY
 
@@ -102,7 +127,7 @@ def test_acquire_lock_blocks_when_pid_running(tmp_path: Path) -> None:
     fake_pid = 99999
     app._lock_path.write_text(str(fake_pid), encoding="utf-8")
     with (
-        patch("tapmap.app.psutil.pid_exists", return_value=True),
+        unittest.mock.patch("tapmap.app.psutil.pid_exists", return_value=True),
         pytest.raises(SystemExit) as exc_info,
     ):
         app._acquire_lock()
@@ -116,6 +141,6 @@ def test_acquire_lock_replaces_stale_lock(tmp_path: Path) -> None:
     """A lock file whose PID is no longer running must be overwritten silently."""
     app = _bare_app(tmp_path)
     app._lock_path.write_text("99999", encoding="utf-8")
-    with patch("tapmap.app.psutil.pid_exists", return_value=False):
+    with unittest.mock.patch("tapmap.app.psutil.pid_exists", return_value=False):
         app._acquire_lock()  # must not raise
     assert app._lock_path.read_text(encoding="utf-8").strip() == str(os.getpid())
