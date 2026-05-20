@@ -632,6 +632,28 @@ summary.mx-acc-header:hover {
   user-select: none;
 }
 
+/* Insights Log viewer */
+
+.insights-log-body {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.insights-log-body > h1 {
+  margin-top: 18px;
+}
+
+.insights-log-pre-wrapper {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  overflow-x: auto;
+}
+
+.insights-log-pre-wrapper .insights-log-pre {
+  white-space: pre;
+}
+
 /* Daily Activity Report */
 
 .rpt-h2 {

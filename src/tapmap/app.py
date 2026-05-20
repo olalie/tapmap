@@ -64,12 +64,13 @@ from tapmap.state.status_cache import StatusCache
 from tapmap.state.status_line import render_status_text
 from tapmap.ui.cache_view import CacheViewBuilder
 from tapmap.ui.daily_activity_report_view import render_daily_activity_report
+from tapmap.ui.insights_log_view import render_insights_log
 from tapmap.ui.insights_view import render_insights_panel
 from tapmap.ui.layout_view import render_layout
 from tapmap.ui.map_view import MapUI
 from tapmap.ui.modal_view import ModalTextBuilder
 
-from .app_dirs import open_file, open_folder
+from .app_dirs import open_folder
 from .config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
 from .runtime import AppMeta, RuntimeContext, build_runtime
 
@@ -93,6 +94,7 @@ class TapMap:
             "menu_help",
             "menu_about",
             "menu_daily_report",
+            "menu_insights_log",
         }
     )
     MENU_COMMANDS: ClassVar[frozenset[str]] = frozenset(
@@ -174,7 +176,6 @@ class TapMap:
         start_fig = self.ui.create_figure(([], self.my_location))
         self.app.layout = self._build_layout(start_fig)
         self._register_callbacks()
-        self._register_routes()
 
     # Layout helpers (CSS classes)
     @staticmethod
@@ -471,14 +472,19 @@ class TapMap:
 
         if screen == "menu_daily_report":
             report = persist_build_daily_report(self.insights)
-            log_path = None
-            with contextlib.suppress(Exception):
-                log_path = write_insights_log(
-                    self.insights,
-                    self.insights_path.with_suffix(".log"),
-                )
             return (
-                render_daily_activity_report(report, log_path=log_path),
+                render_daily_activity_report(report),
+                self._class_for_modal_screen(screen),
+            )
+
+        if screen == "menu_insights_log":
+            log_path = self.insights_path.with_suffix(".log")
+            text = ""
+            with contextlib.suppress(Exception):
+                write_insights_log(self.insights, log_path)
+                text = log_path.read_text(encoding="utf-8")
+            return (
+                render_insights_log(text),
                 self._class_for_modal_screen(screen),
             )
 
@@ -636,7 +642,7 @@ class TapMap:
         def show_hide_menu(is_open: Any) -> tuple[str, str]:
             open_flag = bool(is_open)
             return self._menu_panel_class(open_flag), self._menu_overlay_class(open_flag)
-        
+
         @self.app.callback(
             Output("insights_panel", "className"),
             Input("insights_on", "data"),
@@ -645,7 +651,7 @@ class TapMap:
             if bool(is_on):
                 return "insights-panel is-open"
             return "insights-panel"
-        
+
         @self.app.callback(
             Output("map", "style"),
             Input("insights_on", "data"),
@@ -671,6 +677,8 @@ class TapMap:
             Input("toggle_open_ports_system", "value", allow_optional=True),
             Input("map", "clickData"),
             Input("btn_open_data", "n_clicks", allow_optional=True),
+            Input("btn_view_log", "n_clicks", allow_optional=True),
+            Input("btn_log_back", "n_clicks", allow_optional=True),
             Input("key_action", "data"),
             State("modal_state", "data"),
             State("model_snapshot", "data"),
@@ -690,6 +698,8 @@ class TapMap:
             toggle_system_value: Any,
             click_data: Any,
             open_data_clicks: int | None,
+            _view_log_clicks: int | None,
+            _log_back_clicks: int | None,
             key_action: Any,
             modal_state_data: Any,
             snapshot: Any,
@@ -711,6 +721,25 @@ class TapMap:
             # The actual recheck work is executed by poll_model.
             if trigger == "btn_check_databases":
                 return _apply_modal_state(None)
+
+            # Internal drilldown navigation within the Daily Activity Report.
+            if (
+                trigger == "btn_view_log"
+                and isinstance(_view_log_clicks, int)
+                and _view_log_clicks > 0
+            ):
+                return _apply_modal_state(
+                    {"screen": "menu_insights_log", "t": datetime.now().isoformat(), "payload": {}}
+                )
+
+            if (
+                trigger == "btn_log_back"
+                and isinstance(_log_back_clicks, int)
+                and _log_back_clicks > 0
+            ):
+                return _apply_modal_state(
+                    {"screen": "menu_daily_report", "t": datetime.now().isoformat(), "payload": {}}
+                )
 
             # Normalize current modal state.
             current_state = modal_state_data if isinstance(modal_state_data, dict) else None
@@ -746,7 +775,7 @@ class TapMap:
             # Execute the decided route.
             if route.action == "apply":
                 return _apply_modal_state(route.modal_state)
-            
+
             if (
                 route.action == "open_data"
                 and isinstance(open_data_clicks, int)
@@ -846,7 +875,7 @@ class TapMap:
                 return []
 
             return render_insights_panel(data)
-        
+
         @self.app.callback(
             Output("selected_country", "data"),
             Input(
@@ -882,7 +911,7 @@ class TapMap:
                 return None
 
             return country_code
-        
+
         @self.app.callback(
             Output("insights_cache", "data"),
             Input("model_snapshot", "data"),
@@ -900,20 +929,6 @@ class TapMap:
                 now,
             )
 
-    def _register_routes(self) -> None:
-        """Register Flask routes."""
-        from flask import Response
-
-        @self.app.server.route("/open-log")
-        def _open_log_route() -> Response:
-            if not self.runtime.is_docker:
-                open_file(self.insights_path.with_suffix(".log"))
-            return Response(
-                b"<html><head><title>TapMap</title></head>"
-                b"<body onload=\"window.close()\">&#10003;</body></html>",
-                mimetype="text/html",
-            )
-
     def run(self) -> None:
         """Start the Dash server and launch the local UI."""
         host = self.runtime.server_host
@@ -927,7 +942,7 @@ class TapMap:
             debug=self.DASH_DEBUG,
             use_reloader=False,
         )
-    
+
     @staticmethod
     def _empty_insights() -> dict[str, Any]:
         return {"countries": {}, "providers": {}, "ports": {}, "applications": {}}

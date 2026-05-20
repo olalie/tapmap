@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import plotly.graph_objects as go
@@ -14,9 +13,7 @@ from tapmap.state.daily_report import (
     DailyReportData,
 )
 
-_MONO = (
-    "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Courier New', monospace"
-)
+_MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, 'Courier New', monospace"
 
 
 def _build_applications_figure(
@@ -246,9 +243,7 @@ def _render_recurrence_examples(
                 )
             ]
 
-        rows.append(
-            html.Div([label_span, *detail], style={"marginBottom": "6px"})
-        )
+        rows.append(html.Div([label_span, *detail], style={"marginBottom": "6px"}))
 
     return [
         html.Div(
@@ -282,8 +277,6 @@ def _render_recurrence_examples(
 
 def render_daily_activity_report(
     report: DailyReportData,
-    *,
-    log_path: Path | None = None,
 ) -> list[Any]:
     """Render the Daily Activity Report modal content from pre-computed data."""
     history_days = report["history_days"]
@@ -324,26 +317,24 @@ def render_daily_activity_report(
         html.P(report["countries_summary"]),
         dcc.Graph(figure=countries_figure, config={"displayModeBar": False}),
         html.P(
-            "Dot size reflects how many days each country was observed in the "
-            "connection history.",
+            "Dot size reflects how many days each country was observed in the connection history.",
             className="modal-subtitle",
         ),
     ]
 
-    if log_path is not None:
-        children += [
-            html.H2("Log", className="rpt-h2"),
-            html.P(
-                "The detailed log includes complete activity timelines for "
-                "applications, providers, countries and ports."
-            ),
-            html.A(
-                "Open generated log",
-                href="/open-log",
-                target="_blank",
-                rel="opener",
-                className="mx-btn mx-btn--primary mx-btn--nowrap",
-            ),
-        ]
+    children += [
+        html.H2("Log", className="rpt-h2"),
+        html.P(
+            "The detailed log includes complete activity timelines for "
+            "applications, providers, countries and ports."
+        ),
+        html.Button(
+            "Open detailed log",
+            id="btn_view_log",
+            n_clicks=0,
+            className="mx-btn mx-btn--primary mx-btn--nowrap",
+            type="button",
+        ),
+    ]
 
     return children
