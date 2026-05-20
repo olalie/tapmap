@@ -47,17 +47,24 @@ See below for how to allow the application.
 
 ---
 
-## New: Insights
+## Insights and Daily Activity Report
 
-TapMap tracks activity over the last 30 days and highlights what is unusual and what is most frequent.
+TapMap builds a rolling 30-day history of network activity and helps you understand what is normal, new, recurring, or unusual.
 
-- New apps, services (ASN), countries, and ports
+The Insights panel highlights:
+- New apps, providers (ASN), countries, and ports
 - Frequent activity (Top 5+, including ties)
 - Click countries to zoom and inspect on the map
 
-While the map is limited to connections in the current session, insights are based on activity observed over time.
+The Daily Activity Report provides a broader summary of recent activity:
+- Application recurrence patterns (seen once, occasional, recurring, and stable)
+- Provider concentration analysis
+- Country activity visualization
+- Generated activity logs with detailed timelines
 
-To build a complete 30-day history, keep TapMap running while your system is in use. Running it at startup is recommended.
+The map only shows live connections from the current session, while Insights and the Daily Activity Report use historical activity collected during the last 30 days.
+
+To build a complete activity history, keep TapMap running while your system is in use. Running it at startup is recommended.
 
 ---
 

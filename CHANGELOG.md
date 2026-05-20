@@ -1,5 +1,42 @@
 ## Unreleased
 
+## 1.7.0 (2026-05-20)
+
+### Features
+- Add Daily Activity Report
+  - Summarize recent network activity
+  - Show recurring activity patterns
+  - Show provider concentration analysis
+  - Show country activity visualization
+  - Add generated activity log view
+- Add generated insights log
+  - Include detailed timelines for applications, providers, countries and ports
+  - Add "Open generated log" support
+- Add accordion-style grouped menu
+  - Group actions and views into expandable sections
+  - Add keyboard shortcut for Daily Activity Report
+- Add globe logo to application header
+
+### Improvements
+- Improve insights persistence robustness
+  - Save `insights.json` atomically
+  - Recover safely from corrupt or invalid insights data
+  - Prevent concurrent writers with single-instance PID lock handling
+  - Handle stale lock files safely
+
+### Refactor
+- Extract insights persistence orchestration from `app.py`
+- Remove dead established-state filtering logic
+- Remove dead CSS rules
+
+### Testing
+- Add persistence regression tests
+- Add tests for insights save/load handling and lock handling
+- Expand Daily Activity Report and insights log test coverage
+
+### Documentation
+- Update README and Help for Daily Activity Report and historical insights
+
 ## 1.6.3 (2026-05-04)
 
 ### Improvements

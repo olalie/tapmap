@@ -175,6 +175,52 @@ def render_help() -> list[Any]:
                 "coordinates are shown as one marker.",
             ]
         ),
+        html.H2("Menu"),
+        html.P(
+            "The menu is organized into expandable sections for insights, network "
+            "views, actions, and information."
+        ),
+        html.Table(
+            className="mx-table mx-kv",
+            children=[
+                html.Tbody(
+                    [
+                        html.Tr(
+                            [
+                                html.Td("INSIGHTS"),
+                                html.Td(
+                                    "Daily Activity Report and Insights panel."
+                                ),
+                            ]
+                        ),
+                        html.Tr(
+                            [
+                                html.Td("NETWORK"),
+                                html.Td(
+                                    "Unmapped services, LAN/LOCAL services, and open ports."
+                                ),
+                            ]
+                        ),
+                        html.Tr(
+                            [
+                                html.Td("ACTIONS"),
+                                html.Td(
+                                    "Cache actions and GeoIP database checks."
+                                ),
+                            ]
+                        ),
+                        html.Tr(
+                            [
+                                html.Td("INFO"),
+                                html.Td(
+                                    "Help and About windows."
+                                ),
+                            ]
+                        ),
+                    ]
+                ),
+            ],
+        ),
         html.H2("Controls"),
         html.Table(
             className="mx-table",
@@ -197,6 +243,13 @@ def render_help() -> list[Any]:
                 ),
                 html.Tbody(
                     [
+                        html.Tr(
+                            [
+                                html.Td("D"),
+                                html.Td("Show Daily Activity Report"),
+                                html.Td("Window"),
+                            ]
+                        ),
                         html.Tr(
                             [
                                 html.Td("I"),
@@ -241,26 +294,54 @@ def render_help() -> list[Any]:
         ),
         html.H2("Insights"),
         html.P(
-            "Shows activity observed over the last 30 days and highlights what is "
-            "unusual and what is most frequent."
+            "Insights track activity observed during the last 30 days."
+        ),
+        html.P(
+            "The Insights panel includes:"
         ),
         html.Ul(
             [
-                html.Li("Today: Items seen today that were not observed in the last 30 days."),
-                html.Li("Top 5: Most frequently observed items over the last 30 days."),
-                html.Li("Categories include apps, providers, countries, and ports."),
+                html.Li(
+                    "New apps, providers (ASN), countries, and ports observed today."
+                ),
+                html.Li(
+                    "Top 5+ most frequently observed items over the last 30 days."
+                ),
+                html.Li(
+                    "Click countries to zoom to their locations on the map."
+                ),
             ]
         ),
         html.P(
-            "Click a country to zoom to its location on the map."
+            "Insights may include activity that is not currently visible on the map."
         ),
         html.P(
+            "The map is limited to activity observed during the current session, "
+            "while Insights use activity observed during the last 30 days."
+        ),
+        html.H2("Daily Activity Report"),
+        html.P(
+            "The Daily Activity Report analyzes historical activity observed during "
+            "the last 30 days."
+        ),
+        html.Ul(
             [
-                "Entries may appear even if they are not currently visible on the map.",
-                html.Br(),
-                "Insights include activity observed over the last 30 days, while the "
-                "map shows only recent data (see CACHE).",
+                html.Li(
+                    "Application recurrence patterns (seen once, occasional, "
+                    "recurring, and stable)."
+                ),
+                html.Li("Provider concentration analysis."),
+                html.Li("Country activity visualization."),
+                html.Li(
+                    "Open the generated activity log from the Log section at the "
+                    "end of the report to inspect detailed timelines for apps, "
+                    "providers, countries, and ports."
+                ),
             ]
+        ),
+        html.P(
+            "To build a complete 30-day history, keep TapMap running while your "
+            "system is in use. Running it at startup is recommended."
         ),
         html.H2("Unmapped public services"),
         html.P(

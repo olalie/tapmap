@@ -98,8 +98,13 @@ def render_about(
     return [
         html.H1(f"About {app_name}"),
         html.P(
-            "TapMap inspects local socket data, enriches IP addresses with "
-            "geolocation, and shows them on an interactive map."
+            "TapMap inspects local socket activity, enriches IP addresses with "
+            "geolocation, visualizes connections on an interactive map, and "
+            "builds insights from the most recent 30 days of activity."
+        ),
+        html.P(
+            "Historical insights include recurring activity patterns, provider "
+            "distribution, country activity and generated activity logs."
         ),
         html.P(
             "It reads active socket data using a platform-specific backend, "
