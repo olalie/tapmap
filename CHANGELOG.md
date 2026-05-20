@@ -1,5 +1,21 @@
 ## Unreleased
 
+## 1.7.1 (2026-05-20)
+
+### Improvements
+- Integrate Insights Log into modal flow
+  - Replace external log opening with internal modal drilldown
+  - Remove Flask `/open-log` route
+  - Remove OS-level log opening
+  - Preserve on-demand log generation
+  - Add navigation:
+    Daily Activity Report -> Insights Log -> back to report
+
+### UI
+- Improve Insights Log layout and spacing
+- Center terminal-style log block
+- Preserve left-aligned fixed-width console formatting
+
 ## 1.7.0 (2026-05-20)
 
 ### Features
