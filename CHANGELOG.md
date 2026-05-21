@@ -1,5 +1,5 @@
 ## Unreleased
-git 
+
 ### Maintenance
 - Ignore full Docker runtime directory
 - Fix MkDocs README list rendering
