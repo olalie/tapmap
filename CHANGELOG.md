@@ -1,4 +1,9 @@
 ## Unreleased
+git 
+### Maintenance
+- Ignore full Docker runtime directory
+- Fix MkDocs README list rendering
+- Remove unused Flask dependency
 
 ## 1.7.1 (2026-05-20)
 
