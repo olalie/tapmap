@@ -28,8 +28,9 @@ site/
 
 # Output from exploratory tests
 out/
-docker-data/*.json
+
+# Docker runtime data
+docker-data/
 
 # GeoIP databases (must not be committed)
-docker-data/*.mmdb
 *.mmdb
