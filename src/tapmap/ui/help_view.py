@@ -490,8 +490,8 @@ def render_help() -> list[Any]:
         html.P("SERV is derived from SOCK by ignoring PID and process."),
         html.H3("UPDATED"),
         html.P("Time of the last snapshot."),
-        html.H3("MYLOC: FIXED | AUTO | AUTO (NO GEO) | OFF"),
-        html.P("Shows your local map location based on the MY_LOCATION setting in config.py."),
+        html.H3("MYLOC: FIXED | ENV | AUTO | AUTO (NO GEO) | OFF"),
+        html.P("Shows the active local map location mode."),
         html.Table(
             className="mx-table mx-kv",
             children=[
@@ -499,6 +499,14 @@ def render_help() -> list[Any]:
                     [
                         html.Tr(
                             [html.Td("FIXED"), html.Td("Uses fixed coordinates from config.py.")]
+                        ),
+                        html.Tr(
+                            [
+                                html.Td("ENV"),
+                                html.Td(
+                                    "Uses coordinates provided through TAPMAP_LON and TAPMAP_LAT."
+                                ),
+                            ]
                         ),
                         html.Tr(
                             [html.Td("AUTO"), html.Td("Location detected from your public IP.")]
@@ -567,7 +575,8 @@ def render_help() -> list[Any]:
                                 html.Td("MY_LOCATION"),
                                 html.Td(
                                     "'none' hides the local marker. Use (lon, lat) for fixed "
-                                    "coordinates, or 'auto' to detect from public IP."
+                                    "coordinates, or 'auto' to detect from public IP. "
+                                    "Runtime environment variables can override this setting."
                                 ),
                             ]
                         ),
@@ -611,6 +620,7 @@ def render_help() -> list[Any]:
         html.P("Geolocation lookups are performed locally using the mmdb files."),
         html.P(
             "If MY_LOCATION is set to 'auto', TapMap may query external services to detect the "
-            "public IP address. It stops after the first valid result."
+            "public IP address. It stops after the first valid result. "
+            "This lookup is skipped when TAPMAP_LON and TAPMAP_LAT are provided."
         ),
     ]

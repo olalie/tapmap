@@ -250,6 +250,8 @@ class TapMap:
         return {"message": message, "until": (datetime.now().timestamp() + float(seconds))}
 
     def _myloc_label(self) -> str:
+        if self.runtime.location_override is not None:
+            return "ENV"
         if isinstance(MY_LOCATION, tuple):
             return "FIXED"
         if MY_LOCATION == "none":
@@ -259,6 +261,9 @@ class TapMap:
         return "OFF"
 
     def _resolve_my_location(self) -> list[LonLat]:
+        if self.runtime.location_override is not None:
+            return [self.runtime.location_override]
+
         if isinstance(MY_LOCATION, tuple):
             return [MY_LOCATION]
 
@@ -300,7 +305,11 @@ class TapMap:
             "run_dir": str(self.runtime.run_dir),
             "is_frozen": bool(self.runtime.is_frozen),
             "myloc_mode": self._myloc_label(),
-            "my_location": MY_LOCATION,
+            "my_location": (
+                self.runtime.location_override
+                if self.runtime.location_override is not None
+                else MY_LOCATION
+            ),
             "public_ip_cached": self._public_ip_cached,
             "auto_geo_cached": self._auto_geo_cached,
             "os": f"{platform.system()} {platform.release()}",

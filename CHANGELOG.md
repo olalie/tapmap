@@ -1,12 +1,22 @@
-## Unreleased
+## 1.7.2 (2026-05-26)
+
+### Features
+- Add runtime location override using `TAPMAP_LON` and `TAPMAP_LAT`
+- Skip external public-IP lookup when runtime coordinates are provided
+- Add ENV local-location mode to status line and About view
 
 ### Testing
+- Add focused regression tests for runtime location override parsing
+- Add boundary and validation coverage for runtime coordinate parsing
 - Add comprehensive regression coverage for rolling 30-day insights bitmaps
 - Add boundary tests for bitmap aging, pruning, and re-observation semantics
 - Clarify internal `anchor_day` bitmap semantics without changing persistence format
 
 ### Documentation
+- Document runtime location override environment variables
+- Document privacy behavior for automatic public-IP detection
 - Document Daily Activity Report keyboard shortcut in README
+- Update Help and About semantics for ENV location mode
 
 ### CI
 - Clarify macOS build naming in artifact workflow

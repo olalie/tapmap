@@ -41,6 +41,7 @@ class RuntimeContext:
     server_host: str
     server_port: int
     is_docker: bool
+    location_override: tuple[float, float] | None
 
     @property
     def geo_data_dir(self) -> Path:
@@ -76,6 +77,31 @@ def _detect_docker() -> bool:
     """Return True when running in Docker."""
     return os.environ.get("TAPMAP_IN_DOCKER") == "1"
 
+
+def _get_location_override() -> tuple[float, float] | None:
+    """Parse TAPMAP_LON and TAPMAP_LAT env vars; return override or None.
+
+    Both vars must exist together. Both must parse as float.
+    lon must be -180 <= lon <= 180. lat must be -90 <= lat <= 90.
+    On any validation failure: return None (silent fallback to config.py).
+    """
+    lon_str = os.environ.get("TAPMAP_LON", "")
+    lat_str = os.environ.get("TAPMAP_LAT", "")
+
+    if not lon_str or not lat_str:
+        return None
+
+    try:
+        lon = float(lon_str)
+        lat = float(lat_str)
+    except ValueError:
+        return None
+
+    if -180 <= lon <= 180 and -90 <= lat <= 90:
+        return (lon, lat)
+
+    return None
+
 def build_runtime(meta: AppMeta) -> RuntimeContext:
     """Build the runtime context for the current OS and execution mode."""
     is_frozen = bool(getattr(sys, "frozen", False))
@@ -88,6 +114,7 @@ def build_runtime(meta: AppMeta) -> RuntimeContext:
     is_docker = _detect_docker()
     server_host = _get_server_host(is_docker)
     server_port = _get_server_port()
+    location_override = _get_location_override()
 
     return RuntimeContext(
         meta=meta,
@@ -99,6 +126,7 @@ def build_runtime(meta: AppMeta) -> RuntimeContext:
         server_host=server_host,
         server_port=server_port,
         is_docker=is_docker,
+        location_override=location_override,
     )
 
 def _detect_network_backend() -> tuple[str, str]:

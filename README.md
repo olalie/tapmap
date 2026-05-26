@@ -297,10 +297,11 @@ Redistribution is subject to the MaxMind license terms.
 
 ## Privacy
 
-- TapMap runs locally.  
+- TapMap runs locally.
 - No connection data is sent anywhere.
 - Geolocation uses local MaxMind databases.
-- If `MY_LOCATION = "auto"`, TapMap makes a small request to detect your public IP.
+- If automatic local geolocation is enabled, TapMap may make a small request to detect your public IP.
+- External public-IP lookup can be avoided by using fixed local coordinates in `config.py` or through runtime environment variables.
 
 ---
 
@@ -310,15 +311,20 @@ TapMap reads settings from `config.py`.
 
 Common settings:
 
-- `SERVER_PORT`  
-- `MY_LOCATION`  
-- `POLL_INTERVAL_MS`  
-- `COORD_PRECISION`  
+- `SERVER_PORT`
+- `MY_LOCATION`
+- `POLL_INTERVAL_MS`
+- `COORD_PRECISION`
 - `ZOOM_NEAR_KM`
 
-`SERVER_PORT` defines the default port used by the local Dash server.
+Some settings can also be overridden at runtime using environment variables:
 
-The port can be overridden at runtime using the environment variable `TAPMAP_PORT`.
+- `TAPMAP_HOST`
+- `TAPMAP_PORT`
+- `TAPMAP_LON`
+- `TAPMAP_LAT`
+
+If both `TAPMAP_LON` and `TAPMAP_LAT` are provided, TapMap uses those coordinates for the local map marker instead of automatic public-IP geolocation.
 
 ---
 
@@ -456,10 +462,14 @@ Place the GeoLite2 database files in that folder:
 
 The server binds to 0.0.0.0 by default in Docker.
 
-To override the bind address or port:
+To override the bind address, port, or local map location:
 
     -e TAPMAP_HOST=127.0.0.1
     -e TAPMAP_PORT=8060
+    -e TAPMAP_LON=10.7522
+    -e TAPMAP_LAT=59.9139
+
+If `TAPMAP_LON` and `TAPMAP_LAT` are provided, TapMap uses those coordinates for the local map marker and skips automatic public-IP geolocation.
 
 Open in browser on the host:
 
@@ -508,3 +518,4 @@ Thanks to @khadanja for suggesting a Docker-based workaround.
 Thanks to @TechnVision for raising the configurable port use case.  
 Thanks to @desrod for suggesting a solution for configurable port support.  
 Thanks to @hugalafutro for suggesting optional SYS_PTRACE support for process visibility on Linux.
+

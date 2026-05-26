@@ -218,6 +218,15 @@ def _build_location_rows(
             return [("MY_LOCATION", _fmt_coord(lon, lat))]
         return [("MY_LOCATION", "fixed (invalid value)")]
 
+    if myloc_mode == "ENV":
+        if isinstance(my_location, (list, tuple)) and len(my_location) == 2:
+            lon, lat = my_location[0], my_location[1]
+            return [
+                ("MY_LOCATION", "env override"),
+                ("Coordinate", _fmt_coord(lon, lat)),
+            ]
+        return [("MY_LOCATION", "env override")]
+
     rows: list[tuple[str, str]] = [("MY_LOCATION", "auto")]
     rows.append(("Public IP", public_ip_cached or "-"))
 
