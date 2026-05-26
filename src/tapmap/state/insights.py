@@ -11,8 +11,8 @@ import pycountry
 class InsightStateItem(TypedDict):
     """State for an entry.
 
-    l: last_seen_day (epoch day)
-    m: 30-day activity bitmask (bit 0 = today)
+    l: anchor_day (bitmap reference; bit i = observed on day l - i)
+    m: 30-day activity bitmask (bit 0 = today, bit 29 = oldest retained day)
     """
     l: int   # noqa
     m: int
@@ -52,11 +52,16 @@ def process_insights(
         values: set[str],
         state: dict[str, dict[str, int]],
     ) -> None:
+        """Age entries, apply current observations, and prune zeroed entries.
+
+        Postconditions: all surviving entries have l == today_day and m > 0.
+        """
         today_day = now.date().toordinal()
 
         # 1. Age all entries
         for item in state.values():
-            delta = today_day - item["l"]
+            anchor_day = item["l"]
+            delta = today_day - anchor_day
 
             if delta >= 30:
                 item["m"] = 0
@@ -120,6 +125,7 @@ def process_insights(
     update_dimension(apps, apps_state)
 
     def build_new(state: dict[str, dict[str, int]], category: str) -> list[dict[str, Any]]:
+        """Return entries where m == 1: observed today with no activity in the prior 29 days."""
         items = []
         for k, v in state.items():
             if v["m"] != 1:
@@ -142,6 +148,7 @@ def process_insights(
         category: str,
         limit: int = 5,
     ) -> list[dict[str, Any]]:
+        """Return top entries ranked by bit_count; all entries tied at the cutoff are included."""
         items = []
 
         for k, v in state.items():
