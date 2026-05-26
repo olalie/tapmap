@@ -1,5 +1,16 @@
 ## Unreleased
 
+### Testing
+- Add comprehensive regression coverage for rolling 30-day insights bitmaps
+- Add boundary tests for bitmap aging, pruning, and re-observation semantics
+- Clarify internal `anchor_day` bitmap semantics without changing persistence format
+
+### Documentation
+- Document Daily Activity Report keyboard shortcut in README
+
+### CI
+- Clarify macOS build naming in artifact workflow
+
 ### Maintenance
 - Ignore full Docker runtime directory
 - Fix MkDocs README list rendering
