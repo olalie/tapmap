@@ -113,8 +113,9 @@ It uses:
 
 ## How to use
 
-- Hover map markers for a summary  
-- Click map markers for detailed information  
+- Hover map markers for a summary
+- Click map markers for detailed information
+- Open the Daily Activity Report with D
 - Click countries in Insights to zoom to the location
 
 ---
@@ -280,6 +281,7 @@ Redistribution is subject to the MaxMind license terms.
 
 | Key | Action |
 |-----|--------|
+| D   | Daily Activity Report |
 | I   | Toggle Insights panel |
 | U   | Unmapped public services |
 | L   | Established LAN/LOCAL services |
