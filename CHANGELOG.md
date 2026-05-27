@@ -1,3 +1,10 @@
+## Unreleased
+
+### Daily Activity Report
+- Refine narrative wording and report tone
+- Improve alignment between wording, recurrence visuals, and provider concentration curves
+- Simplify provider concentration summaries
+
 ## 1.7.2 (2026-05-26)
 
 ### Features
