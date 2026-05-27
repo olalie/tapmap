@@ -269,7 +269,7 @@ def test_build_activity_pattern_stable_narrative() -> None:
     # All-Stable apps and countries → core_fraction = 1.0 ≥ STABLE_ACTIVITY_THRESHOLD
     stable_state = {"a": {"m": (1 << 25) - 1}}
     result = build_activity_pattern(stable_state, stable_state, history_days=30)
-    assert "stable" in result.lower()
+    assert "recurring connections" in result.lower()
 
 
 def test_build_activity_pattern_variable_narrative() -> None:
@@ -277,7 +277,7 @@ def test_build_activity_pattern_variable_narrative() -> None:
     # All-Seen-once → core_fraction = 0.0 < VARIABLE_ACTIVITY_THRESHOLD
     transient_state = {"a": {"m": 1}}
     result = build_activity_pattern(transient_state, transient_state, history_days=30)
-    assert "varied" in result.lower()
+    assert "short-lived" in result.lower()
 
 
 def test_build_activity_pattern_uses_non_empty_dimension_only() -> None:
@@ -285,7 +285,7 @@ def test_build_activity_pattern_uses_non_empty_dimension_only() -> None:
     # All-Stable apps, empty country state → core_fraction uses apps only.
     stable_state = {"a": {"m": (1 << 25) - 1}}
     result = build_activity_pattern(stable_state, {}, history_days=30)
-    assert "stable" in result.lower()
+    assert "recurring connections" in result.lower()
 
 
 # --- build_intro_text ---
@@ -462,7 +462,7 @@ def test_concentration_narrative_high_concentration() -> None:
             cumulative_pcts=[60.0] + [100.0] * 9,
         )
     )
-    assert "small" in result.lower()
+    assert "few providers" in result.lower()
 
 
 def test_concentration_narrative_single_provider_not_broad() -> None:
@@ -482,7 +482,7 @@ def test_concentration_narrative_moderate_concentration() -> None:
             cumulative_pcts=[40.0, 70.0] + [100.0] * 8,
         )
     )
-    assert "established" in result.lower()
+    assert "at least half" in result.lower()
 
 
 def test_concentration_narrative_distributed() -> None:
@@ -494,7 +494,7 @@ def test_concentration_narrative_distributed() -> None:
             cumulative_pcts=[20.0, 35.0, 45.0, 60.0] + [100.0] * 6,
         )
     )
-    assert "broad" in result.lower()
+    assert "many providers" in result.lower()
 
 
 # --- build_countries_summary ---
