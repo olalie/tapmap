@@ -260,7 +260,22 @@ def build_activity_pattern(
         return ""
     app_fraction = compute_activity_days_fraction(app_state, history_days)
     country_fraction = compute_activity_days_fraction(country_state, history_days)
-    core_fraction = (app_fraction + country_fraction) / 2
+    app_has_activity = any(
+        isinstance(item.get("m"), int) and item["m"].bit_count() > 0
+        for item in app_state.values()
+    )
+    country_has_activity = any(
+        isinstance(item.get("m"), int) and item["m"].bit_count() > 0
+        for item in country_state.values()
+    )
+    if app_has_activity and country_has_activity:
+        core_fraction = (app_fraction + country_fraction) / 2
+    elif app_has_activity:
+        core_fraction = app_fraction
+    elif country_has_activity:
+        core_fraction = country_fraction
+    else:
+        core_fraction = 0.0
     if core_fraction >= STABLE_ACTIVITY_THRESHOLD:
         return (
             "Most recurring internet activity remained centered "
@@ -300,13 +315,21 @@ def build_applications_summary(
     counts: dict[str, int],
 ) -> str:
     """Return applications summary text."""
+    if application_total == 0:
+        return "No applications used the internet during this period."
+
     application_label = "application" if application_total == 1 else "applications"
     application_total_text = format_count(application_total)
     frequent = counts["Stable"] + counts["Recurring"]
-    total = frequent + counts["Occasional"] + counts["Seen once"]
+    transient = counts["Occasional"] + counts["Seen once"]
+    total = frequent + transient
     fraction = frequent / total if total > 0 else 0.0
 
-    if fraction < 0.33:
+    if frequent == 0:
+        distribution_text = "Most appeared only briefly or for the first time."
+    elif transient == 0:
+        distribution_text = "Apps ran consistently throughout the period."
+    elif fraction < 0.33:
         distribution_text = (
             "Most appeared only briefly or for the first time. "
             "Some ran consistently throughout the period."
@@ -376,6 +399,11 @@ def build_providers_concentration_narrative(concentration: ProviderConcentration
     total = concentration["total_providers"]
     if total == 0:
         return ""
+    if total == 1:
+        return (
+            "Most observed activity was handled by "
+            "a relatively small group of providers."
+        )
     cumulative_pcts = concentration["cumulative_pcts"]
     top_50_count = next(
         (i + 1 for i, pct in enumerate(cumulative_pcts) if pct >= 50.0),

@@ -280,12 +280,12 @@ def test_build_activity_pattern_variable_narrative() -> None:
     assert "varied" in result.lower()
 
 
-def test_build_activity_pattern_mixed_narrative() -> None:
-    """Return the mixed narrative when activity is between the two thresholds."""
-    # All-Stable apps, empty country state → core_fraction = 0.5, in [0.45, 0.70)
+def test_build_activity_pattern_uses_non_empty_dimension_only() -> None:
+    """Use the available dimension when the other has no active entities."""
+    # All-Stable apps, empty country state → core_fraction uses apps only.
     stable_state = {"a": {"m": (1 << 25) - 1}}
     result = build_activity_pattern(stable_state, {}, history_days=30)
-    assert "mix" in result.lower()
+    assert "stable" in result.lower()
 
 
 # --- build_intro_text ---
@@ -327,6 +327,27 @@ def test_build_applications_summary_mostly_transient() -> None:
     counts = {"Stable": 0, "Recurring": 0, "Occasional": 3, "Seen once": 1}
     result = build_applications_summary(4, counts)
     assert "briefly" in result
+
+
+def test_build_applications_summary_no_consistent_phrase_when_no_frequent() -> None:
+    """Do not mention consistent usage when Stable+Recurring is zero."""
+    counts = {"Stable": 0, "Recurring": 0, "Occasional": 2, "Seen once": 3}
+    result = build_applications_summary(5, counts)
+    assert "ran consistently throughout the period" not in result
+
+
+def test_build_applications_summary_no_transient_phrase_when_no_transient() -> None:
+    """Do not mention occasional/brief usage when transient categories are zero."""
+    counts = {"Stable": 2, "Recurring": 1, "Occasional": 0, "Seen once": 0}
+    result = build_applications_summary(3, counts)
+    assert "occasionally or briefly" not in result
+
+
+def test_build_applications_summary_zero_total_has_dedicated_message() -> None:
+    """Use a neutral message when no applications were observed."""
+    counts = {"Stable": 0, "Recurring": 0, "Occasional": 0, "Seen once": 0}
+    result = build_applications_summary(0, counts)
+    assert result == "No applications used the internet during this period."
 
 
 def test_build_applications_summary_mixed() -> None:
@@ -442,6 +463,14 @@ def test_concentration_narrative_high_concentration() -> None:
         )
     )
     assert "small" in result.lower()
+
+
+def test_concentration_narrative_single_provider_not_broad() -> None:
+    """Avoid broad-range wording when only one provider is present."""
+    result = build_providers_concentration_narrative(
+        ProviderConcentration(total_providers=1, cumulative_pcts=[100.0])
+    )
+    assert "broad" not in result.lower()
 
 
 def test_concentration_narrative_moderate_concentration() -> None:
