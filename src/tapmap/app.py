@@ -510,6 +510,15 @@ class TapMap:
         return [], "modal-body"
 
     def _register_callbacks(self) -> None:
+        self._register_keyboard_callbacks()
+        self._register_poll_callbacks()
+        self._register_menu_callbacks()
+        self._register_modal_callbacks()
+        self._register_map_callbacks()
+        self._register_status_callbacks()
+        self._register_insights_callbacks()
+
+    def _register_keyboard_callbacks(self) -> None:
         @self.app.callback(
             Output("key_action", "data"),
             Output("key_capture", "value"),
@@ -522,6 +531,7 @@ class TapMap:
                 return no_update, ""
             return action, ""
 
+    def _register_poll_callbacks(self) -> None:
         @self.app.callback(
             Output("model_snapshot", "data"),
             Output("ui_cache", "data"),
@@ -585,6 +595,7 @@ class TapMap:
 
             return no_update, no_update, no_update, no_update, no_update
 
+    def _register_menu_callbacks(self) -> None:
         @self.app.callback(
             Output("menu_open", "data"),
             Output("insights_on", "data"),
@@ -670,6 +681,7 @@ class TapMap:
                 return {"width": "calc(100% - 270px)"}
             return {"width": "100%"}
 
+    def _register_modal_callbacks(self) -> None:
         @self.app.callback(
             Output("modal_state", "data"),
             Output("modal_overlay", "className"),
@@ -829,6 +841,7 @@ class TapMap:
         def open_ports_toggle(toggle_value: Any, prefs_data: Any) -> dict[str, Any]:
             return set_show_system_pref(toggle_value=toggle_value, prefs_data=prefs_data)
 
+    def _register_map_callbacks(self) -> None:
         @self.app.callback(
             Output("map", "figure"),
             Input("ui_view", "data"),
@@ -855,35 +868,6 @@ class TapMap:
                 summaries=summaries,
                 selected_country=selected_country,
             )
-
-        @self.app.callback(
-            Output("status_bar", "children"),
-            Input("model_snapshot", "data"),
-            Input("status_cache", "data"),
-            Input("status_flash", "data"),
-        )
-        def render_status(
-            snapshot: Any,
-            status_cache_data: Any,
-            status_flash: Any,
-        ) -> str:
-            return render_status_text(
-                snapshot=snapshot,
-                status_cache_data=status_cache_data,
-                status_flash=status_flash,
-                myloc_label=self._myloc_label(),
-                to_int=self._to_int,
-            )
-
-        @self.app.callback(
-            Output("insights_panel", "children"),
-            Input("insights_cache", "data"),
-        )
-        def update_insights(data: dict[str, Any] | None) -> list[Any]:
-            if not isinstance(data, dict):
-                return []
-
-            return render_insights_panel(data)
 
         @self.app.callback(
             Output("selected_country", "data"),
@@ -920,6 +904,37 @@ class TapMap:
                 return None
 
             return country_code
+
+    def _register_status_callbacks(self) -> None:
+        @self.app.callback(
+            Output("status_bar", "children"),
+            Input("model_snapshot", "data"),
+            Input("status_cache", "data"),
+            Input("status_flash", "data"),
+        )
+        def render_status(
+            snapshot: Any,
+            status_cache_data: Any,
+            status_flash: Any,
+        ) -> str:
+            return render_status_text(
+                snapshot=snapshot,
+                status_cache_data=status_cache_data,
+                status_flash=status_flash,
+                myloc_label=self._myloc_label(),
+                to_int=self._to_int,
+            )
+
+    def _register_insights_callbacks(self) -> None:
+        @self.app.callback(
+            Output("insights_panel", "children"),
+            Input("insights_cache", "data"),
+        )
+        def update_insights(data: dict[str, Any] | None) -> list[Any]:
+            if not isinstance(data, dict):
+                return []
+
+            return render_insights_panel(data)
 
         @self.app.callback(
             Output("insights_cache", "data"),
