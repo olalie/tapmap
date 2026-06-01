@@ -482,8 +482,8 @@ class ModalTextBuilder:
             html.P(
                 [
                     "TapMap can run without geolocation, but GeoIP lookups will be disabled. ",
-                    "To enable geolocation, download the GeoLite2 databases and place them in "
-                    "this folder:",
+                    "To enable geolocation, place a supported GeoIP MMDB database pair in this "
+                    "folder:",
                 ]
             ),
             html.Div(
@@ -515,7 +515,7 @@ class ModalTextBuilder:
             *(
                 [
                     html.P(
-                        "Running in Docker. Place the GeoLite2 .mmdb files in the "
+                        "Running in Docker. Place the supported .mmdb files in the "
                         "host folder mounted to this path.",
                         className="mx-note",
                     )
@@ -523,11 +523,11 @@ class ModalTextBuilder:
                 if is_docker
                 else []
             ),
-            html.P("Required files:"),
+            html.P("Supported file pairs:"),
             html.Ul(
                 [
-                    html.Li("GeoLite2-ASN.mmdb"),
-                    html.Li("GeoLite2-City.mmdb"),
+                    html.Li("GeoLite2-ASN.mmdb and GeoLite2-City.mmdb"),
+                    html.Li("DBIP-ASN.mmdb and DBIP-City.mmdb"),
                 ]
             ),
             html.H2("Steps"),
@@ -538,13 +538,13 @@ class ModalTextBuilder:
                         if not is_docker
                         else [
                             html.Li(
-                                "Copy the GeoLite2 .mmdb files into the host "
+                                "Copy one supported GeoIP database pair into the host "
                                 "folder mapped to this path."
                             )
                         ]
                     ),
                     html.Li(
-                        "Copy the GeoLite2 .mmdb files into the folder."
+                        "Copy one supported GeoIP database pair into the folder."
                         if not is_docker
                         else "Restart or return to the app after the files are in place."
                     ),
@@ -554,16 +554,16 @@ class ModalTextBuilder:
             html.H2("Download"),
             html.P(
                 [
-                    "Download is free from MaxMind, but requires an account and "
-                    "acceptance of license terms. ",
-                    "Create a free account and download the databases here: ",
+                    "Supported providers include MaxMind GeoLite2 and DB-IP Lite. ",
+                    "MaxMind downloads require an account and acceptance of license terms. ",
+                    "MaxMind information is available here: ",
                     html.A(
                         "MaxMind GeoLite2 download page",
                         href="https://dev.maxmind.com/geoip/geolite2-free-geolocation-data",
                         target="_blank",
                         rel="noopener noreferrer",
                     ),
-                    ".",
+                    ". DB-IP Lite downloads are available from db-ip.com.",
                 ]
             ),
             html.P(

@@ -23,6 +23,13 @@ class FakeReader:
         """Mark reader as closed."""
         self.closed = True
 
+    def metadata(self):
+        """Return minimal metadata with build_epoch for file validation flows."""
+        class Meta:
+            build_epoch = 1_714_521_600
+
+        return Meta()
+
 
 def test_lookup_returns_empty_result_for_empty_ip(tmp_path: Path) -> None:
     """Verify empty IP returns an empty lookup result."""
@@ -233,6 +240,32 @@ def test_reload_reopens_readers(monkeypatch, tmp_path: Path) -> None:
     assert geo.reload() is True
     assert first_reader.closed is True
     assert geo._city_reader is not first_reader
+
+
+def test_open_readers_falls_back_to_dbip_file_names(monkeypatch, tmp_path: Path) -> None:
+    """Verify GeoInfo opens DB-IP file names when GeoLite2 files are absent."""
+    city_db = tmp_path / GeoInfo.DBIP_CITY_DB_NAME
+    asn_db = tmp_path / GeoInfo.DBIP_ASN_DB_NAME
+    city_db.write_text("", encoding="utf-8")
+    asn_db.write_text("", encoding="utf-8")
+
+    city_reader = FakeReader({})
+    asn_reader = FakeReader({})
+
+    def fake_open_database(path):
+        if path == city_db:
+            return city_reader
+        if path == asn_db:
+            return asn_reader
+        raise AssertionError(f"Unexpected database path: {path}")
+
+    monkeypatch.setattr(geoinfo.maxminddb, "open_database", fake_open_database)
+
+    geo = GeoInfo(tmp_path)
+
+    assert geo.city_enabled is True
+    assert geo.asn_enabled is True
+    assert geo.enabled is True
 
 
 def test_cache_eviction_discards_oldest_entry(monkeypatch, tmp_path: Path) -> None:

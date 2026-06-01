@@ -36,6 +36,7 @@ import psutil
 from dash import ALL, Dash, Input, Output, State, ctx, html, no_update
 
 from tapmap import __version__
+from tapmap.geodb import GeoDbService
 from tapmap.insights_persistence import (
     build_daily_report as persist_build_daily_report,
 )
@@ -134,6 +135,7 @@ class TapMap:
             self.runtime.meta.version,
             self.runtime.meta.author,
         )
+        self.geodb = GeoDbService(self.runtime.geo_data_dir)
 
         self.model = Model(
             netinfo=NetInfo(),
@@ -191,7 +193,8 @@ class TapMap:
         return "modal-overlay is-open" if is_open else "modal-overlay"
 
     def _build_layout(self, start_fig: Any) -> html.Div:
-        geo_ready = bool(getattr(self.model.geoinfo, "city_enabled", False))
+        geo_status = self.geodb.local_status()
+        geo_ready = geo_status["provider"] != "none"
 
         initial_modal_state: dict[str, Any] | None = None
         if not geo_ready:
@@ -322,16 +325,19 @@ class TapMap:
         }
 
     def _handle_geo_recheck(self, status_cache: StatusCache) -> tuple[Any, Any, Any, Any, Any]:
+        geo_status = self.geodb.recheck()
         ok = bool(getattr(self.model.geoinfo, "reload", lambda: False)())
-        city_ready = bool(getattr(self.model.geoinfo, "city_enabled", False))
+        geo_ready = geo_status["provider"] != "none" and bool(
+            getattr(self.model.geoinfo, "enabled", False)
+        )
 
-        if not ok or not city_ready:
+        if not ok or not geo_ready:
             snap = self.model.snapshot()
             if isinstance(snap, dict):
                 snap["app_info"] = self._build_app_info()
             view = self.view_builder.build_view_from_cache({})
             flash = self._flash(
-                "Still missing GeoLite2-City.mmdb. Copy it to the data folder and try again.",
+                "Still missing a supported GeoIP database pair. Copy the files to the data folder and try again.",
                 self.MIN_FLASH_S,
             )
             return snap, {}, status_cache.to_store(), view, flash
