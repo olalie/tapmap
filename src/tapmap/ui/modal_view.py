@@ -39,6 +39,7 @@ class ModalTextBuilder:
             "menu_unmapped": "Show unmapped public services",
             "menu_lan_local": "Show established LAN/LOCAL services",
             "menu_open_ports": "Show open ports",
+            "menu_geodb_management": "GeoIP Database Management",
             "menu_cache_terminal": "Show cache in terminal",
             "menu_clear_cache": "Clear cache",
             "menu_help": "Help",
@@ -548,7 +549,7 @@ class ModalTextBuilder:
                         if not is_docker
                         else "Restart or return to the app after the files are in place."
                     ),
-                    html.Li("Click Recheck GeoIP databases in the app."),
+                    html.Li("Click Recheck databases."),
                 ]
             ),
             html.H2("Download"),
@@ -569,6 +570,82 @@ class ModalTextBuilder:
             html.P(
                 "Update recommendation: download updated databases regularly (for example monthly)."
             ),
+        ]
+
+    def geodb_management(
+        self,
+        *,
+        status: dict[str, Any],
+        geo_data_dir: str,
+        is_docker: bool,
+    ) -> list[Any]:
+        """Render the GeoDB management modal for local status and explicit recheck."""
+        provider = safe_str(status.get("provider")) or "none"
+        provider_label = {
+            "maxmind": "MaxMind GeoLite2",
+            "dbip": "DB-IP Lite",
+            "none": "None",
+        }.get(provider, provider)
+
+        update_available = safe_str(status.get("update_available")) or "unknown"
+        message = safe_str(status.get("message")) or ""
+        error = safe_str(status.get("error")) or ""
+
+        if error == "remote_check_failed":
+            update_status = "Unable to check"
+        elif update_available == "yes":
+            update_status = "Update available"
+        elif update_available == "no":
+            update_status = "Up to date"
+        else:
+            update_status = "Not checked"
+
+        details = [
+            html.Li(f"Active provider: {provider_label}"),
+            html.Li(f"City database installed: {bool(status.get('city_installed', False))}"),
+            html.Li(f"ASN database installed: {bool(status.get('asn_installed', False))}"),
+            html.Li(f"City database valid: {bool(status.get('city_valid', False))}"),
+            html.Li(f"ASN database valid: {bool(status.get('asn_valid', False))}"),
+            html.Li(
+                "Local version/date: "
+                f"{safe_str(status.get('local_display_date')) or safe_str(status.get('local_version')) or '-'}"
+            ),
+            html.Li(f"Update status: {update_status}"),
+        ]
+
+        if message:
+            details.append(html.Li(f"Status message: {message}"))
+        if error:
+            details.append(html.Li(f"Error: {error}"))
+
+        return [
+            self._h1("GeoIP Database Management"),
+            html.P("View local GeoIP database status and run an explicit recheck."),
+            html.Div(
+                className="mx-path-row",
+                children=[
+                    html.Pre(geo_data_dir, className="mx-path-box"),
+                    html.Button(
+                        "Recheck databases",
+                        id="btn_geodb_recheck",
+                        n_clicks=0,
+                        className="mx-btn mx-btn--primary mx-btn--nowrap",
+                        type="button",
+                    ),
+                ],
+            ),
+            *(
+                [
+                    html.P(
+                        "Running in Docker. Ensure the supported .mmdb files are in the "
+                        "host folder mounted to this path.",
+                        className="mx-note",
+                    )
+                ]
+                if is_docker
+                else []
+            ),
+            html.Ul(details),
         ]
 
     # ---------- Click helpers ----------

@@ -14,7 +14,7 @@ ACTION_CLEAR_CACHE = "clear_cache"
 ACTION_CACHE_TERMINAL = "cache_terminal"
 ACTION_NORMAL_POLL = "normal_poll"
 
-RECHECK_TRIGGERS = {"menu_recheck_geoip", "btn_check_databases"}
+RECHECK_TRIGGERS = {"btn_check_databases", "btn_geodb_recheck"}
 
 
 @dataclass(frozen=True)
@@ -48,8 +48,6 @@ def decide_poll_action(*, trigger: Any, key_action: Any) -> PollDecision:
 
     if trigger == "key_action":
         action = _extract_key_action(key_action)
-        if action == "menu_recheck_geoip":
-            return PollDecision(action=ACTION_GEO_RECHECK)
         if action == "menu_clear_cache":
             return PollDecision(action=ACTION_CLEAR_CACHE)
         if action == "menu_cache_terminal":

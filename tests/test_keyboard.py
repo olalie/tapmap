@@ -59,3 +59,22 @@ def test_build_key_action_maps_escape(monkeypatch) -> None:
         "action": "escape",
         "t": "2026-01-01T00:00:00",
     }
+
+
+def test_build_key_action_maps_geodb_management(monkeypatch) -> None:
+    """Map G token to GeoDB management action."""
+    monkeypatch.setattr(keyboard, "datetime", DummyDatetime)
+
+    result = keyboard.build_key_action("__g__")
+
+    assert result == {
+        "action": "menu_geodb_management",
+        "t": "2026-01-01T00:00:00",
+    }
+
+
+def test_build_key_action_no_longer_maps_legacy_geo_recheck(monkeypatch) -> None:
+    """Return None for removed R token mapping."""
+    monkeypatch.setattr(keyboard, "datetime", DummyDatetime)
+
+    assert keyboard.build_key_action("__r__") is None

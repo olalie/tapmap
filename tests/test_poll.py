@@ -3,10 +3,10 @@
 from tapmap.state import poll
 
 
-def test_recheck_trigger_from_menu() -> None:
-    """Return geo_recheck when recheck menu is clicked."""
+def test_recheck_trigger_from_geodb_modal_button() -> None:
+    """Return geo_recheck when the GeoDB modal Recheck button is clicked."""
     decision = poll.decide_poll_action(
-        trigger="menu_recheck_geoip",
+        trigger="btn_geodb_recheck",
         key_action=None,
     )
 
@@ -43,14 +43,14 @@ def test_cache_terminal_from_menu() -> None:
     assert decision.action == poll.ACTION_CACHE_TERMINAL
 
 
-def test_recheck_from_keyboard_action() -> None:
-    """Return geo_recheck when keyboard action requests GeoIP recheck."""
+def test_geodb_management_from_keyboard_action_is_not_a_poll_command() -> None:
+    """Return normal_poll when keyboard action opens GeoDB management."""
     decision = poll.decide_poll_action(
         trigger="key_action",
-        key_action={"action": "menu_recheck_geoip"},
+        key_action={"action": "menu_geodb_management"},
     )
 
-    assert decision.action == poll.ACTION_GEO_RECHECK
+    assert decision.action == poll.ACTION_NORMAL_POLL
 
 
 def test_clear_cache_from_keyboard_action() -> None:

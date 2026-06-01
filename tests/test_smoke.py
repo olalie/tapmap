@@ -1,6 +1,7 @@
 """Smoke tests for TapMap application bootstrap."""
 
 from pathlib import Path
+from typing import Any
 
 import tapmap
 from tapmap import app as app_module
@@ -52,6 +53,19 @@ def _modal_state_store_data(app: TapMap):
     raise AssertionError("modal_state store not found")
 
 
+def _component_exists(node: Any, component_id: str) -> bool:
+    """Return True when a component id exists in a Dash component tree."""
+    if getattr(node, "id", None) == component_id:
+        return True
+
+    children = getattr(node, "children", None)
+    if isinstance(children, (list, tuple)):
+        return any(_component_exists(child, component_id) for child in children)
+    if children is None:
+        return False
+    return _component_exists(children, component_id)
+
+
 def test_tapmap_module_imports() -> None:
     """Import the application module."""
     assert tapmap is not None
@@ -74,6 +88,18 @@ def test_tapmap_startup_opens_missing_geo_modal_when_no_provider(tmp_path: Path)
         modal_state = _modal_state_store_data(app)
         assert modal_state is not None
         assert modal_state["screen"] == app.SCR_MISSING_GEO_DB
+    finally:
+        app.close()
+
+
+def test_tapmap_layout_has_geodb_management_menu_entry_not_legacy_recheck(
+    tmp_path: Path,
+) -> None:
+    """Menu includes GeoDB management and no longer includes legacy recheck command."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        assert _component_exists(app.app.layout, "menu_geodb_management") is True
+        assert _component_exists(app.app.layout, "menu_recheck_geoip") is False
     finally:
         app.close()
 

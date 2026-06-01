@@ -41,7 +41,10 @@ def render_help() -> list[Any]:
                                     "Copy GeoLite2-City.mmdb and GeoLite2-ASN.mmdb into that "
                                     "folder."
                                 ),
-                                html.Li("Click Recheck GeoIP databases."),
+                                html.Li(
+                                    "Open GeoIP Database Management (G) and click Recheck "
+                                    "databases."
+                                ),
                             ]
                         ),
                     ]
@@ -283,7 +286,11 @@ def render_help() -> list[Any]:
                         ),
                         html.Tr([html.Td("C"), html.Td("Clear cache"), html.Td("Status")]),
                         html.Tr(
-                            [html.Td("R"), html.Td("Recheck GeoIP databases"), html.Td("Status")]
+                            [
+                                html.Td("G"),
+                                html.Td("Open GeoIP Database Management"),
+                                html.Td("Window"),
+                            ]
                         ),
                         html.Tr([html.Td("H"), html.Td("Help"), html.Td("Window")]),
                         html.Tr([html.Td("A"), html.Td("About"), html.Td("Window")]),
@@ -535,8 +542,9 @@ def render_help() -> list[Any]:
         html.Ul([html.Li("GeoLite2-City.mmdb"), html.Li("GeoLite2-ASN.mmdb")]),
         html.P("If the databases are missing, a setup window appears at startup."),
         html.P(
-            "Open the data folder from that window or from About. Copy the files into it and use "
-            "Recheck GeoIP databases to enable geolocation without restarting."
+            "Open the data folder from the startup window or from About. Copy the files into it "
+            "then open GeoIP Database Management (G) and click Recheck databases to enable "
+            "geolocation without restarting."
         ),
         html.P(
             [

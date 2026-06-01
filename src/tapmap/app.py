@@ -92,6 +92,7 @@ class TapMap:
             "menu_unmapped",
             "menu_lan_local",
             "menu_open_ports",
+            "menu_geodb_management",
             "menu_help",
             "menu_about",
             "menu_daily_report",
@@ -99,7 +100,7 @@ class TapMap:
         }
     )
     MENU_COMMANDS: ClassVar[frozenset[str]] = frozenset(
-        {"menu_clear_cache", "menu_cache_terminal", "menu_recheck_geoip"}
+        {"menu_clear_cache", "menu_cache_terminal"}
     )
 
     DASH_DEBUG = False
@@ -109,6 +110,7 @@ class TapMap:
     MIN_FLASH_S = 3.0
 
     SCR_MISSING_GEO_DB = "missing_geo_db"
+    SCR_GEODB_MANAGEMENT = "menu_geodb_management"
 
     def __init__(self, runtime_ctx: RuntimeContext) -> None:
         self.runtime = runtime_ctx
@@ -433,6 +435,7 @@ class TapMap:
             "menu_unmapped",
             "menu_lan_local",
             "menu_open_ports",
+            self.SCR_GEODB_MANAGEMENT,
             "menu_help",
             "menu_about",
             self.SCR_MISSING_GEO_DB,
@@ -473,6 +476,16 @@ class TapMap:
             children = self._as_children(
                 self.modal_text.missing_geo_db(
                     geo_path,
+                    is_docker=self.runtime.is_docker,
+                )
+            )
+            return children, self._class_for_modal_screen(screen)
+
+        if screen == self.SCR_GEODB_MANAGEMENT:
+            children = self._as_children(
+                self.modal_text.geodb_management(
+                    status=self.geodb.local_status(),
+                    geo_data_dir=geo_path,
                     is_docker=self.runtime.is_docker,
                 )
             )
@@ -548,8 +561,8 @@ class TapMap:
             Input("key_action", "data"),
             Input("menu_clear_cache", "n_clicks"),
             Input("menu_cache_terminal", "n_clicks"),
-            Input("menu_recheck_geoip", "n_clicks"),
             Input("btn_check_databases", "n_clicks", allow_optional=True),
+            Input("btn_geodb_recheck", "n_clicks", allow_optional=True),
             State("ui_cache", "data"),
             State("status_cache", "data"),
             State("status_flash", "data"),
@@ -560,8 +573,8 @@ class TapMap:
             key_action: Any,
             _clear_clicks: int,
             _cache_terminal_clicks: int,
-            _recheck_clicks: int,
             _check_db_clicks: int | None,
+            _geodb_recheck_clicks: int | None,
             ui_cache_data: Any,
             status_cache_data: Any,
             status_flash_data: Any,
@@ -614,10 +627,10 @@ class TapMap:
             Input("menu_unmapped", "n_clicks"),
             Input("menu_lan_local", "n_clicks"),
             Input("menu_cache_terminal", "n_clicks"),
+            Input("menu_geodb_management", "n_clicks"),
             Input("menu_about", "n_clicks"),
             Input("menu_help", "n_clicks"),
             Input("menu_clear_cache", "n_clicks"),
-            Input("menu_recheck_geoip", "n_clicks"),
             State("menu_open", "data"),
             State("insights_on", "data"),
             prevent_initial_call=True,
@@ -632,10 +645,10 @@ class TapMap:
             _unmapped: int,
             _lan_local: int,
             _cache_terminal: int,
+            _geodb_management: int,
             _info: int,
             _help: int,
             _clear: int,
-            _recheck: int,
             menu_open: Any,
             insights_on: Any,
         ) -> Any:
@@ -697,10 +710,12 @@ class TapMap:
             Input("menu_open_ports", "n_clicks"),
             Input("menu_unmapped", "n_clicks"),
             Input("menu_lan_local", "n_clicks"),
+            Input("menu_geodb_management", "n_clicks"),
             Input("menu_about", "n_clicks"),
             Input("menu_help", "n_clicks"),
             Input("btn_close", "n_clicks"),
             Input("btn_check_databases", "n_clicks", allow_optional=True),
+            Input("btn_geodb_recheck", "n_clicks", allow_optional=True),
             Input("toggle_open_ports_system", "value", allow_optional=True),
             Input("map", "clickData"),
             Input("btn_open_data", "n_clicks", allow_optional=True),
@@ -718,10 +733,12 @@ class TapMap:
             _open_ports_clicks: int,
             _unmapped_clicks: int,
             _lan_local_clicks: int,
+            _geodb_management_clicks: int,
             _about_clicks: int,
             _help_clicks: int,
             _close_clicks: int,
             _check_db_clicks: int | None,
+            _geodb_recheck_clicks: int | None,
             toggle_system_value: Any,
             click_data: Any,
             open_data_clicks: int | None,
@@ -744,10 +761,16 @@ class TapMap:
                 overlay_class = self._modal_overlay_class(overlay_open)
                 return next_state, overlay_class, children, body_class
 
-            # Close About immediately when the GeoIP recheck button is pressed.
+            # The startup missing-db modal closes when its Recheck button is pressed.
             # The actual recheck work is executed by poll_model.
             if trigger == "btn_check_databases":
                 return _apply_modal_state(None)
+
+            # Keep GeoDB management open when rechecking from that screen.
+            if trigger == "btn_geodb_recheck":
+                return _apply_modal_state(
+                    {"screen": self.SCR_GEODB_MANAGEMENT, "t": datetime.now().isoformat(), "payload": {}}
+                )
 
             # Internal drilldown navigation within the Daily Activity Report.
             if (

@@ -144,13 +144,6 @@ def render_about(
                         )
                     ]
                 ),
-                html.Button(
-                    "Recheck GeoIP databases",
-                    id="btn_check_databases",
-                    n_clicks=0,
-                    className="mx-btn mx-btn--primary mx-btn--nowrap",
-                    type="button",
-                ),
             ],
         ),
         *(
