@@ -30,16 +30,9 @@ def _decide_close(
     *,
     trigger: Any,
     is_open: bool,
-    current_screen: str | None,
     action: Any,
-    is_geo_enabled: bool,
-    missing_geo_screen: str,
 ) -> dict[str, Any] | None:
     """Return None to close the modal, or no decision if not applicable."""
-    # Auto close the missing Geo DB modal once GeoIP is enabled.
-    if is_open and current_screen == missing_geo_screen and is_geo_enabled:
-        return None
-
     if trigger == "btn_close" and is_open:
         return None
 
@@ -117,8 +110,6 @@ def decide_modal_route(
     menu_screens: set[str],
     open_ports_prefs: dict[str, Any] | None,
     click_data: Any,
-    is_geo_enabled: bool,
-    missing_geo_screen: str,
     now_iso: str,
 ) -> ModalRoute:
     """Decide modal routing in a single priority ordered function."""
@@ -126,10 +117,7 @@ def decide_modal_route(
     close_result = _decide_close(
         trigger=trigger,
         is_open=is_open,
-        current_screen=current_screen,
         action=action,
-        is_geo_enabled=is_geo_enabled,
-        missing_geo_screen=missing_geo_screen,
     )
     if close_result is None:
         return ModalRoute(action="apply", modal_state=None)

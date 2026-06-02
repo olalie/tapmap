@@ -109,7 +109,6 @@ class TapMap:
 
     MIN_FLASH_S = 3.0
 
-    SCR_MISSING_GEO_DB = "missing_geo_db"
     SCR_GEODB_MANAGEMENT = "menu_geodb_management"
 
     def __init__(self, runtime_ctx: RuntimeContext) -> None:
@@ -143,11 +142,6 @@ class TapMap:
             netinfo=NetInfo(),
             geoinfo=GeoInfo(data_dir=self.runtime.geo_data_dir),
         )
-
-        self.logger.info(
-            "GeoInfo enabled at startup: %s", getattr(self.model.geoinfo, "enabled", False)
-        )
-        self.logger.info("geo_data_dir: %s", self.runtime.geo_data_dir)
 
         self._public_ip_cached: str | None = None
         self._auto_geo_cached: dict[str, Any] = {}
@@ -197,11 +191,17 @@ class TapMap:
     def _build_layout(self, start_fig: Any) -> html.Div:
         geo_status = self.geodb.local_status()
         geo_ready = geo_status["provider"] != "none"
+        self.logger.info(
+            "Startup missing-db gate: provider=%s geo_ready=%s open_missing_modal=%s",
+            geo_status.get("provider"),
+            geo_ready,
+            not geo_ready,
+        )
 
         initial_modal_state: dict[str, Any] | None = None
         if not geo_ready:
             initial_modal_state = {
-                "screen": self.SCR_MISSING_GEO_DB,
+                "screen": self.SCR_GEODB_MANAGEMENT,
                 "t": datetime.now().isoformat(),
                 "payload": {},
             }
@@ -213,12 +213,13 @@ class TapMap:
         if initial_modal_state is not None:
             geo_path = str(self.runtime.geo_data_dir)
             initial_body_children = self._as_children(
-                self.modal_text.missing_geo_db(
-                    geo_path,
+                self.modal_text.geodb_management(
+                    status=geo_status,
+                    geo_data_dir=geo_path,
                     is_docker=self.runtime.is_docker,
                 )
             )
-            initial_body_class = self._class_for_modal_screen(self.SCR_MISSING_GEO_DB)
+            initial_body_class = self._class_for_modal_screen(self.SCR_GEODB_MANAGEMENT)
 
         return render_layout(
             app_name=self.runtime.meta.name,
@@ -438,7 +439,6 @@ class TapMap:
             self.SCR_GEODB_MANAGEMENT,
             "menu_help",
             "menu_about",
-            self.SCR_MISSING_GEO_DB,
         }:
             return "modal-body mx-sticky-title"
         return "modal-body"
@@ -446,15 +446,6 @@ class TapMap:
     @staticmethod
     def _toggle_on(value: Any) -> bool:
         return isinstance(value, list) and "on" in value
-
-    @staticmethod
-    def _is_geo_enabled(snapshot: Any) -> bool:
-        if not isinstance(snapshot, dict):
-            return False
-        app_info = snapshot.get("app_info")
-        if not isinstance(app_info, dict):
-            return False
-        return bool(app_info.get("geoinfo_enabled"))
 
     def _render_modal(
         self,
@@ -471,15 +462,6 @@ class TapMap:
 
         if not isinstance(screen, str) or not screen:
             return [], "modal-body"
-
-        if screen == self.SCR_MISSING_GEO_DB:
-            children = self._as_children(
-                self.modal_text.missing_geo_db(
-                    geo_path,
-                    is_docker=self.runtime.is_docker,
-                )
-            )
-            return children, self._class_for_modal_screen(screen)
 
         if screen == self.SCR_GEODB_MANAGEMENT:
             children = self._as_children(
@@ -562,7 +544,6 @@ class TapMap:
             Input("menu_clear_cache", "n_clicks"),
             Input("menu_cache_terminal", "n_clicks"),
             Input("btn_check_databases", "n_clicks", allow_optional=True),
-            Input("btn_geodb_recheck", "n_clicks", allow_optional=True),
             State("ui_cache", "data"),
             State("status_cache", "data"),
             State("status_flash", "data"),
@@ -574,7 +555,6 @@ class TapMap:
             _clear_clicks: int,
             _cache_terminal_clicks: int,
             _check_db_clicks: int | None,
-            _geodb_recheck_clicks: int | None,
             ui_cache_data: Any,
             status_cache_data: Any,
             status_flash_data: Any,
@@ -715,7 +695,6 @@ class TapMap:
             Input("menu_help", "n_clicks"),
             Input("btn_close", "n_clicks"),
             Input("btn_check_databases", "n_clicks", allow_optional=True),
-            Input("btn_geodb_recheck", "n_clicks", allow_optional=True),
             Input("toggle_open_ports_system", "value", allow_optional=True),
             Input("map", "clickData"),
             Input("btn_open_data", "n_clicks", allow_optional=True),
@@ -738,7 +717,6 @@ class TapMap:
             _help_clicks: int,
             _close_clicks: int,
             _check_db_clicks: int | None,
-            _geodb_recheck_clicks: int | None,
             toggle_system_value: Any,
             click_data: Any,
             open_data_clicks: int | None,
@@ -761,15 +739,20 @@ class TapMap:
                 overlay_class = self._modal_overlay_class(overlay_open)
                 return next_state, overlay_class, children, body_class
 
-            # The startup missing-db modal closes when its Recheck button is pressed.
-            # The actual recheck work is executed by poll_model.
-            if trigger == "btn_check_databases":
-                return _apply_modal_state(None)
+            current_state = modal_state_data if isinstance(modal_state_data, dict) else None
+            current_screen = (
+                current_state.get("screen") if isinstance(current_state, dict) else None
+            )
 
-            # Keep GeoDB management open when rechecking from that screen.
-            if trigger == "btn_geodb_recheck":
+            # Recheck is executed by poll_model via the shared button id.
+            # Keep GeoDB management open for in-modal recheck.
+            if trigger == "btn_check_databases":
                 return _apply_modal_state(
-                    {"screen": self.SCR_GEODB_MANAGEMENT, "t": datetime.now().isoformat(), "payload": {}}
+                    {
+                        "screen": self.SCR_GEODB_MANAGEMENT,
+                        "t": datetime.now().isoformat(),
+                        "payload": {},
+                    }
                 )
 
             # Internal drilldown navigation within the Daily Activity Report.
@@ -792,11 +775,7 @@ class TapMap:
                 )
 
             # Normalize current modal state.
-            current_state = modal_state_data if isinstance(modal_state_data, dict) else None
             is_open = current_state is not None
-            current_screen = (
-                current_state.get("screen") if isinstance(current_state, dict) else None
-            )
 
             # Normalize keyboard action payload.
             action = None
@@ -817,8 +796,6 @@ class TapMap:
                 menu_screens=self.MENU_SCREENS,
                 open_ports_prefs=open_ports_prefs,
                 click_data=click_data,
-                is_geo_enabled=self._is_geo_enabled(snapshot),
-                missing_geo_screen=self.SCR_MISSING_GEO_DB,
                 now_iso=now_iso,
             )
 

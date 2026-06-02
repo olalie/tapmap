@@ -81,13 +81,13 @@ def test_tapmap_app_constructs(tmp_path: Path) -> None:
         app.close()
 
 
-def test_tapmap_startup_opens_missing_geo_modal_when_no_provider(tmp_path: Path) -> None:
-    """Startup opens the existing missing-GeoIP modal when no provider is available."""
+def test_tapmap_startup_opens_geodb_management_modal_when_no_provider(tmp_path: Path) -> None:
+    """Startup opens GeoDB management when no provider is available."""
     app = TapMap(_runtime_ctx(tmp_path))
     try:
         modal_state = _modal_state_store_data(app)
         assert modal_state is not None
-        assert modal_state["screen"] == app.SCR_MISSING_GEO_DB
+        assert modal_state["screen"] == app.SCR_GEODB_MANAGEMENT
     finally:
         app.close()
 

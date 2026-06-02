@@ -470,6 +470,137 @@ summary.mx-acc-header:hover {
   border-bottom: 1px solid rgba(0, 170, 68, 0.8);
 }
 
+/* GeoDB provider cards */
+
+.mx-geodb-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 12px 0 20px 0;
+}
+
+.mx-geodb-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--mx-border);
+  border-radius: var(--mx-radius);
+  background: var(--mx-bg-2);
+}
+
+.mx-geodb-card__header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.mx-geodb-card__header h2 {
+  margin: 0;
+  font-size: 1rem;
+  text-shadow: 0 0 10px rgba(0, 255, 102, 0.12);
+}
+
+.mx-pill {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--mx-green);
+  opacity: 0.95;
+  text-shadow: 0 0 10px rgba(0, 255, 102, 0.12);
+  transform: translateY(-1px);
+  white-space: nowrap;
+}
+
+.mx-pill--spacer {
+  visibility: hidden;
+}
+
+.mx-form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 4px 0;
+}
+
+.mx-input {
+  background: var(--mx-bg);
+  border: 1px solid var(--mx-border);
+  border-radius: var(--mx-radius);
+  color: var(--mx-green);
+  font-family: var(--mx-font);
+  font-size: 13px;
+  padding: 5px 8px;
+  width: 100%;
+  outline: none;
+}
+
+.mx-input--narrow {
+  max-width: 200px;
+}
+
+.mx-input:focus {
+  border-color: var(--mx-border-strong);
+  box-shadow: var(--mx-glow-hover);
+}
+
+.mx-link {
+  color: var(--mx-green);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.mx-link:hover {
+  color: #fff;
+}
+
+.mx-status {
+  margin-top: auto;
+  padding-top: 8px;
+  min-height: 1.25rem;
+  border-top: 1px solid rgba(0, 170, 68, 0.3);
+  font-size: 0.8rem;
+  color: rgba(0, 255, 102, 0.65);
+}
+
+.mx-status__label {
+  opacity: 0.7;
+}
+
+.mx-status__value {
+  color: var(--mx-green);
+}
+
+.mx-manual-install {
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(0, 170, 68, 0.3);
+}
+
+.mx-manual-install p {
+  margin: 0 0 6px 0;
+}
+
+.mx-manual-install ol {
+  margin: 0 0 10px 0;
+  padding-left: 1.4em;
+  color: rgba(0, 255, 102, 0.8);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.mx-manual-btn {
+  min-width: 152px;
+  text-align: center;
+}
+
 /* Path row */
 
 .mx-path-row {

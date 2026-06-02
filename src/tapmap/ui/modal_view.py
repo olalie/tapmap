@@ -476,102 +476,6 @@ class ModalTextBuilder:
 
         return [header, table]
 
-    def missing_geo_db(self, geo_data_dir: str, *, is_docker: bool) -> list[Any]:
-        """Render the Missing GeoIP databases view."""
-        return [
-            self._h1("Missing GeoIP databases"),
-            html.P(
-                [
-                    "TapMap can run without geolocation, but GeoIP lookups will be disabled. ",
-                    "To enable geolocation, place a supported GeoIP MMDB database pair in this "
-                    "folder:",
-                ]
-            ),
-            html.Div(
-                className="mx-path-row",
-                children=[
-                    html.Pre(geo_data_dir, className="mx-path-box"),
-                    *(
-                        []
-                        if is_docker
-                        else [
-                            html.Button(
-                                "Open data folder",
-                                id="btn_open_data",
-                                n_clicks=0,
-                                className="mx-btn mx-btn--primary mx-btn--nowrap",
-                                type="button",
-                            )
-                        ]
-                    ),
-                    html.Button(
-                        "Recheck databases",
-                        id="btn_check_databases",
-                        n_clicks=0,
-                        className="mx-btn mx-btn--primary mx-btn--nowrap",
-                        type="button",
-                    ),
-                ],
-            ),
-            *(
-                [
-                    html.P(
-                        "Running in Docker. Place the supported .mmdb files in the "
-                        "host folder mounted to this path.",
-                        className="mx-note",
-                    )
-                ]
-                if is_docker
-                else []
-            ),
-            html.P("Supported file pairs:"),
-            html.Ul(
-                [
-                    html.Li("GeoLite2-ASN.mmdb and GeoLite2-City.mmdb"),
-                    html.Li("DBIP-ASN.mmdb and DBIP-City.mmdb"),
-                ]
-            ),
-            html.H2("Steps"),
-            html.Ol(
-                [
-                    *(
-                        [html.Li("Open the data folder.")]
-                        if not is_docker
-                        else [
-                            html.Li(
-                                "Copy one supported GeoIP database pair into the host "
-                                "folder mapped to this path."
-                            )
-                        ]
-                    ),
-                    html.Li(
-                        "Copy one supported GeoIP database pair into the folder."
-                        if not is_docker
-                        else "Restart or return to the app after the files are in place."
-                    ),
-                    html.Li("Click Recheck databases."),
-                ]
-            ),
-            html.H2("Download"),
-            html.P(
-                [
-                    "Supported providers include MaxMind GeoLite2 and DB-IP Lite. ",
-                    "MaxMind downloads require an account and acceptance of license terms. ",
-                    "MaxMind information is available here: ",
-                    html.A(
-                        "MaxMind GeoLite2 download page",
-                        href="https://dev.maxmind.com/geoip/geolite2-free-geolocation-data",
-                        target="_blank",
-                        rel="noopener noreferrer",
-                    ),
-                    ". DB-IP Lite downloads are available from db-ip.com.",
-                ]
-            ),
-            html.P(
-                "Update recommendation: download updated databases regularly (for example monthly)."
-            ),
-        ]
-
     def geodb_management(
         self,
         *,
@@ -618,16 +522,165 @@ class ModalTextBuilder:
         if error:
             details.append(html.Li(f"Error: {error}"))
 
+        no_provider = provider == "none"
+
+        if no_provider:
+            return [
+                self._h1("GeoIP Database Management"),
+                html.P(
+                    "GeoIP databases are required for meaningful functionality. Install a supported GeoIP database pair:"
+                ),
+                html.Div(
+                    className="mx-geodb-choices",
+                    children=[
+                        html.Div(
+                            className="mx-geodb-card",
+                            children=[
+                                html.Div(
+                                    [
+                                        html.H2("MaxMind GeoLite2"),
+                                        html.Span("Recommended", className="mx-pill"),
+                                    ],
+                                    className="mx-geodb-card__header",
+                                ),
+                                html.P("Better coverage and accuracy."),
+                                html.P("Requires a free MaxMind account."),
+                                html.A(
+                                    "Create free MaxMind account",
+                                    href="#",
+                                    className="mx-link",
+                                ),
+                                html.A(
+                                    "Create MaxMind credentials",
+                                    href="#",
+                                    className="mx-link",
+                                ),
+                                html.Div(
+                                    className="mx-form-row",
+                                    children=[
+                                        html.Label("Account ID"),
+                                        dcc.Input(
+                                            type="text",
+                                            value="",
+                                            placeholder="Account ID",
+                                            className="mx-input mx-input--narrow",
+                                        ),
+                                        html.Label("License Key"),
+                                        dcc.Input(
+                                            type="text",
+                                            value="",
+                                            placeholder="License Key",
+                                            className="mx-input mx-input--narrow",
+                                        ),
+                                    ],
+                                ),
+                                html.P(
+                                    "Stored securely in your computer's keyring."
+                                ),
+                                html.Button(
+                                    "Install MaxMind",
+                                    className="mx-btn mx-btn--primary mx-btn--nowrap",
+                                    type="button",
+                                ),
+                                html.Div(className="mx-status"),
+                            ],
+                        ),
+                        html.Div(
+                            className="mx-geodb-card",
+                            children=[
+                                html.Div(
+                                    [
+                                        html.H2("DB-IP Lite"),
+                                        html.Span("", className="mx-pill mx-pill--spacer"),
+                                    ],
+                                    className="mx-geodb-card__header",
+                                ),
+                                html.P("Simpler setup."),
+                                html.P("No account required."),
+                                html.P("Lower coverage and accuracy."),
+                                html.Button(
+                                    "Install DB-IP",
+                                    className="mx-btn mx-btn--primary mx-btn--nowrap",
+                                    type="button",
+                                ),
+                                html.Div(className="mx-status"),
+                            ],
+                        ),
+                    ],
+                ),
+                html.Div(
+                    className="mx-manual-install",
+                    children=[
+                        html.P("Manual installation is also supported:"),
+                        html.Ol([
+                            html.Li("Open the data folder."),
+                            html.Li("Copy the City and ASN MMDB database files into the folder."),
+                            html.Li("Recheck databases to detect them."),
+                        ]),
+                        html.Div(
+                            className="mx-path-row",
+                            children=[
+                                html.Pre(geo_data_dir, className="mx-path-box"),
+                                *(
+                                    []
+                                    if is_docker
+                                    else [
+                                        html.Button(
+                                            "Open data folder",
+                                            className="mx-btn mx-btn--primary mx-btn--nowrap mx-manual-btn",
+                                            type="button",
+                                        ),
+                                    ]
+                                ),
+                                html.Button(
+                                    "Recheck databases",
+                                    className="mx-btn mx-btn--primary mx-btn--nowrap mx-manual-btn",
+                                    type="button",
+                                ),
+                            ],
+                        ),
+                        *(
+                            [
+                                html.P(
+                                    "Running in Docker. Ensure the supported .mmdb files are in the host folder mounted to this path.",
+                                    className="mx-note",
+                                )
+                            ]
+                            if is_docker
+                            else []
+                        ),
+                    ],
+                ),
+            ]
+
         return [
             self._h1("GeoIP Database Management"),
-            html.P("View local GeoIP database status and run an explicit recheck."),
+            html.P(
+                "No supported GeoIP database pair is available. Geolocation is disabled until a "
+                "supported pair is copied to this folder."
+                if no_provider
+                else "View local GeoIP database status and run an explicit recheck."
+            ),
             html.Div(
                 className="mx-path-row",
                 children=[
                     html.Pre(geo_data_dir, className="mx-path-box"),
+                    *(
+                        []
+                        if is_docker
+                        else [
+                            html.Button(
+                                "Open data folder",
+                                id="btn_open_data",
+                                n_clicks=0,
+                                className="mx-btn mx-btn--primary mx-btn--nowrap",
+                                type="button",
+                            )
+                        ]
+                    ),
                     html.Button(
                         "Recheck databases",
-                        id="btn_geodb_recheck",
+                        id="btn_check_databases",
                         n_clicks=0,
                         className="mx-btn mx-btn--primary mx-btn--nowrap",
                         type="button",
@@ -644,6 +697,13 @@ class ModalTextBuilder:
                 ]
                 if is_docker
                 else []
+            ),
+            html.P("Supported file pairs:"),
+            html.Ul(
+                [
+                    html.Li("GeoLite2-ASN.mmdb and GeoLite2-City.mmdb"),
+                    html.Li("DBIP-ASN.mmdb and DBIP-City.mmdb"),
+                ]
             ),
             html.Ul(details),
         ]

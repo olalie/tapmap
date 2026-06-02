@@ -14,7 +14,7 @@ ACTION_CLEAR_CACHE = "clear_cache"
 ACTION_CACHE_TERMINAL = "cache_terminal"
 ACTION_NORMAL_POLL = "normal_poll"
 
-RECHECK_TRIGGERS = {"btn_check_databases", "btn_geodb_recheck"}
+RECHECK_TRIGGERS = {"btn_check_databases"}
 
 
 @dataclass(frozen=True)

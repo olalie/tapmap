@@ -9,29 +9,12 @@ from tapmap.state.modal import (
 )
 
 
-def test_decide_close_auto_closes_missing_geo_modal_when_geo_becomes_enabled() -> None:
-    """Close the missing Geo modal when GeoIP becomes enabled."""
-    result = _decide_close(
-        trigger="anything",
-        is_open=True,
-        current_screen="missing_geo",
-        action=None,
-        is_geo_enabled=True,
-        missing_geo_screen="missing_geo",
-    )
-
-    assert result is None
-
-
 def test_decide_close_closes_modal_from_close_button() -> None:
     """Close the modal when the close button is pressed."""
     result = _decide_close(
         trigger="btn_close",
         is_open=True,
-        current_screen="menu_about",
         action=None,
-        is_geo_enabled=False,
-        missing_geo_screen="missing_geo",
     )
 
     assert result is None
@@ -42,10 +25,7 @@ def test_decide_close_closes_modal_from_escape_key() -> None:
     result = _decide_close(
         trigger="key_action",
         is_open=True,
-        current_screen="menu_about",
         action="escape",
-        is_geo_enabled=False,
-        missing_geo_screen="missing_geo",
     )
 
     assert result is None
@@ -56,10 +36,7 @@ def test_decide_close_returns_sentinel_when_no_close_rule_matches() -> None:
     result = _decide_close(
         trigger="something_else",
         is_open=True,
-        current_screen="menu_about",
         action=None,
-        is_geo_enabled=False,
-        missing_geo_screen="missing_geo",
     )
 
     assert result is ...
@@ -211,8 +188,6 @@ def test_decide_modal_route_applies_close_when_close_rule_matches() -> None:
         menu_screens={"menu_about", "menu_open_ports"},
         open_ports_prefs=None,
         click_data=None,
-        is_geo_enabled=False,
-        missing_geo_screen="missing_geo",
         now_iso="2026-03-10T10:00:00",
     )
 
@@ -230,8 +205,6 @@ def test_decide_modal_route_applies_screen_change_when_menu_screen_is_selected()
         menu_screens={"menu_about", "menu_open_ports"},
         open_ports_prefs=None,
         click_data=None,
-        is_geo_enabled=False,
-        missing_geo_screen="missing_geo",
         now_iso="2026-03-10T10:00:00",
     )
 
@@ -256,8 +229,6 @@ def test_decide_modal_route_requests_open_data_side_effect() -> None:
         menu_screens={"menu_about", "menu_open_ports"},
         open_ports_prefs=None,
         click_data=None,
-        is_geo_enabled=False,
-        missing_geo_screen="missing_geo",
         now_iso="2026-03-10T10:00:00",
     )
 
@@ -277,8 +248,6 @@ def test_decide_modal_route_applies_map_click_after_higher_priority_checks() -> 
         menu_screens={"menu_about", "menu_open_ports"},
         open_ports_prefs=None,
         click_data=click_data,
-        is_geo_enabled=False,
-        missing_geo_screen="missing_geo",
         now_iso="2026-03-10T10:00:00",
     )
 
@@ -303,8 +272,6 @@ def test_decide_modal_route_returns_noop_when_no_rule_matches() -> None:
         menu_screens={"menu_about", "menu_open_ports"},
         open_ports_prefs=None,
         click_data=None,
-        is_geo_enabled=False,
-        missing_geo_screen="missing_geo",
         now_iso="2026-03-10T10:00:00",
     )
 

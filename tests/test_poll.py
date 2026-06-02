@@ -3,16 +3,6 @@
 from tapmap.state import poll
 
 
-def test_recheck_trigger_from_geodb_modal_button() -> None:
-    """Return geo_recheck when the GeoDB modal Recheck button is clicked."""
-    decision = poll.decide_poll_action(
-        trigger="btn_geodb_recheck",
-        key_action=None,
-    )
-
-    assert decision.action == poll.ACTION_GEO_RECHECK
-
-
 def test_recheck_trigger_from_button() -> None:
     """Return geo_recheck when database check button is clicked."""
     decision = poll.decide_poll_action(
