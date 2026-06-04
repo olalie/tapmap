@@ -8,8 +8,8 @@ from __future__ import annotations
 import gzip
 import re
 import shutil
-from datetime import UTC, datetime
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -154,9 +154,8 @@ class DbIpProvider:
         gz_path.write_bytes(response.content)
 
         temp_target = target_path.with_name(target_path.name + ".tmp")
-        with gzip.open(gz_path, "rb") as source:
-            with open(temp_target, "wb") as destination:
-                shutil.copyfileobj(source, destination)
+        with gzip.open(gz_path, "rb") as source, open(temp_target, "wb") as destination:
+            shutil.copyfileobj(source, destination)
 
         temp_target.replace(target_path)
         gz_path.unlink(missing_ok=True)

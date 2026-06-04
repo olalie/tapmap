@@ -57,6 +57,7 @@ from tapmap.state.open_ports_prefs import set_show_system_pref
 from tapmap.state.poll import (
     ACTION_CACHE_TERMINAL,
     ACTION_CLEAR_CACHE,
+    ACTION_GEO_INSTALL_MAXMIND,
     ACTION_GEO_RECHECK,
     ACTION_NORMAL_POLL,
     decide_poll_action,
@@ -203,7 +204,7 @@ class TapMap:
             initial_modal_state = {
                 "screen": self.SCR_GEODB_MANAGEMENT,
                 "t": datetime.now().isoformat(),
-                "payload": {},
+                "payload": {"startup_required": True},
             }
 
         initial_modal_open = bool(initial_modal_state)
@@ -217,6 +218,7 @@ class TapMap:
                     status=geo_status,
                     geo_data_dir=geo_path,
                     is_docker=self.runtime.is_docker,
+                    status_message="",
                 )
             )
             initial_body_class = self._class_for_modal_screen(self.SCR_GEODB_MANAGEMENT)
@@ -340,7 +342,8 @@ class TapMap:
                 snap["app_info"] = self._build_app_info()
             view = self.view_builder.build_view_from_cache({})
             flash = self._flash(
-                "Still missing a supported GeoIP database pair. Copy the files to the data folder and try again.",
+                "Still missing a supported GeoIP database pair. Copy the files to "
+                "the data folder and try again.",
                 self.MIN_FLASH_S,
             )
             return snap, {}, status_cache.to_store(), view, flash
@@ -357,6 +360,64 @@ class TapMap:
 
         flash = self._flash("Databases loaded. Geolocation enabled.", self.MIN_FLASH_S)
         return snap, empty_cache, status_cache.to_store(), view, flash
+
+    def _resolve_maxmind_install_credentials(
+        self,
+        account_id: Any,
+        license_key: Any,
+    ) -> tuple[str, str]:
+        """Resolve MaxMind credentials using UI values first, then stored values."""
+        ui_account_id = account_id.strip() if isinstance(account_id, str) else ""
+        ui_license_key = license_key.strip() if isinstance(license_key, str) else ""
+
+        stored_account_id, stored_license_key = self.geodb.maxmind.stored_credentials()
+        resolved_account_id = ui_account_id or (stored_account_id or "")
+        resolved_license_key = ui_license_key or (stored_license_key or "")
+        return resolved_account_id, resolved_license_key
+
+    def _handle_geo_install_maxmind(
+        self,
+        status_cache: StatusCache,
+        ui_cache: dict[str, Any],
+        account_id: Any,
+        license_key: Any,
+    ) -> tuple[Any, Any, Any, Any, Any]:
+        account_id_text, license_key_text = self._resolve_maxmind_install_credentials(
+            account_id,
+            license_key,
+        )
+
+        if not account_id_text or not license_key_text:
+            flash = self._flash("MaxMind credentials are required.", self.MIN_FLASH_S)
+            return no_update, no_update, no_update, no_update, flash
+
+        try:
+            self.geodb.maxmind.validate_credentials(account_id_text, license_key_text)
+        except ValueError as exc:
+            flash = self._flash(str(exc), self.MIN_FLASH_S)
+            return no_update, no_update, no_update, no_update, flash
+
+        try:
+            self.geodb.maxmind.register_credentials(account_id_text, license_key_text)
+        except Exception:
+            flash = self._flash("Unable to store MaxMind credentials.", self.MIN_FLASH_S)
+            return no_update, no_update, no_update, no_update, flash
+
+        install_status = self.geodb.install("maxmind")
+
+        if install_status.get("error") is None and install_status.get("provider") == "maxmind":
+            snap, cache, sc_store, view, _flash = self._handle_geo_recheck(status_cache)
+            flash = self._flash("MaxMind databases installed successfully.", self.MIN_FLASH_S)
+            return snap, cache, sc_store, view, flash
+
+        snap = self.model.snapshot()
+        if isinstance(snap, dict):
+            snap["app_info"] = self._build_app_info()
+
+        view = self.view_builder.build_view_from_cache(ui_cache)
+        message = str(install_status.get("message") or "Unable to install MaxMind databases")
+        flash = self._flash(message, self.MIN_FLASH_S)
+        return snap, ui_cache, status_cache.to_store(), view, flash
 
     def _handle_clear_cache(self, status_cache: StatusCache) -> tuple[Any, Any, Any, Any, Any]:
         snap = self.model.snapshot()
@@ -447,6 +508,25 @@ class TapMap:
     def _toggle_on(value: Any) -> bool:
         return isinstance(value, list) and "on" in value
 
+    @staticmethod
+    def _startup_geodb_modal_should_close(
+        modal_state: dict[str, Any] | None,
+        snapshot: Any,
+    ) -> bool:
+        """Return True when the startup GeoDB modal should close after a successful install."""
+        if not isinstance(modal_state, dict):
+            return False
+
+        payload = modal_state.get("payload")
+        payload_data = payload if isinstance(payload, dict) else {}
+        if not bool(payload_data.get("startup_required", False)):
+            return False
+
+        snapshot_data = snapshot if isinstance(snapshot, dict) else {}
+        snapshot_app_info = snapshot_data.get("app_info")
+        app_info = snapshot_app_info if isinstance(snapshot_app_info, dict) else {}
+        return bool(app_info.get("geoinfo_enabled", False))
+
     def _render_modal(
         self,
         modal_state: dict[str, Any] | None,
@@ -464,11 +544,14 @@ class TapMap:
             return [], "modal-body"
 
         if screen == self.SCR_GEODB_MANAGEMENT:
+            status_message = payload.get("status_message")
+            status_message_text = status_message if isinstance(status_message, str) else ""
             children = self._as_children(
                 self.modal_text.geodb_management(
                     status=self.geodb.local_status(),
                     geo_data_dir=geo_path,
                     is_docker=self.runtime.is_docker,
+                    status_message=status_message_text,
                 )
             )
             return children, self._class_for_modal_screen(screen)
@@ -544,9 +627,12 @@ class TapMap:
             Input("menu_clear_cache", "n_clicks"),
             Input("menu_cache_terminal", "n_clicks"),
             Input("btn_check_databases", "n_clicks", allow_optional=True),
+            Input("btn_install_maxmind", "n_clicks", allow_optional=True),
             State("ui_cache", "data"),
             State("status_cache", "data"),
             State("status_flash", "data"),
+            State("input_maxmind_account_id", "value", allow_optional=True),
+            State("input_maxmind_license_key", "value", allow_optional=True),
             prevent_initial_call=True,
         )
         def poll_model(
@@ -555,13 +641,17 @@ class TapMap:
             _clear_clicks: int,
             _cache_terminal_clicks: int,
             _check_db_clicks: int | None,
+            _install_maxmind_clicks: int | None,
             ui_cache_data: Any,
             status_cache_data: Any,
             status_flash_data: Any,
+            input_maxmind_account_id: Any,
+            input_maxmind_license_key: Any,
         ):
             status_cache = StatusCache.from_store(status_cache_data)
             ui_cache = self._ensure_dict(ui_cache_data)
             trigger = ctx.triggered_id
+
             decision = decide_poll_action(
                 trigger=trigger,
                 key_action=key_action,
@@ -577,6 +667,15 @@ class TapMap:
 
             if decision.action == ACTION_GEO_RECHECK:
                 snap, cache, sc_store, view, flash = self._handle_geo_recheck(status_cache)
+                return snap, cache, sc_store, view, flash
+
+            if decision.action == ACTION_GEO_INSTALL_MAXMIND:
+                snap, cache, sc_store, view, flash = self._handle_geo_install_maxmind(
+                    status_cache,
+                    ui_cache,
+                    input_maxmind_account_id,
+                    input_maxmind_license_key,
+                )
                 return snap, cache, sc_store, view, flash
 
             if decision.action == ACTION_NORMAL_POLL:
@@ -693,6 +792,7 @@ class TapMap:
             Input("menu_geodb_management", "n_clicks"),
             Input("menu_about", "n_clicks"),
             Input("menu_help", "n_clicks"),
+            Input("menu_daily_report", "n_clicks"),
             Input("btn_close", "n_clicks"),
             Input("btn_check_databases", "n_clicks", allow_optional=True),
             Input("toggle_open_ports_system", "value", allow_optional=True),
@@ -701,8 +801,9 @@ class TapMap:
             Input("btn_view_log", "n_clicks", allow_optional=True),
             Input("btn_log_back", "n_clicks", allow_optional=True),
             Input("key_action", "data"),
+            Input("model_snapshot", "data"),
+            Input("status_flash", "data"),
             State("modal_state", "data"),
-            State("model_snapshot", "data"),
             State("ui_view", "data"),
             State("open_ports_prefs", "data"),
             prevent_initial_call=True,
@@ -715,6 +816,7 @@ class TapMap:
             _geodb_management_clicks: int,
             _about_clicks: int,
             _help_clicks: int,
+            _daily_report_clicks: int,
             _close_clicks: int,
             _check_db_clicks: int | None,
             toggle_system_value: Any,
@@ -723,8 +825,9 @@ class TapMap:
             _view_log_clicks: int | None,
             _log_back_clicks: int | None,
             key_action: Any,
-            modal_state_data: Any,
             snapshot: Any,
+            status_flash_data: Any,
+            modal_state_data: Any,
             ui_view: Any,
             open_ports_prefs_data: Any,
         ):
@@ -743,6 +846,54 @@ class TapMap:
             current_screen = (
                 current_state.get("screen") if isinstance(current_state, dict) else None
             )
+            current_payload = (
+                self._ensure_dict(current_state.get("payload"))
+                if isinstance(current_state, dict)
+                else {}
+            )
+
+            def _build_geodb_payload(status_message: str = "") -> dict[str, Any]:
+                payload: dict[str, Any] = {}
+                if bool(current_payload.get("startup_required", False)):
+                    payload["startup_required"] = True
+                if status_message:
+                    payload["status_message"] = status_message
+                return payload
+
+            auto_update_trigger = trigger in {"status_flash", "model_snapshot", "tick_model"}
+
+            if current_screen == self.SCR_GEODB_MANAGEMENT and auto_update_trigger:
+                if self._startup_geodb_modal_should_close(current_state, snapshot):
+                    return _apply_modal_state(None)
+
+                flash_payload = status_flash_data if isinstance(status_flash_data, dict) else {}
+                flash_message = flash_payload.get("message")
+                flash_message_text = flash_message if isinstance(flash_message, str) else ""
+
+                if flash_message_text:
+                    lowered = flash_message_text.lower()
+                    if (
+                        flash_message_text == "MaxMind databases installed successfully."
+                        or "database" in lowered
+                        or "credential" in lowered
+                        or "account id" in lowered
+                        or "license key" in lowered
+                        or "geolocation" in lowered
+                        or "missing a supported" in lowered
+                    ):
+                        if (
+                            flash_message_text == "MaxMind databases installed successfully."
+                            and bool(current_payload.get("startup_required", False))
+                        ):
+                            return _apply_modal_state(None)
+
+                        return _apply_modal_state(
+                            {
+                                "screen": self.SCR_GEODB_MANAGEMENT,
+                                "t": datetime.now().isoformat(),
+                                "payload": _build_geodb_payload(flash_message_text),
+                            }
+                        )
 
             # Recheck is executed by poll_model via the shared button id.
             # Keep GeoDB management open for in-modal recheck.
@@ -751,7 +902,7 @@ class TapMap:
                     {
                         "screen": self.SCR_GEODB_MANAGEMENT,
                         "t": datetime.now().isoformat(),
-                        "payload": {},
+                        "payload": _build_geodb_payload(),
                     }
                 )
 
@@ -815,28 +966,6 @@ class TapMap:
                 # fall through to default no_update return
 
             return no_update, no_update, no_update, no_update
-
-        @self.app.callback(
-            Output("modal_state", "data", allow_duplicate=True),
-            Output("modal_overlay", "className", allow_duplicate=True),
-            Output("modal_body", "children", allow_duplicate=True),
-            Output("modal_body", "className", allow_duplicate=True),
-            Input("menu_daily_report", "n_clicks"),
-            State("model_snapshot", "data"),
-            State("ui_view", "data"),
-            prevent_initial_call=True,
-        )
-        def daily_report_controller(
-            _n_clicks: int,
-            snapshot: Any,
-            ui_view: Any,
-        ) -> tuple[Any, str, list[Any], str]:
-            geo_path = str(self.runtime.geo_data_dir)
-            now_iso = datetime.now().isoformat()
-            modal_state = {"screen": "menu_daily_report", "t": now_iso, "payload": {}}
-            children, body_class = self._render_modal(modal_state, snapshot, ui_view, geo_path)
-            overlay_class = self._modal_overlay_class(True)
-            return modal_state, overlay_class, children, body_class
 
         @self.app.callback(
             Output("open_ports_prefs", "data"),

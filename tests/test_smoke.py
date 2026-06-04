@@ -6,7 +6,7 @@ from typing import Any
 import tapmap
 from tapmap import app as app_module
 from tapmap.app import APP_META, TapMap
-from tapmap.runtime import RuntimeContext, build_runtime
+from tapmap.runtime import RuntimeContext
 from tapmap.state.status_cache import StatusCache
 
 
@@ -209,5 +209,160 @@ def test_recheck_uses_geodb_status_and_geoinfo_reload_for_supported_provider(
         assert snap["app_info"]["geoinfo_enabled"] is True
         assert isinstance(flash, dict)
         assert flash["message"] == "Databases loaded. Geolocation enabled."
+    finally:
+        app.close()
+
+
+def test_resolve_maxmind_install_credentials_prefers_ui_values(monkeypatch, tmp_path: Path) -> None:
+    """UI MaxMind credentials override stored values when both are present."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        monkeypatch.setattr(
+            app.geodb.maxmind,
+            "stored_credentials",
+            lambda: ("stored-account", "stored-license"),
+        )
+
+        account_id, license_key = app._resolve_maxmind_install_credentials(
+            "ui-account",
+            "ui-license",
+        )
+
+        assert account_id == "ui-account"
+        assert license_key == "ui-license"
+    finally:
+        app.close()
+
+
+def test_resolve_maxmind_install_credentials_falls_back_to_stored_values(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Blank UI MaxMind fields fall back to stored keyring values."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        monkeypatch.setattr(
+            app.geodb.maxmind,
+            "stored_credentials",
+            lambda: ("stored-account", "stored-license"),
+        )
+
+        account_id, license_key = app._resolve_maxmind_install_credentials("", "")
+
+        assert account_id == "stored-account"
+        assert license_key == "stored-license"
+    finally:
+        app.close()
+
+
+def test_install_maxmind_requires_credentials(monkeypatch, tmp_path: Path) -> None:
+    """Install returns a validation flash when no credentials are available."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        monkeypatch.setattr(app.geodb.maxmind, "stored_credentials", lambda: ("", ""))
+
+        snap, cache, status_store, view, flash = app._handle_geo_install_maxmind(
+            StatusCache(),
+            {},
+            "",
+            "",
+        )
+
+        assert snap is app_module.no_update
+        assert cache is app_module.no_update
+        assert status_store is app_module.no_update
+        assert view is app_module.no_update
+        assert isinstance(flash, dict)
+        assert flash["message"] == "MaxMind credentials are required."
+    finally:
+        app.close()
+
+
+def test_install_maxmind_rejects_invalid_credentials(monkeypatch, tmp_path: Path) -> None:
+    """Install returns the validator error when credentials are invalid."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        monkeypatch.setattr(app.geodb.maxmind, "stored_credentials", lambda: ("", ""))
+
+        def _raise_invalid(_account_id: str, _license_key: str) -> None:
+            raise ValueError("Invalid MaxMind credentials")
+
+        monkeypatch.setattr(app.geodb.maxmind, "validate_credentials", _raise_invalid)
+
+        snap, cache, status_store, view, flash = app._handle_geo_install_maxmind(
+            StatusCache(),
+            {},
+            "bad-account",
+            "bad-license",
+        )
+
+        assert snap is app_module.no_update
+        assert cache is app_module.no_update
+        assert status_store is app_module.no_update
+        assert view is app_module.no_update
+        assert isinstance(flash, dict)
+        assert flash["message"] == "Invalid MaxMind credentials"
+    finally:
+        app.close()
+
+
+def test_install_maxmind_succeeds_with_valid_credentials(monkeypatch, tmp_path: Path) -> None:
+    """Install triggers recheck and returns success flash on valid credentials."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        monkeypatch.setattr(app.geodb.maxmind, "stored_credentials", lambda: ("", ""))
+        monkeypatch.setattr(
+            app.geodb.maxmind,
+            "validate_credentials",
+            lambda _account_id, _license_key: None,
+        )
+        monkeypatch.setattr(
+            app.geodb.maxmind,
+            "register_credentials",
+            lambda _account_id, _license_key: None,
+        )
+        monkeypatch.setattr(
+            app.geodb,
+            "install",
+            lambda _provider: {"error": None, "provider": "maxmind"},
+        )
+        monkeypatch.setattr(
+            app,
+            "_handle_geo_recheck",
+            lambda _status_cache: ("snap", "cache", "status", "view", {"message": "ignored"}),
+        )
+
+        snap, cache, status_store, view, flash = app._handle_geo_install_maxmind(
+            StatusCache(),
+            {},
+            "ok-account",
+            "ok-license",
+        )
+
+        assert snap == "snap"
+        assert cache == "cache"
+        assert status_store == "status"
+        assert view == "view"
+        assert isinstance(flash, dict)
+        assert flash["message"] == "MaxMind databases installed successfully."
+    finally:
+        app.close()
+
+
+def test_startup_geodb_modal_should_close_when_recheck_enables_geoinfo(
+    tmp_path: Path,
+) -> None:
+    """Startup GeoDB modal closes once the post-install snapshot reports geoinfo enabled."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        modal_state = {
+            "screen": app.SCR_GEODB_MANAGEMENT,
+            "t": "2026-06-04T00:00:00",
+            "payload": {"startup_required": True},
+        }
+        snapshot = {"app_info": {"geoinfo_enabled": True}}
+
+        assert app._startup_geodb_modal_should_close(modal_state, snapshot) is True
+        assert app._startup_geodb_modal_should_close(modal_state, {"app_info": {}}) is False
+        assert app._startup_geodb_modal_should_close(None, snapshot) is False
     finally:
         app.close()

@@ -482,53 +482,19 @@ class ModalTextBuilder:
         status: dict[str, Any],
         geo_data_dir: str,
         is_docker: bool,
+        status_message: str = "",
     ) -> list[Any]:
         """Render the GeoDB management modal for local status and explicit recheck."""
         provider = safe_str(status.get("provider")) or "none"
-        provider_label = {
-            "maxmind": "MaxMind GeoLite2",
-            "dbip": "DB-IP Lite",
-            "none": "None",
-        }.get(provider, provider)
-
-        update_available = safe_str(status.get("update_available")) or "unknown"
-        message = safe_str(status.get("message")) or ""
-        error = safe_str(status.get("error")) or ""
-
-        if error == "remote_check_failed":
-            update_status = "Unable to check"
-        elif update_available == "yes":
-            update_status = "Update available"
-        elif update_available == "no":
-            update_status = "Up to date"
-        else:
-            update_status = "Not checked"
-
-        details = [
-            html.Li(f"Active provider: {provider_label}"),
-            html.Li(f"City database installed: {bool(status.get('city_installed', False))}"),
-            html.Li(f"ASN database installed: {bool(status.get('asn_installed', False))}"),
-            html.Li(f"City database valid: {bool(status.get('city_valid', False))}"),
-            html.Li(f"ASN database valid: {bool(status.get('asn_valid', False))}"),
-            html.Li(
-                "Local version/date: "
-                f"{safe_str(status.get('local_display_date')) or safe_str(status.get('local_version')) or '-'}"
-            ),
-            html.Li(f"Update status: {update_status}"),
-        ]
-
-        if message:
-            details.append(html.Li(f"Status message: {message}"))
-        if error:
-            details.append(html.Li(f"Error: {error}"))
-
         no_provider = provider == "none"
+        modal_status = safe_str(status_message)
 
         if no_provider:
             return [
                 self._h1("GeoIP Database Management"),
                 html.P(
-                    "GeoIP databases are required for meaningful functionality. Install a supported GeoIP database pair:"
+                    "GeoIP databases are required for meaningful functionality. "
+                    "Install a supported GeoIP database pair:"
                 ),
                 html.Div(
                     className="mx-geodb-choices",
@@ -560,6 +526,7 @@ class ModalTextBuilder:
                                     children=[
                                         html.Label("Account ID"),
                                         dcc.Input(
+                                            id="input_maxmind_account_id",
                                             type="text",
                                             value="",
                                             placeholder="Account ID",
@@ -567,6 +534,7 @@ class ModalTextBuilder:
                                         ),
                                         html.Label("License Key"),
                                         dcc.Input(
+                                            id="input_maxmind_license_key",
                                             type="text",
                                             value="",
                                             placeholder="License Key",
@@ -578,11 +546,23 @@ class ModalTextBuilder:
                                     "Stored securely in your computer's keyring."
                                 ),
                                 html.Button(
-                                    "Install MaxMind",
+                                    "Install MaxMind database files",
+                                    id="btn_install_maxmind",
+                                    n_clicks=0,
                                     className="mx-btn mx-btn--primary mx-btn--nowrap",
                                     type="button",
                                 ),
-                                html.Div(className="mx-status"),
+                                html.Div(
+                                    className="mx-status",
+                                    children=[
+                                        html.Span(
+                                            modal_status,
+                                            className="mx-status__value",
+                                        )
+                                    ]
+                                    if modal_status
+                                    else [],
+                                ),
                             ],
                         ),
                         html.Div(
@@ -599,7 +579,9 @@ class ModalTextBuilder:
                                 html.P("No account required."),
                                 html.P("Lower coverage and accuracy."),
                                 html.Button(
-                                    "Install DB-IP",
+                                    "Install DB-IP database files",
+                                    id="btn_install_dbip",
+                                    n_clicks=0,
                                     className="mx-btn mx-btn--primary mx-btn--nowrap",
                                     type="button",
                                 ),
@@ -627,22 +609,44 @@ class ModalTextBuilder:
                                     else [
                                         html.Button(
                                             "Open data folder",
-                                            className="mx-btn mx-btn--primary mx-btn--nowrap mx-manual-btn",
+                                            id="btn_open_data",
+                                            n_clicks=0,
+                                            className=(
+                                                "mx-btn mx-btn--primary mx-btn--nowrap "
+                                                "mx-manual-btn"
+                                            ),
                                             type="button",
                                         ),
                                     ]
                                 ),
                                 html.Button(
                                     "Recheck databases",
+                                    id="btn_check_databases",
+                                    n_clicks=0,
                                     className="mx-btn mx-btn--primary mx-btn--nowrap mx-manual-btn",
                                     type="button",
                                 ),
                             ],
                         ),
+                        html.Div(
+                            className="mx-status",
+                            children=[
+                                html.Span(modal_status, className="mx-status__value")
+                            ]
+                            if modal_status
+                            and (
+                                "geolocation" in modal_status.lower()
+                                or "missing" in modal_status.lower()
+                                or "recheck" in modal_status.lower()
+                                or "installed successfully" in modal_status.lower()
+                            )
+                            else [],
+                        ),
                         *(
                             [
                                 html.P(
-                                    "Running in Docker. Ensure the supported .mmdb files are in the host folder mounted to this path.",
+                                    "Running in Docker. Ensure the supported .mmdb files "
+                                    "are in the host folder mounted to this path.",
                                     className="mx-note",
                                 )
                             ]
@@ -655,57 +659,74 @@ class ModalTextBuilder:
 
         return [
             self._h1("GeoIP Database Management"),
-            html.P(
-                "No supported GeoIP database pair is available. Geolocation is disabled until a "
-                "supported pair is copied to this folder."
-                if no_provider
-                else "View local GeoIP database status and run an explicit recheck."
-            ),
             html.Div(
-                className="mx-path-row",
+                className="mx-geodb-choices mx-geodb-choices--single",
                 children=[
-                    html.Pre(geo_data_dir, className="mx-path-box"),
-                    *(
-                        []
-                        if is_docker
-                        else [
+                    html.Div(
+                        className="mx-geodb-card",
+                        children=[
+                            html.Div(
+                                [
+                                    html.H2("MaxMind GeoLite2"),
+                                    html.Span("Recommended", className="mx-pill"),
+                                ],
+                                className="mx-geodb-card__header",
+                            ),
+                            html.P("Local version/date: 2026-05-19"),
                             html.Button(
-                                "Open data folder",
-                                id="btn_open_data",
-                                n_clicks=0,
+                                "Update databases",
                                 className="mx-btn mx-btn--primary mx-btn--nowrap",
                                 type="button",
+                            ),
+                        ],
+                    )
+                ],
+            ),
+            html.Div(
+                className="mx-manual-install",
+                children=[
+                    html.Pre(geo_data_dir, className="mx-path-box"),
+                    html.Div(
+                        className="mx-manual-actions",
+                        children=[
+                            *(
+                                []
+                                if is_docker
+                                else [
+                                    html.Button(
+                                        "Open data folder",
+                                        id="btn_open_data",
+                                        n_clicks=0,
+                                        className=(
+                                            "mx-btn mx-btn--primary mx-btn--nowrap "
+                                            "mx-manual-btn"
+                                        ),
+                                        type="button",
+                                    )
+                                ]
+                            ),
+                            html.Button(
+                                "Recheck databases",
+                                id="btn_check_databases",
+                                n_clicks=0,
+                                className="mx-btn mx-btn--primary mx-btn--nowrap mx-manual-btn",
+                                type="button",
+                            ),
+                        ],
+                    ),
+                    *(
+                        [
+                            html.P(
+                                "Running in Docker. Ensure the supported .mmdb files "
+                                "are in the host folder mounted to this path.",
+                                className="mx-note",
                             )
                         ]
-                    ),
-                    html.Button(
-                        "Recheck databases",
-                        id="btn_check_databases",
-                        n_clicks=0,
-                        className="mx-btn mx-btn--primary mx-btn--nowrap",
-                        type="button",
+                        if is_docker
+                        else []
                     ),
                 ],
             ),
-            *(
-                [
-                    html.P(
-                        "Running in Docker. Ensure the supported .mmdb files are in the "
-                        "host folder mounted to this path.",
-                        className="mx-note",
-                    )
-                ]
-                if is_docker
-                else []
-            ),
-            html.P("Supported file pairs:"),
-            html.Ul(
-                [
-                    html.Li("GeoLite2-ASN.mmdb and GeoLite2-City.mmdb"),
-                    html.Li("DBIP-ASN.mmdb and DBIP-City.mmdb"),
-                ]
-            ),
-            html.Ul(details),
         ]
 
     # ---------- Click helpers ----------

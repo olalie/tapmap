@@ -479,6 +479,15 @@ summary.mx-acc-header:hover {
   margin: 12px 0 20px 0;
 }
 
+.mx-geodb-choices--single {
+  grid-template-columns: 1fr;
+  max-width: 460px;
+}
+
+.mx-geodb-choices--single .mx-geodb-card {
+  width: 100%;
+}
+
 .mx-geodb-card {
   display: flex;
   flex-direction: column;
@@ -582,6 +591,13 @@ summary.mx-acc-header:hover {
   margin-top: 4px;
   padding-top: 14px;
   border-top: 1px solid rgba(0, 170, 68, 0.3);
+}
+
+.mx-manual-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 10px;
 }
 
 .mx-manual-install p {

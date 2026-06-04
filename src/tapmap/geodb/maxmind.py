@@ -127,6 +127,12 @@ class MaxMindProvider:
         license_key = keyring.get_password(self.KEYRING_SERVICE, self.LICENSE_KEY_NAME)
         return bool(account_id and license_key)
 
+    def stored_credentials(self) -> tuple[str | None, str | None]:
+        """Return stored MaxMind credentials without enforcing completeness."""
+        account_id = keyring.get_password(self.KEYRING_SERVICE, self.ACCOUNT_ID_KEY)
+        license_key = keyring.get_password(self.KEYRING_SERVICE, self.LICENSE_KEY_NAME)
+        return account_id, license_key
+
     def register_credentials(self, account_id: str, license_key: str) -> None:
         """Persist MaxMind credentials to keyring."""
         if not account_id or not license_key:
@@ -154,7 +160,7 @@ class MaxMindProvider:
             )
             response.raise_for_status()
         except requests.RequestException as exc:
-            raise ValueError("Unable to validate MaxMind credentials") from exc
+            raise ValueError("Invalid MaxMind credentials.") from exc
 
     def _remote_last_modified_epoch(self, edition_id: str) -> int:
         """Return remote Last-Modified epoch for one MaxMind edition."""
