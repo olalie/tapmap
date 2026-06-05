@@ -124,7 +124,7 @@ class ModalTextBuilder:
         body_text = f"lon={lon}  lat={lat}\n\n{detail}"
         return html.Pre(body_text)
 
-    # ---------- Common UI helpers ----------
+    # Common UI helpers
 
     @staticmethod
     def _h1(title: str) -> html.H1:
@@ -657,6 +657,23 @@ class ModalTextBuilder:
                 ),
             ]
 
+        print("MODAL STATUS:", repr(modal_status))    
+        
+        provider_name = (
+            "MaxMind GeoLite2"
+            if provider == "maxmind"
+            else "DB-IP Lite"
+        )
+
+        header_children = [html.H2(provider_name)]
+
+        if provider == "maxmind":
+            header_children.append(
+                html.Span("Recommended", className="mx-pill")
+            )
+            
+        print("STATUS CHILDREN:", bool(modal_status))
+
         return [
             self._h1("GeoIP Database Management"),
             html.Div(
@@ -666,17 +683,29 @@ class ModalTextBuilder:
                         className="mx-geodb-card",
                         children=[
                             html.Div(
-                                [
-                                    html.H2("MaxMind GeoLite2"),
-                                    html.Span("Recommended", className="mx-pill"),
-                                ],
+                                header_children,
                                 className="mx-geodb-card__header",
                             ),
-                            html.P("Local version/date: 2026-05-19"),
+                            html.P(
+                                f"Local version/date: {safe_str(status.get('local_display_date'))}"
+                            ), 
                             html.Button(
                                 "Update databases",
+                                id="btn_update_databases",
+                                n_clicks=0,
                                 className="mx-btn mx-btn--primary mx-btn--nowrap",
                                 type="button",
+                            ),
+                            html.Div(
+                                className="mx-status",
+                                children=[
+                                    html.Span(
+                                        modal_status,
+                                        className="mx-status__value",
+                                    )
+                                ]
+                                if modal_status
+                                else [],
                             ),
                         ],
                     )
@@ -729,7 +758,7 @@ class ModalTextBuilder:
             ),
         ]
 
-    # ---------- Click helpers ----------
+    # Click helpers
 
     @staticmethod
     def first_idx(customdata: Any) -> int | None:

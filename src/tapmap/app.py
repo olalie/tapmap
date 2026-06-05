@@ -57,8 +57,10 @@ from tapmap.state.open_ports_prefs import set_show_system_pref
 from tapmap.state.poll import (
     ACTION_CACHE_TERMINAL,
     ACTION_CLEAR_CACHE,
+    ACTION_GEO_INSTALL_DBIP,
     ACTION_GEO_INSTALL_MAXMIND,
     ACTION_GEO_RECHECK,
+    ACTION_GEO_UPDATE,
     ACTION_NORMAL_POLL,
     decide_poll_action,
 )
@@ -393,7 +395,9 @@ class TapMap:
 
         try:
             self.geodb.maxmind.validate_credentials(account_id_text, license_key_text)
+            print("VALIDATE OK")
         except ValueError as exc:
+            print("VALIDATE ERROR:", repr(exc))
             flash = self._flash(str(exc), self.MIN_FLASH_S)
             return no_update, no_update, no_update, no_update, flash
 
@@ -418,6 +422,51 @@ class TapMap:
         message = str(install_status.get("message") or "Unable to install MaxMind databases")
         flash = self._flash(message, self.MIN_FLASH_S)
         return snap, ui_cache, status_cache.to_store(), view, flash
+    
+    def _handle_geo_install_dbip(
+        self,
+        status_cache: StatusCache,
+        ui_cache: dict[str, Any],
+    ) -> tuple[Any, Any, Any, Any, Any]:
+        install_status = self.geodb.install("dbip")
+
+        if install_status.get("error") is None and install_status.get("provider") == "dbip":
+            snap, cache, sc_store, view, _flash = self._handle_geo_recheck(status_cache)
+            flash = self._flash("DB-IP databases installed successfully.", self.MIN_FLASH_S)
+            return snap, cache, sc_store, view, flash
+
+        snap = self.model.snapshot()
+        if isinstance(snap, dict):
+            snap["app_info"] = self._build_app_info()
+
+        view = self.view_builder.build_view_from_cache(ui_cache)
+        message = str(install_status.get("message") or "Unable to install DB-IP databases")
+        flash = self._flash(message, self.MIN_FLASH_S)
+        return snap, ui_cache, status_cache.to_store(), view, flash
+
+    def _handle_geo_update(
+        self,
+        status_cache: StatusCache,
+        ui_cache: dict[str, Any],
+    ) -> tuple[Any, Any, Any, Any, Any]:
+        update_status = self.geodb.update()
+        print('update_status:', update_status)
+        print("UPDATE MESSAGE:", repr(update_status.get("message")))
+        flash = self._flash(
+            str(update_status.get("message") or "Update completed"),
+            self.MIN_FLASH_S,
+        )
+
+        snap, cache, sc_store, view, _flash = self._handle_geo_recheck(
+            status_cache
+        )
+
+        print(
+            "RECHECK APP_INFO:",
+            snap.get("app_info")
+        )
+
+        return snap, cache, sc_store, view, flash
 
     def _handle_clear_cache(self, status_cache: StatusCache) -> tuple[Any, Any, Any, Any, Any]:
         snap = self.model.snapshot()
@@ -628,6 +677,8 @@ class TapMap:
             Input("menu_cache_terminal", "n_clicks"),
             Input("btn_check_databases", "n_clicks", allow_optional=True),
             Input("btn_install_maxmind", "n_clicks", allow_optional=True),
+            Input("btn_install_dbip", "n_clicks", allow_optional=True),
+            Input("btn_update_databases", "n_clicks", allow_optional=True),
             State("ui_cache", "data"),
             State("status_cache", "data"),
             State("status_flash", "data"),
@@ -642,6 +693,8 @@ class TapMap:
             _cache_terminal_clicks: int,
             _check_db_clicks: int | None,
             _install_maxmind_clicks: int | None,
+            _install_dbip_clicks: int | None,
+            _update_databases_clicks: int | None,
             ui_cache_data: Any,
             status_cache_data: Any,
             status_flash_data: Any,
@@ -677,6 +730,21 @@ class TapMap:
                     input_maxmind_license_key,
                 )
                 return snap, cache, sc_store, view, flash
+            
+            if decision.action == ACTION_GEO_INSTALL_DBIP:
+                snap, cache, sc_store, view, flash = self._handle_geo_install_dbip( 
+                    status_cache,
+                    ui_cache,
+                )
+                return snap, cache, sc_store, view, flash
+            
+            if decision.action == ACTION_GEO_UPDATE:
+                result = self._handle_geo_update(
+                    status_cache,
+                    ui_cache,
+                )
+                print("POLL RETURN FLASH:", result[4])
+                return result
 
             if decision.action == ACTION_NORMAL_POLL:
                 snap, cache, sc_store, view, _flash = self._handle_normal_poll(
@@ -833,6 +901,7 @@ class TapMap:
         ):
             # Identify which Dash Input triggered this callback.
             trigger = ctx.triggered_id
+            print("MODAL TRIGGER:", trigger)
             geo_path = str(self.runtime.geo_data_dir)
 
             # Apply a modal_state to the UI by rendering and updating overlay classes.
@@ -869,6 +938,7 @@ class TapMap:
                 flash_payload = status_flash_data if isinstance(status_flash_data, dict) else {}
                 flash_message = flash_payload.get("message")
                 flash_message_text = flash_message if isinstance(flash_message, str) else ""
+                print("FLASH:", flash_message_text)
 
                 if flash_message_text:
                     lowered = flash_message_text.lower()

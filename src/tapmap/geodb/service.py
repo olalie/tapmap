@@ -259,7 +259,8 @@ class GeoDbService:
                     remote_version = self.maxmind.fetch_remote_version()
                 else:
                     remote_version = self.dbip.fetch_remote_version()
-            except Exception:
+            except Exception as exc:
+                print("REMOTE CHECK ERROR:", repr(exc))
                 status["message"] = "Unable to check for database updates"
                 status["error"] = "remote_check_failed"
                 status["update_available"] = "unknown"
@@ -329,7 +330,8 @@ class GeoDbService:
                     remote_version = self.maxmind.fetch_remote_version()
                 else:
                     remote_version = self.dbip.fetch_remote_version()
-            except Exception:
+            except Exception as exc:
+                print("REMOTE CHECK ERROR:", repr(exc))
                 status["message"] = "Unable to check for database updates"
                 status["error"] = "remote_check_failed"
                 status["update_available"] = "unknown"

@@ -11,12 +11,16 @@ from typing import Any
 
 ACTION_GEO_RECHECK = "geo_recheck"
 ACTION_GEO_INSTALL_MAXMIND = "geo_install_maxmind"
+ACTION_GEO_INSTALL_DBIP = "geo_install_dbip"
+ACTION_GEO_UPDATE = "geo_update"
 ACTION_CLEAR_CACHE = "clear_cache"
 ACTION_CACHE_TERMINAL = "cache_terminal"
 ACTION_NORMAL_POLL = "normal_poll"
 
 RECHECK_TRIGGERS = {"btn_check_databases"}
+UPDATE_TRIGGERS = {"btn_update_databases"}
 INSTALL_MAXMIND_TRIGGERS = {"btn_install_maxmind"}
+INSTALL_DBIP_TRIGGERS = {"btn_install_dbip"}
 
 
 @dataclass(frozen=True)
@@ -41,9 +45,15 @@ def decide_poll_action(*, trigger: Any, key_action: Any) -> PollDecision:
     """
     if trigger in RECHECK_TRIGGERS:
         return PollDecision(action=ACTION_GEO_RECHECK)
+    
+    if trigger in UPDATE_TRIGGERS:
+        return PollDecision(action=ACTION_GEO_UPDATE)
 
     if trigger in INSTALL_MAXMIND_TRIGGERS:
         return PollDecision(action=ACTION_GEO_INSTALL_MAXMIND)
+
+    if trigger in INSTALL_DBIP_TRIGGERS:
+        return PollDecision(action=ACTION_GEO_INSTALL_DBIP)
 
     if trigger == "menu_clear_cache":
         return PollDecision(action=ACTION_CLEAR_CACHE)

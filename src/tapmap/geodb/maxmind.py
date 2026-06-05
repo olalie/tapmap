@@ -142,10 +142,7 @@ class MaxMindProvider:
         keyring.set_password(self.KEYRING_SERVICE, self.LICENSE_KEY_NAME, license_key)
 
     def validate_credentials(self, account_id: str, license_key: str) -> None:
-        """Validate MaxMind credentials against MaxMind.
-
-        Raises ValueError with sanitized text on failure.
-        """
+        """Validate MaxMind credentials."""
         if not account_id or not license_key:
             raise ValueError("Account ID and license key are required")
 
@@ -159,8 +156,31 @@ class MaxMindProvider:
                 allow_redirects=True,
             )
             response.raise_for_status()
+
+        except requests.HTTPError as exc:
+            status = exc.response.status_code if exc.response is not None else None
+
+            if status == 401:
+                raise ValueError("Invalid MaxMind credentials.") from exc
+
+            if status == 429:
+                raise ValueError(
+                    "Too many MaxMind requests. Please wait a few minutes and try again."
+                ) from exc
+
+            if status == 503:
+                raise ValueError(
+                    "MaxMind service unavailable. Please try again later."
+                ) from exc
+
+            raise ValueError(
+                f"MaxMind request failed (HTTP {status})."
+            ) from exc
+
         except requests.RequestException as exc:
-            raise ValueError("Invalid MaxMind credentials.") from exc
+            raise ValueError(
+                "Unable to contact MaxMind."
+            ) from exc
 
     def _remote_last_modified_epoch(self, edition_id: str) -> int:
         """Return remote Last-Modified epoch for one MaxMind edition."""
@@ -176,6 +196,7 @@ class MaxMindProvider:
             )
             response.raise_for_status()
         except requests.RequestException as exc:
+            print("MAXMIND HEAD ERROR:", repr(exc))
             raise RuntimeError("Unable to fetch MaxMind remote version") from exc
 
         last_modified = response.headers.get("Last-Modified")
