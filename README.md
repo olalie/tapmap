@@ -434,6 +434,25 @@ In this setup, process names became available with:
 
 Behavior may vary across systems.
 
+### Capturing other containers' connections
+
+By default TapMap only sees the network namespace it runs in (the host namespace,
+when started with `--network host`). Connections inside *other* bridged containers
+live in their own namespaces and are not visible.
+
+Set `TAPMAP_CAPTURE_ALL_NETNS=1` (Linux only, requires `--pid host`) to also
+capture connections from every other container. TapMap reads each namespace's
+socket table from `/proc/<pid>/net/*` and labels the connections by container.
+
+    environment:
+      TAPMAP_CAPTURE_ALL_NETNS: "1"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro   # optional: friendly names
+
+The Docker socket is only used to resolve container ids to friendly names; without
+it, connections are labeled `docker:<short-id>`. The feature is opt-in and falls
+back to host-only capture on any error.
+
 ---
 
 ## Docker Hub

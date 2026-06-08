@@ -176,6 +176,25 @@ Conclusion:
 - psutil is sufficient in Docker on Linux
 - ss does not provide a practical advantage in this environment
 
+### Cross-namespace capture (Docker, Linux)
+
+With `--network host`, psutil only sees the host network namespace, so connections
+inside *other* bridged containers are invisible (each has its own namespace).
+
+Tested with `TAPMAP_CAPTURE_ALL_NETNS=1` + `--pid host`:
+
+- network namespaces enumerated by grouping host PIDs by their `/proc/<pid>/ns/net`
+  inode; the host namespace (already covered by psutil) is skipped
+- each other namespace's socket table read directly from `/proc/<pid>/net/{tcp,tcp6,udp,udp6}`
+- container connections (e.g. jellyfin `217.131.67.82:443`, transmission peers)
+  appeared on the map, labeled by container
+- friendly container names resolved via a read-only mounted Docker socket; without
+  it, labels fall back to `docker:<short-id>`
+
+Conclusion:
+- cross-namespace capture makes other containers' connections visible
+- opt-in only; on any scan error it degrades to the host-only psutil result
+
 ---
 
 ## Docker (macOS host)
