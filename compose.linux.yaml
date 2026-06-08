@@ -14,8 +14,12 @@ services:
       TAPMAP_PORT: "8050"
       TAPMAP_HOST: "0.0.0.0"
       TAPMAP_DATA_DIR: /data
+      # Opt-in: also capture connections from other containers' namespaces.
+      # TAPMAP_CAPTURE_ALL_NETNS: "1"
 
     volumes:
       - ./docker-data:/data
+      # Optional, only with TAPMAP_CAPTURE_ALL_NETNS=1: resolve friendly names.
+      # - /var/run/docker.sock:/var/run/docker.sock:ro
 
     restart: unless-stopped

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import platform
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -42,6 +43,11 @@ class NetInfo:
 
     def _select_backend(self) -> NetInfoBackend:
         system = platform.system()
+
+        if system == "Linux" and os.environ.get("TAPMAP_CAPTURE_ALL_NETNS") == "1":
+            from .netinfo_netns import NetNsNetInfo
+
+            return NetNsNetInfo(allowed_statuses=self.allowed_statuses)
 
         if system in {"Linux", "Windows"}:
             from .netinfo_psutil import PsutilNetInfo

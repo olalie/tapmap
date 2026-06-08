@@ -1,5 +1,8 @@
 ## Unreleased
 
+### Features
+- Add opt-in cross-namespace capture (`TAPMAP_CAPTURE_ALL_NETNS=1`, Linux + `pid: host`): aggregate connections from every other container's network namespace via `/proc/<pid>/net/*`, labeled by container (friendly names resolved through a mounted Docker socket, falling back to short ids). Default-off; degrades to host-only on error.
+
 ### Daily Activity Report
 - Refine narrative wording and report tone
 - Improve alignment between wording, recurrence visuals, and provider concentration curves

@@ -136,7 +136,10 @@ def _detect_network_backend() -> tuple[str, str]:
     if system in {"Windows", "Linux"}:
         import psutil
 
-        return "psutil", getattr(psutil, "__version__", "-")
+        version = getattr(psutil, "__version__", "-")
+        if system == "Linux" and os.environ.get("TAPMAP_CAPTURE_ALL_NETNS") == "1":
+            return "psutil+netns", version
+        return "psutil", version
 
     if system == "Darwin":
         try:
