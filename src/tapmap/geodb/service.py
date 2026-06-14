@@ -7,6 +7,7 @@ API suitable for callback orchestration in app.py.
 from __future__ import annotations
 
 import tempfile
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, TypedDict
 
@@ -14,8 +15,8 @@ from .dbip import DbIpProvider
 from .maxmind import MaxMindProvider
 
 
-class GeoDbStatus(TypedDict):
-    """Service payload contract for GeoDB status used by callbacks."""
+class GeoDbResponse(TypedDict):
+    """Service payload contract for GeoDB callbacks."""
 
     provider: Literal["maxmind", "dbip", "none"]
     city_installed: bool
@@ -28,9 +29,9 @@ class GeoDbStatus(TypedDict):
     local_display_date: str | None
     remote_version: str | None
     update_available: Literal["yes", "no", "unknown"]
-    busy: bool
     message: str
     error: str | None
+    checked_at: str | None
 
 
 class GeoDbService:
@@ -46,8 +47,13 @@ class GeoDbService:
         self.dbip = DbIpProvider(data_dir=self.data_dir)
         self._busy = False
 
+    @property
+    def busy(self) -> bool:
+        """Return whether a GeoDB operation is running."""
+        return self._busy
+
     @staticmethod
-    def _empty_status(message: str) -> GeoDbStatus:
+    def _empty_status(message: str) -> GeoDbResponse:
         """Return default status for no active provider."""
         return {
             "provider": "none",
@@ -61,9 +67,9 @@ class GeoDbService:
             "local_display_date": None,
             "remote_version": None,
             "update_available": "unknown",
-            "busy": False,
             "message": message,
             "error": None,
+            "checked_at": None,
         }
 
     def _build_active_status(
@@ -71,7 +77,7 @@ class GeoDbService:
         provider: Literal["maxmind", "dbip"],
         local: dict[str, Any],
         message: str,
-    ) -> GeoDbStatus:
+    ) -> GeoDbResponse:
         """Build active-provider status payload with stable keys."""
         return {
             "provider": provider,
@@ -85,15 +91,15 @@ class GeoDbService:
             "local_display_date": local.get("local_display_date"),
             "remote_version": None,
             "update_available": "unknown",
-            "busy": self._busy,
             "message": message,
             "error": None,
+            "checked_at": None,
         }
 
     @staticmethod
-    def _with_final_state(status: GeoDbStatus) -> GeoDbStatus:
-        """Return status adjusted to final caller-visible state."""
-        status["busy"] = False
+    def _add_checked_at(status: GeoDbResponse) -> GeoDbResponse:
+        """Return response adjusted to final caller-visible state."""
+        status["checked_at"] = datetime.now().isoformat()
         return status
 
     @staticmethod
@@ -136,7 +142,7 @@ class GeoDbService:
         staged_city.replace(live_city)
         staged_asn.replace(live_asn)
 
-    def _install_provider(self, provider: Literal["maxmind", "dbip"]) -> GeoDbStatus:
+    def _install_provider(self, provider: Literal["maxmind", "dbip"]) -> GeoDbResponse:
         """Run staged install for one provider and return resulting status."""
         with tempfile.TemporaryDirectory(dir=self.data_dir) as temp_dir_name:
             staged_dir = Path(temp_dir_name)
@@ -150,13 +156,13 @@ class GeoDbService:
                 status = self.local_status()
                 status["message"] = "Unable to download provider databases"
                 status["error"] = "download_failed"
-                return self._with_final_state(status)
+                return status
 
             if not self._validate_staged_pair(provider, staged_dir):
                 status = self.local_status()
                 status["message"] = "Downloaded databases failed validation"
                 status["error"] = "validation_failed"
-                return self._with_final_state(status)
+                return status
 
             try:
                 self._activate_staged_pair(provider, staged_dir)
@@ -164,14 +170,14 @@ class GeoDbService:
                 status = self.local_status()
                 status["message"] = "Unable to activate downloaded databases"
                 status["error"] = "activation_failed"
-                return self._with_final_state(status)
+                return status
 
         status = self.local_status()
         status["message"] = "Database installation completed"
         status["error"] = None
-        return self._with_final_state(status)
+        return status
 
-    def local_status(self) -> GeoDbStatus:
+    def local_status(self) -> GeoDbResponse:
         """Return the current local provider status from disk.
 
         Active-provider semantics:
@@ -185,43 +191,43 @@ class GeoDbService:
         dbip_local = self.dbip.get_local_status()
 
         if self._pair_is_valid(maxmind_local):
-            return self._build_active_status(
-                provider="maxmind",
-                local=maxmind_local,
-                message="MaxMind GeoLite2 databases detected",
+            return self._add_checked_at(
+                self._build_active_status(
+                    provider="maxmind",
+                    local=maxmind_local,
+                    message="MaxMind GeoLite2 databases detected",
+                )
             )
 
         if self._pair_is_valid(dbip_local):
-            return self._build_active_status(
-                provider="dbip",
-                local=dbip_local,
-                message="DB-IP Lite databases detected",
+            return self._add_checked_at(
+                self._build_active_status(
+                    provider="dbip",
+                    local=dbip_local,
+                    message="DB-IP Lite databases detected",
+                )
             )
 
         status = self._empty_status("No valid GeoIP provider databases detected")
-        status["busy"] = self._busy
-        return status
+        return self._add_checked_at(status)
 
-    def recheck(self) -> GeoDbStatus:
-        """Re-evaluate local database status.
-
-        In Step 2 this is equivalent to local status recalculation.
-        """
+    def recheck(self) -> GeoDbResponse:
+        """Re-evaluate local database status."""
         return self.local_status()
 
-    def install(self, provider: str) -> GeoDbStatus:
+    def install(self, provider: str) -> GeoDbResponse:
         """Install provider databases using staged download and validation."""
+        status = self.local_status()
+
         if self._busy:
-            status = self.local_status()
             status["message"] = "Another GeoDB operation is already running"
             status["error"] = "busy"
             return status
 
         if provider not in {"maxmind", "dbip"}:
-            status = self.local_status()
             status["message"] = "Unknown provider requested for installation"
             status["error"] = "invalid_provider"
-            return self._with_final_state(status)
+            return status
 
         self._busy = True
         try:
@@ -229,30 +235,29 @@ class GeoDbService:
         finally:
             self._busy = False
 
-    def update(self) -> GeoDbStatus:
+    def update(self) -> GeoDbResponse:
         """Update currently active provider after explicit version comparison."""
+        status = self.local_status()
+
         if self._busy:
-            status = self.local_status()
             status["message"] = "Another GeoDB operation is already running"
             status["error"] = "busy"
             return status
 
         self._busy = True
         try:
-            status = self.local_status()
-
             provider = status["provider"]
             local_version = status["local_version"]
 
             if provider == "none":
                 status["message"] = "No active provider available for update"
                 status["error"] = "no_provider"
-                return self._with_final_state(status)
+                return status
 
             if not isinstance(local_version, str) or not local_version:
                 status["message"] = "Unable to determine local provider version"
                 status["error"] = "local_version_missing"
-                return self._with_final_state(status)
+                return status
 
             try:
                 if provider == "maxmind":
@@ -264,7 +269,7 @@ class GeoDbService:
                 status["message"] = "Unable to check for database updates"
                 status["error"] = "remote_check_failed"
                 status["update_available"] = "unknown"
-                return self._with_final_state(status)
+                return status
 
             status["remote_version"] = remote_version
 
@@ -272,13 +277,13 @@ class GeoDbService:
                 status["update_available"] = "no"
                 status["message"] = "Provider databases are already up to date"
                 status["error"] = None
-                return self._with_final_state(status)
+                return status
 
             result = self._install_provider(provider)
             result["remote_version"] = remote_version
             result["update_available"] = "no"
             result["message"] = "Database update completed"
-            return self._with_final_state(result)
+            return result
         finally:
             self._busy = False
 
@@ -295,32 +300,31 @@ class GeoDbService:
             return remote_version > local_version
         return False
 
-    def check_updates(self) -> GeoDbStatus:
+    def check_updates(self) -> GeoDbResponse:
         """Check remote update availability for active provider.
 
         Credentials and provider internals are never included in the returned
         status payload.
         """
+        status = self.local_status()
         if self._busy:
-            status = self.local_status()
             status["message"] = "Another GeoDB operation is already running"
             status["error"] = "busy"
             return status
 
         self._busy = True
         try:
-            status = self.local_status()
-            status["busy"] = True
-
             provider = status["provider"]
             local_version = status["local_version"]
 
             if provider == "none":
+                status["error"] = "no_provider"
                 status["message"] = "No active provider available for update check"
                 status["update_available"] = "unknown"
                 return status
 
             if not isinstance(local_version, str) or not local_version:
+                status["error"] = "local_version_missing"
                 status["message"] = "Unable to determine local provider version"
                 status["update_available"] = "unknown"
                 return status

@@ -39,8 +39,14 @@ def render_about(
     near_km = app_info.get("zoom_near_km")
 
     geoinfo_enabled = bool(app_info.get("geoinfo_enabled", False))
-    geo_data_dir_val = app_info.get("geo_data_dir")
-    geo_data_dir = geo_data_dir_val if isinstance(geo_data_dir_val, str) else ""
+    geo_provider = str(app_info.get("geo_provider") or "-")
+    geo_database_date = str(app_info.get("geo_database_date") or "-")
+
+    provider_label = {
+        "maxmind": "MaxMind GeoLite2",
+        "dbip": "DB-IP Lite",
+        "none": "None",
+    }.get(geo_provider, geo_provider)
 
     myloc_mode_val = app_info.get("myloc_mode")
     myloc_mode = myloc_mode_val if isinstance(myloc_mode_val, str) else "OFF"
@@ -76,7 +82,8 @@ def render_about(
 
     geo_rows: list[tuple[str, str]] = [
         ("Geolocation", "Enabled" if geoinfo_enabled else "Disabled"),
-        ("GeoIP data folder", geo_data_dir if geo_data_dir else "-"),
+        ("Databases", provider_label),
+        ("Database date", geo_database_date if geo_database_date else "-"),
     ]
 
     location_rows = _build_location_rows(
@@ -108,7 +115,7 @@ def render_about(
         ),
         html.P(
             "It reads active socket data using a platform-specific backend, "
-            "local MaxMind GeoLite2 databases for geolocation, "
+            "local GeoIP databases for geolocation, "
             "and Dash with Plotly for visualization."
         ),
         html.P("Runs locally. No telemetry. TapMap does not inspect traffic contents."),
@@ -123,51 +130,46 @@ def render_about(
         ),
         html.H2("Geolocation"),
         html.P(
-            "Geolocation is based on local MaxMind GeoLite2 .mmdb databases. "
-            "The databases are not included."
+            "Geolocation is based on local MaxMind GeoLite2 or DB-IP Lite .mmdb databases. "
+            "Databases can be installed and updated from the GeoIP Database Management screen."
         ),
         kv_table(geo_rows),
-        html.Div(
-            className="mx-path-row",
-            children=[
-                html.Pre(geo_data_dir, className="mx-path-box") if geo_data_dir else None,
-                *(
-                    []
-                    if is_docker
-                    else [
-                        html.Button(
-                            "Open data folder",
-                            id="btn_open_data",
-                            n_clicks=0,
-                            className="mx-btn mx-btn--primary mx-btn--nowrap",
-                            type="button",
-                        )
-                    ]
-                ),
-            ],
-        ),
-        *(
+        html.P(
             [
-                html.P(
-                    "Running in Docker. Place the GeoLite2 .mmdb files in the "
-                    "host folder mounted to this path.",
-                    className="mx-note",
-                )
+                "IP Geolocation by ",
+                html.A(
+                    "DB-IP",
+                    href="https://db-ip.com",
+                    target="_blank",
+                    rel="noopener noreferrer",
+                ),
             ]
-            if is_docker
-            else []
-        ),
+        ) if geo_provider == "dbip" else None,
+        html.P(
+            [
+                "This product includes GeoLite Data created by MaxMind, available from ",
+                html.A(
+                    "https://www.maxmind.com",
+                    href="https://www.maxmind.com",
+                    target="_blank",
+                    rel="noopener noreferrer",
+                ),
+                ".",
+            ]
+        ) if geo_provider == "maxmind" else None,
         html.H2("Location"),
         kv_table(location_rows),
         html.H2("Runtime"),
         kv_table(runtime_rows),
         html.H2("Project"),
-        html.P("TapMap is free and open source."),
+        html.P(
+            "TapMap is free, open source, and available on GitHub and Docker Hub."
+        ),
         html.Ul(
             [
                 html.Li(
                     html.A(
-                        "Project page on GitHub",
+                        "GitHub repository",
                         href="https://github.com/olalie/tapmap",
                         target="_blank",
                         rel="noopener noreferrer",
@@ -175,8 +177,8 @@ def render_about(
                 ),
                 html.Li(
                     html.A(
-                        "MaxMind GeoLite2 project",
-                        href="https://dev.maxmind.com/geoip/geolite2-free-geolocation-data",
+                        "Docker Hub image",
+                        href="https://hub.docker.com/r/olalie/tapmap",
                         target="_blank",
                         rel="noopener noreferrer",
                     )

@@ -1,26 +1,5 @@
 """Tests for poll decision logic."""
-
-from tapmap.state import poll
-
-
-def test_recheck_trigger_from_button() -> None:
-    """Return geo_recheck when database check button is clicked."""
-    decision = poll.decide_poll_action(
-        trigger="btn_check_databases",
-        key_action=None,
-    )
-
-    assert decision.action == poll.ACTION_GEO_RECHECK
-
-
-def test_install_maxmind_trigger_from_button() -> None:
-    """Return geo_install_maxmind when Install MaxMind button is clicked."""
-    decision = poll.decide_poll_action(
-        trigger="btn_install_maxmind",
-        key_action=None,
-    )
-
-    assert decision.action == poll.ACTION_GEO_INSTALL_MAXMIND
+import tapmap.state.poll as poll
 
 
 def test_clear_cache_from_menu() -> None:

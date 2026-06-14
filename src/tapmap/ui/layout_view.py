@@ -35,6 +35,7 @@ def render_layout(
             dcc.Store(id="selected_country", data=None),
             dcc.Store(id="key_action", data=None),
             dcc.Store(id="status_flash", data=None),
+            dcc.Store(id="geodb_response", data=None),
             dcc.Store(id="model_snapshot", data=None),
             dcc.Store(id="insights_cache", data={"new": {}, "top": {}}),
             dcc.Store(id="ui_cache", data={}),

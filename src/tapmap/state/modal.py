@@ -99,6 +99,27 @@ def _decide_map_click(
 
     return {"screen": "map_click", "t": now_iso, "payload": {"click_data": click_data}}
 
+def _decide_internal_navigation(
+    *,
+    trigger: Any,
+    now_iso: str,
+) -> dict[str, Any] | None:
+    """Return modal_state for internal modal navigation."""
+    if trigger == "btn_view_log":
+        return {
+            "screen": "menu_insights_log",
+            "t": now_iso,
+            "payload": {},
+        }
+
+    if trigger == "btn_log_back":
+        return {
+            "screen": "menu_daily_report",
+            "t": now_iso,
+            "payload": {},
+        }
+
+    return None
 
 def decide_modal_route(
     *,
@@ -138,6 +159,17 @@ def decide_modal_route(
     )
     if next_state is not None:
         return ModalRoute(action="apply", modal_state=next_state)
+    
+    # Handle navigation between modal subviews.
+    next_state = _decide_internal_navigation(
+        trigger=trigger,
+        now_iso=now_iso,
+    )
+    if next_state is not None:
+        return ModalRoute(
+            action="apply",
+            modal_state=next_state,
+        )   
 
     # 3) Side-effect request.
     if trigger == "btn_open_data":

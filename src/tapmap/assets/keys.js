@@ -78,3 +78,43 @@
     true
   );
 })();
+
+
+/* GeoDB meldinger */
+
+document.addEventListener("click", (event) => {
+    if (event.target.id === "btn_install_dbip") {
+        const status = document.getElementById("geodb-status-dbip");
+
+        if (status) {
+            status.innerHTML = `
+                <span class="mx-status__value geodb-running">
+                    Installing DB-IP databases...
+                </span>
+            `;
+        }
+    }
+
+    if (event.target.id === "btn_install_maxmind") {
+        const status = document.getElementById("geodb-status-maxmind");
+
+        if (status) {
+            status.innerHTML = `
+                <span class="mx-status__value geodb-running">
+                    Installing MaxMind databases...
+                </span>
+            `;
+        }
+    }
+
+    if (event.target.id === "btn_update_databases") {
+        const working = document.getElementById("geodb-working");
+
+        if (working) {
+            working.textContent = "Checking for updates...";
+            working.classList.add("geodb-running");
+        }
+    }
+});
+
+

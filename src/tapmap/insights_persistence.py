@@ -48,8 +48,18 @@ def save_insights(path: Path, data: dict[str, Any]) -> None:
     Raises:
         OSError
     """
-    with path.open("w", encoding="utf-8") as f:
-        json.dump({"insights": data}, f, ensure_ascii=False, indent=2)
+    tmp_path = path.with_suffix(".tmp")
+
+    with tmp_path.open("w", encoding="utf-8") as f:
+        json.dump(
+            {"insights": data},
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
+        f.flush()
+
+    tmp_path.replace(path)
 
 
 def build_daily_report(insights: dict[str, Any]) -> DailyReportData:

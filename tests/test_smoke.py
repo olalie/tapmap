@@ -170,49 +170,6 @@ def test_tapmap_startup_skips_missing_geo_modal_when_maxmind_pair_is_available(
         app.close()
 
 
-def test_recheck_uses_geodb_status_and_geoinfo_reload_for_supported_provider(
-    monkeypatch, tmp_path: Path
-) -> None:
-    """Recheck succeeds when a supported provider pair is present and GeoInfo reloads."""
-    monkeypatch.setattr(
-        app_module.GeoDbService,
-        "recheck",
-        lambda _self: {
-            "provider": "dbip",
-            "city_installed": True,
-            "asn_installed": True,
-            "city_valid": True,
-            "asn_valid": True,
-            "local_version": "2026-06",
-            "local_city_date": "2026-06-01",
-            "local_asn_date": "2026-06-01",
-            "local_display_date": "2026-06-01",
-            "remote_version": None,
-            "update_available": "unknown",
-            "busy": False,
-            "message": "DB-IP Lite databases detected",
-            "error": None,
-        },
-    )
-
-    app = TapMap(_runtime_ctx(tmp_path))
-    try:
-        monkeypatch.setattr(app, "_resolve_my_location", lambda: [])
-        monkeypatch.setattr(app.model, "snapshot", lambda: {"stats": {}, "cache_items": []})
-        monkeypatch.setattr(app.model.geoinfo, "reload", lambda: True)
-        app.model.geoinfo._city_reader = _FakeReader()
-
-        snap, cache, _status_store, _view, flash = app._handle_geo_recheck(StatusCache())
-
-        assert cache == {}
-        assert isinstance(snap, dict)
-        assert snap["app_info"]["geoinfo_enabled"] is True
-        assert isinstance(flash, dict)
-        assert flash["message"] == "Databases loaded. Geolocation enabled."
-    finally:
-        app.close()
-
-
 def test_resolve_maxmind_install_credentials_prefers_ui_values(monkeypatch, tmp_path: Path) -> None:
     """UI MaxMind credentials override stored values when both are present."""
     app = TapMap(_runtime_ctx(tmp_path))
@@ -304,50 +261,6 @@ def test_install_maxmind_rejects_invalid_credentials(monkeypatch, tmp_path: Path
     finally:
         app.close()
 
-
-def test_install_maxmind_succeeds_with_valid_credentials(monkeypatch, tmp_path: Path) -> None:
-    """Install triggers recheck and returns success flash on valid credentials."""
-    app = TapMap(_runtime_ctx(tmp_path))
-    try:
-        monkeypatch.setattr(app.geodb.maxmind, "stored_credentials", lambda: ("", ""))
-        monkeypatch.setattr(
-            app.geodb.maxmind,
-            "validate_credentials",
-            lambda _account_id, _license_key: None,
-        )
-        monkeypatch.setattr(
-            app.geodb.maxmind,
-            "register_credentials",
-            lambda _account_id, _license_key: None,
-        )
-        monkeypatch.setattr(
-            app.geodb,
-            "install",
-            lambda _provider: {"error": None, "provider": "maxmind"},
-        )
-        monkeypatch.setattr(
-            app,
-            "_handle_geo_recheck",
-            lambda _status_cache: ("snap", "cache", "status", "view", {"message": "ignored"}),
-        )
-
-        snap, cache, status_store, view, flash = app._handle_geo_install_maxmind(
-            StatusCache(),
-            {},
-            "ok-account",
-            "ok-license",
-        )
-
-        assert snap == "snap"
-        assert cache == "cache"
-        assert status_store == "status"
-        assert view == "view"
-        assert isinstance(flash, dict)
-        assert flash["message"] == "MaxMind databases installed successfully."
-    finally:
-        app.close()
-
-
 def test_startup_geodb_modal_should_close_when_recheck_enables_geoinfo(
     tmp_path: Path,
 ) -> None:
@@ -366,3 +279,108 @@ def test_startup_geodb_modal_should_close_when_recheck_enables_geoinfo(
         assert app._startup_geodb_modal_should_close(None, snapshot) is False
     finally:
         app.close()
+
+def test_handle_geo_update_success(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    """Return update response when update and runtime reload succeed."""
+    app = TapMap(_runtime_ctx(tmp_path))
+
+    try:
+        monkeypatch.setattr(
+            app.geodb,
+            "update",
+            lambda: {
+                "provider": "dbip",
+                "message": "Provider databases are already up to date",
+                "error": None,
+                "checked_at": "2026-06-01T12:00:00",
+            },
+        )
+
+        monkeypatch.setattr(
+            app,
+            "_reload_geodb_runtime",
+            lambda: True,
+        )
+
+        result = app._handle_geo_update()
+
+        assert result["provider"] == "dbip"
+        assert result["error"] is None
+        assert result["message"] == "Provider databases are already up to date"
+        assert result["checked_at"] == "2026-06-01T12:00:00"
+
+    finally:
+        app.close()
+
+def test_handle_geo_update_reload_failed(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    """Append reload failure when runtime reload fails."""
+    app = TapMap(_runtime_ctx(tmp_path))
+
+    try:
+        monkeypatch.setattr(
+            app.geodb,
+            "update",
+            lambda: {
+                "provider": "dbip",
+                "message": "Provider databases are already up to date",
+                "error": None,
+                "checked_at": "2026-06-01T12:00:00",
+            },
+        )
+
+        monkeypatch.setattr(
+            app,
+            "_reload_geodb_runtime",
+            lambda: False,
+        )
+
+        result = app._handle_geo_update()
+
+        assert result["provider"] == "dbip"
+        assert result["error"] == "reload_failed"
+        assert result["message"] == (
+            "Provider databases are already up to date Runtime reload failed."
+        )
+
+    finally:
+        app.close()
+
+def test_handle_geo_update_preserves_original_error(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    """Keep update failure information when update already failed."""
+    app = TapMap(_runtime_ctx(tmp_path))
+
+    try:
+        monkeypatch.setattr(
+            app.geodb,
+            "update",
+            lambda: {
+                "provider": "dbip",
+                "message": "Unable to update databases",
+                "error": "download_failed",
+                "checked_at": "2026-06-01T12:00:00",
+            },
+        )
+
+        monkeypatch.setattr(
+            app,
+            "_reload_geodb_runtime",
+            lambda: True,
+        )
+
+        result = app._handle_geo_update()
+
+        assert result["provider"] == "dbip"
+        assert result["error"] == "download_failed"
+        assert result["message"] == "Unable to update databases"
+
+    finally:
+        app.close()    
