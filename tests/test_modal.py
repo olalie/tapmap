@@ -217,24 +217,6 @@ def test_decide_modal_route_applies_screen_change_when_menu_screen_is_selected()
         },
     )
 
-
-def test_decide_modal_route_requests_open_data_side_effect() -> None:
-    """Return the open_data route for the data folder button."""
-    result = decide_modal_route(
-        trigger="btn_open_data",
-        is_open=False,
-        current_screen=None,
-        action=None,
-        show_system=False,
-        menu_screens={"menu_about", "menu_open_ports"},
-        open_ports_prefs=None,
-        click_data=None,
-        now_iso="2026-03-10T10:00:00",
-    )
-
-    assert result == ModalRoute(action="open_data")
-
-
 def test_decide_modal_route_applies_map_click_after_higher_priority_checks() -> None:
     """Return an apply route for a map click when higher priority rules do not match."""
     click_data = {"points": [{"customdata": "x"}]}

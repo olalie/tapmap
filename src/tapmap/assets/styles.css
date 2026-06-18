@@ -158,7 +158,7 @@ body {
 }
 
 .mx-btn:disabled {
-    opacity: 0.45;
+    opacity: 0.7;
     cursor: not-allowed;
     border-color: rgba(0, 170, 68, 0.8);
     color: rgba(0, 255, 102, 0.8);
@@ -503,10 +503,11 @@ summary.mx-acc-header:hover {
 }
 
 .mx-geodb-card {
+  margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 14px 16px;
+  gap: 4px;
+  padding: 10px 16px 14px 16px;
   border: 1px solid var(--mx-border);
   border-radius: var(--mx-radius);
   background: var(--mx-bg-2);
@@ -593,18 +594,16 @@ summary.mx-acc-header:hover {
   color: rgba(0, 255, 102, 0.65);
 }
 
-.mx-status__label {
-  opacity: 0.7;
-}
-
 .mx-status__value {
   color: var(--mx-green);
+  min-height: 1.4em;
+  margin-top: 12px;
 }
 
 .mx-manual-install {
   margin-top: 4px;
   padding-top: 14px;
-  border-top: 1px solid rgba(0, 170, 68, 0.3);
+  border-top: 1px solid rgba(0, 170, 68, 0.45);
 }
 
 .mx-manual-actions {
@@ -627,8 +626,73 @@ summary.mx-acc-header:hover {
 }
 
 .mx-manual-btn {
-  min-width: 152px;
+  min-width:215px;
   text-align: center;
+}
+
+.mx-section-title {
+  margin: 0 0 6px 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--mx-green);
+}
+
+.geodb-running::before {
+    content: "";
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    margin-right: 8px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: geodb-spin 0.8s linear infinite;
+    vertical-align: middle;
+}
+
+@keyframes geodb-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.mx-form-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 12px;
+  align-items: center;
+  margin: 12px 0;
+}
+
+.mx-form-grid label {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.mx-feature-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mx-feature-list li {
+  margin: 0 0 4px 0;
+}
+
+.mx-geodb-right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.mx-geodb-status-card {
+  flex: 1;
+}
+
+#geodb-status-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
 }
 
 /* Path row */
@@ -872,25 +936,4 @@ summary.mx-acc-header:hover {
     transition: none;
     transform: none;
   }
-}
-
-/* geoDB */
-
-.geodb-running::after {
-    content: "";
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    margin-left: 8px;
-    border: 2px solid currentColor;
-    border-top-color: transparent;
-    border-radius: 50%;
-    animation: geodb-spin 0.8s linear infinite;
-    vertical-align: middle;
-}
-
-@keyframes geodb-spin {
-    to {
-        transform: rotate(360deg);
-    }
 }

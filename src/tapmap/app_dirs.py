@@ -3,6 +3,7 @@
 Resolve per-user application data paths and provide
 helpers for creating and opening the directory.
 """
+
 from __future__ import annotations
 
 import os
@@ -13,19 +14,33 @@ from pathlib import Path
 from typing import Final
 
 APP_NAME: Final[str] = "TapMap"
+README_VERSION: Final[int] = 1
 
 README_TEXT: Final[str] = (
-    "Place GeoIP .mmdb databases here.\n"
+    f"TAPMAP_README_VERSION={README_VERSION}\n"
+    "\n"
+    "GeoIP databases used by TapMap.\n"
+    "\n"
+    "Recommended: install databases from GeoIP Database Management in TapMap.\n"
+    "\n"
+    "Manual installation is also supported.\n"
     "\n"
     "If running in Docker, this folder is mapped from the host to /data in the container.\n"
-
-    "Required files:\n"
+    "\n"
+    "Supported providers:\n"
+    "\n"
+    "MaxMind GeoLite2\n"
     "- GeoLite2-City.mmdb\n"
     "- GeoLite2-ASN.mmdb\n"
+    "- https://dev.maxmind.com/geoip/geolite2-free-geolocation-data\n"
     "\n"
-    "Download (free, account required):\n"
-    "https://dev.maxmind.com/geoip/geolite2-free-geolocation-data\n"
+    "DB-IP Lite\n"
+    "- DBIP-City.mmdb\n"
+    "- DBIP-ASN.mmdb\n"
+    "- DB-IP files must be renamed to the filenames above.\n"
+    "- https://db-ip.com/db/lite.php\n"
 )
+
 
 def get_native_app_data_dir(app_name: str = APP_NAME) -> Path:
     r"""Return the per-user application data directory for the current OS.
@@ -49,13 +64,30 @@ def get_native_app_data_dir(app_name: str = APP_NAME) -> Path:
     base_dir = Path(xdg) if xdg else (Path.home() / ".local" / "share")
     return base_dir / app_name
 
+
+def _readme_needs_update(readme: Path) -> bool:
+    """Return True when README.txt is missing or outdated."""
+    if not readme.exists():
+        return True
+
+    try:
+        text = readme.read_text(encoding="utf-8")
+        first_line = text.splitlines()[0] if text else ""
+
+        return first_line != f"TAPMAP_README_VERSION={README_VERSION}"
+
+    except Exception:
+        return True
+
+
 def ensure_app_data_dir(app_dir: Path) -> None:
     """Create the application data directory and README.txt file when missing."""
     app_dir = app_dir.expanduser()
     app_dir.mkdir(parents=True, exist_ok=True)
 
     readme = app_dir / "README.txt"
-    if not readme.exists():
+
+    if _readme_needs_update(readme):
         readme.write_text(README_TEXT, encoding="utf-8")
 
 

@@ -7,7 +7,6 @@ import tapmap
 from tapmap import app as app_module
 from tapmap.app import APP_META, TapMap
 from tapmap.runtime import RuntimeContext
-from tapmap.state.status_cache import StatusCache
 
 
 class _FakeReader:
@@ -212,52 +211,60 @@ def test_resolve_maxmind_install_credentials_falls_back_to_stored_values(
 
 
 def test_install_maxmind_requires_credentials(monkeypatch, tmp_path: Path) -> None:
-    """Install returns a validation flash when no credentials are available."""
+    """Install returns an error when no credentials are available."""
     app = TapMap(_runtime_ctx(tmp_path))
     try:
-        monkeypatch.setattr(app.geodb.maxmind, "stored_credentials", lambda: ("", ""))
+        monkeypatch.setattr(
+            app.geodb.maxmind,
+            "stored_credentials",
+            lambda: ("", ""),
+        )
 
-        snap, cache, status_store, view, flash = app._handle_geo_install_maxmind(
-            StatusCache(),
-            {},
+        response = app._handle_geo_install_maxmind(
             "",
             "",
         )
 
-        assert snap is app_module.no_update
-        assert cache is app_module.no_update
-        assert status_store is app_module.no_update
-        assert view is app_module.no_update
-        assert isinstance(flash, dict)
-        assert flash["message"] == "MaxMind credentials are required."
+        assert response["error"] == "credentials_invalid"
+        assert response["message"] == "Account ID and license key are required"
+
     finally:
         app.close()
 
 
-def test_install_maxmind_rejects_invalid_credentials(monkeypatch, tmp_path: Path) -> None:
+def test_install_maxmind_rejects_invalid_credentials(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
     """Install returns the validator error when credentials are invalid."""
     app = TapMap(_runtime_ctx(tmp_path))
     try:
-        monkeypatch.setattr(app.geodb.maxmind, "stored_credentials", lambda: ("", ""))
+        monkeypatch.setattr(
+            app.geodb.maxmind,
+            "stored_credentials",
+            lambda: ("", ""),
+        )
 
-        def _raise_invalid(_account_id: str, _license_key: str) -> None:
+        def _raise_invalid(
+            _account_id: str,
+            _license_key: str,
+        ) -> None:
             raise ValueError("Invalid MaxMind credentials")
 
-        monkeypatch.setattr(app.geodb.maxmind, "validate_credentials", _raise_invalid)
+        monkeypatch.setattr(
+            app.geodb.maxmind,
+            "validate_credentials",
+            _raise_invalid,
+        )
 
-        snap, cache, status_store, view, flash = app._handle_geo_install_maxmind(
-            StatusCache(),
-            {},
+        response = app._handle_geo_install_maxmind(
             "bad-account",
             "bad-license",
         )
 
-        assert snap is app_module.no_update
-        assert cache is app_module.no_update
-        assert status_store is app_module.no_update
-        assert view is app_module.no_update
-        assert isinstance(flash, dict)
-        assert flash["message"] == "Invalid MaxMind credentials"
+        assert response["error"] == "credentials_invalid"
+        assert response["message"] == "Invalid MaxMind credentials"
+
     finally:
         app.close()
 
@@ -293,7 +300,7 @@ def test_handle_geo_update_success(
             "update",
             lambda: {
                 "provider": "dbip",
-                "message": "Provider databases are already up to date",
+                "message": "Databases are already up to date",
                 "error": None,
                 "checked_at": "2026-06-01T12:00:00",
             },
@@ -309,7 +316,7 @@ def test_handle_geo_update_success(
 
         assert result["provider"] == "dbip"
         assert result["error"] is None
-        assert result["message"] == "Provider databases are already up to date"
+        assert result["message"] == "Databases are already up to date"
         assert result["checked_at"] == "2026-06-01T12:00:00"
 
     finally:
@@ -328,7 +335,7 @@ def test_handle_geo_update_reload_failed(
             "update",
             lambda: {
                 "provider": "dbip",
-                "message": "Provider databases are already up to date",
+                "message": "Databases are already up to date",
                 "error": None,
                 "checked_at": "2026-06-01T12:00:00",
             },
@@ -345,7 +352,7 @@ def test_handle_geo_update_reload_failed(
         assert result["provider"] == "dbip"
         assert result["error"] == "reload_failed"
         assert result["message"] == (
-            "Provider databases are already up to date Runtime reload failed."
+            "Databases are already up to date Runtime reload failed."
         )
 
     finally:

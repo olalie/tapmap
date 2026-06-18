@@ -60,16 +60,13 @@ class DailyReportData(TypedDict):
     intro_text: str
     today_text: str
     activity_pattern_text: str
-    # applications
     application_total: int
     application_counts: dict[str, int]
     recurrence_labels: dict[str, str]
     recurrence_examples: list[RecurrenceExample]
     applications_summary: str
-    # providers
     provider_concentration: ProviderConcentration
     providers_summary: str
-    # countries
     country_total: int
     countries_summary: str
     country_map_points: list[CountryMapPoint]

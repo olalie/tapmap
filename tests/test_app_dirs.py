@@ -76,16 +76,17 @@ def test_ensure_app_data_dir_creates_directory_and_readme(tmp_path: Path) -> Non
     assert readme_path.read_text(encoding="utf-8") == app_dirs.README_TEXT
 
 
-def test_ensure_app_data_dir_does_not_overwrite_existing_readme(tmp_path: Path) -> None:
-    """Preserve an existing README file."""
+def test_ensure_app_data_dir_updates_existing_readme(tmp_path: Path) -> None:
+    """Update an existing README file with current content."""
     app_dir = tmp_path / "TapMap"
     app_dir.mkdir(parents=True)
+
     readme_path = app_dir / "README.txt"
     readme_path.write_text("custom content", encoding="utf-8")
 
     app_dirs.ensure_app_data_dir(app_dir)
 
-    assert readme_path.read_text(encoding="utf-8") == "custom content"
+    assert readme_path.read_text(encoding="utf-8") == app_dirs.README_TEXT
 
 
 def test_ensure_native_app_data_dir_creates_directory_and_readme(

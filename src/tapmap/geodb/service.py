@@ -208,7 +208,7 @@ class GeoDbService:
                 )
             )
 
-        status = self._empty_status("No valid GeoIP provider databases detected")
+        status = self._empty_status("No valid GeoIP provider databases detected.")
         return self._add_checked_at(status)
 
     def recheck(self) -> GeoDbResponse:
@@ -259,13 +259,33 @@ class GeoDbService:
                 status["error"] = "local_version_missing"
                 return status
 
+            if provider == "maxmind" and not self.maxmind.credentials_exist():
+                status["message"] = (
+                    "Configure MaxMind Account ID and License Key "
+                    "before updating databases"
+                )
+                status["error"] = "credentials_missing"
+                status["update_available"] = "unknown"
+                return status
+
             try:
                 if provider == "maxmind":
                     remote_version = self.maxmind.fetch_remote_version()
                 else:
                     remote_version = self.dbip.fetch_remote_version()
+            except ValueError as exc:
+                print("REMOTE CHECK ERROR:", repr(exc))
+                status["message"] = str(exc)
+                status["error"] = "credentials_missing"
+                status["update_available"] = "unknown"
+                return status
+
             except Exception as exc:
                 print("REMOTE CHECK ERROR:", repr(exc))
+
+                if exc.__cause__ is not None:
+                    print("CAUSE:", repr(exc.__cause__))
+
                 status["message"] = "Unable to check for database updates"
                 status["error"] = "remote_check_failed"
                 status["update_available"] = "unknown"
@@ -273,9 +293,9 @@ class GeoDbService:
 
             status["remote_version"] = remote_version
 
-            if not self._is_remote_newer(provider, local_version, remote_version):
+            if not self._is_remote_newer(local_version, remote_version):
                 status["update_available"] = "no"
-                status["message"] = "Provider databases are already up to date"
+                status["message"] = "Databases are already up to date"
                 status["error"] = None
                 return status
 
@@ -288,66 +308,9 @@ class GeoDbService:
             self._busy = False
 
     @staticmethod
-    def _is_remote_newer(provider: str, local_version: str, remote_version: str) -> bool:
+    def _is_remote_newer(
+        local_version: str,
+        remote_version: str,
+    ) -> bool:
         """Return True when remote version is newer than local version."""
-        if provider == "maxmind":
-            try:
-                return int(remote_version) > int(local_version)
-            except (TypeError, ValueError):
-                return False
-        if provider == "dbip":
-            # DB-IP monthly keys are YYYY-MM and compare lexicographically.
-            return remote_version > local_version
-        return False
-
-    def check_updates(self) -> GeoDbResponse:
-        """Check remote update availability for active provider.
-
-        Credentials and provider internals are never included in the returned
-        status payload.
-        """
-        status = self.local_status()
-        if self._busy:
-            status["message"] = "Another GeoDB operation is already running"
-            status["error"] = "busy"
-            return status
-
-        self._busy = True
-        try:
-            provider = status["provider"]
-            local_version = status["local_version"]
-
-            if provider == "none":
-                status["error"] = "no_provider"
-                status["message"] = "No active provider available for update check"
-                status["update_available"] = "unknown"
-                return status
-
-            if not isinstance(local_version, str) or not local_version:
-                status["error"] = "local_version_missing"
-                status["message"] = "Unable to determine local provider version"
-                status["update_available"] = "unknown"
-                return status
-
-            try:
-                if provider == "maxmind":
-                    remote_version = self.maxmind.fetch_remote_version()
-                else:
-                    remote_version = self.dbip.fetch_remote_version()
-            except Exception as exc:
-                print("REMOTE CHECK ERROR:", repr(exc))
-                status["message"] = "Unable to check for database updates"
-                status["error"] = "remote_check_failed"
-                status["update_available"] = "unknown"
-                return status
-
-            status["remote_version"] = remote_version
-            status["update_available"] = (
-                "yes"
-                if self._is_remote_newer(provider, local_version, remote_version)
-                else "no"
-            )
-            status["message"] = "Update check completed"
-            return status
-        finally:
-            self._busy = False
+        return remote_version > local_version

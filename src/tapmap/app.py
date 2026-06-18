@@ -3,10 +3,11 @@
 This module wires together:
 
 - model: runtime state and data collection (snapshot, GeoIP reload, caches)
+- geodb: GeoIP database installation, updates, validation, and status
 - state: pure decision logic (no Dash code)
 - ui: rendering helpers (map, modal, status text)
 
-tapmap.py contains Dash callback wiring and controller code only.
+app.py contains Dash callback wiring and controller code only.
 Deterministic state transitions live in the state package.
 
 Dash callbacks return multiple values because each Output property
@@ -29,8 +30,7 @@ import sys
 import threading
 import webbrowser
 from datetime import datetime
-from pathlib import Path
-from typing import Any, ClassVar, Final
+from typing import Any, ClassVar, Final, Literal, TypedDict
 
 import psutil
 from dash import ALL, Dash, Input, Output, State, ctx, html, no_update
@@ -38,6 +38,7 @@ from dash.exceptions import PreventUpdate
 
 from tapmap import __version__
 from tapmap.geodb import GeoDbService
+from tapmap.geodb.service import GeoDbResponse
 from tapmap.insights_persistence import (
     build_daily_report as persist_build_daily_report,
 )
@@ -58,10 +59,6 @@ from tapmap.state.open_ports_prefs import set_show_system_pref
 from tapmap.state.poll import (
     ACTION_CACHE_TERMINAL,
     ACTION_CLEAR_CACHE,
-    ACTION_GEO_INSTALL_DBIP,
-    ACTION_GEO_INSTALL_MAXMIND,
-    ACTION_GEO_RECHECK,
-    ACTION_GEO_UPDATE,
     ACTION_NORMAL_POLL,
     decide_poll_action,
 )
@@ -87,7 +84,18 @@ APP_META: Final[AppMeta] = AppMeta(
     author="Ola Lie",
 )
 
+class GeoDbEvent(TypedDict):
+    """GeoDB action and response payload for UI rendering."""
 
+    action: Literal[
+        "install_maxmind",
+        "install_dbip",
+        "update",
+        "recheck",
+    ]
+    response: GeoDbResponse
+    
+    
 class TapMap:
     """Coordinate Dash callbacks, model polling, and UI state."""
 
@@ -184,7 +192,6 @@ class TapMap:
         self._modal_count = 0
         self._geodb_controller_count = 0
 
-    # Layout helpers (CSS classes)
     @staticmethod
     def _menu_panel_class(is_open: bool) -> str:
         return "mx-panel is-open" if is_open else "mx-panel"
@@ -354,6 +361,29 @@ class TapMap:
         self.my_location = self._resolve_my_location()
         return True
 
+    def _reload_after_geodb_operation(
+        self,
+        response: GeoDbResponse,
+    ) -> GeoDbResponse:
+        """Reload runtime readers after successful GeoDB operations."""
+        # New MMDB files are not used until runtime readers are reloaded.
+        if (
+            response.get("error") is None
+            and not self._reload_geodb_runtime()
+        ):
+            response["error"] = "reload_failed"
+            response["message"] = (
+                f'{response.get("message", "")} '
+                "Runtime reload failed."
+            ).strip()
+
+        return response
+    
+    def _handle_geo_install_dbip(self) -> GeoDbResponse:
+        return self._reload_after_geodb_operation(
+            self.geodb.install("dbip")
+        )
+
     def _resolve_maxmind_install_credentials(
         self,
         account_id: Any,
@@ -370,85 +400,63 @@ class TapMap:
 
     def _handle_geo_install_maxmind(
         self,
-        status_cache: StatusCache,
-        ui_cache: dict[str, Any],
         account_id: Any,
         license_key: Any,
-    ) -> tuple[Any, Any, Any, Any, Any]:
+    ) ->GeoDbResponse:
         account_id_text, license_key_text = self._resolve_maxmind_install_credentials(
             account_id,
             license_key,
         )
 
-        if not account_id_text or not license_key_text:
-            flash = self._flash("MaxMind credentials are required.", self.MIN_FLASH_S)
-            return no_update, no_update, no_update, no_update, flash
-
         try:
-            self.geodb.maxmind.validate_credentials(account_id_text, license_key_text)
+            self.geodb.maxmind.validate_credentials(
+                account_id_text,
+                license_key_text,
+            )
             print("VALIDATE OK")
+
         except ValueError as exc:
             print("VALIDATE ERROR:", repr(exc))
-            flash = self._flash(str(exc), self.MIN_FLASH_S)
-            return no_update, no_update, no_update, no_update, flash
+
+            if exc.__cause__ is not None:
+                print("CAUSE:", repr(exc.__cause__))
+
+            status = self.geodb.local_status()
+            status["message"] = str(exc)
+            status["error"] = "credentials_invalid"
+            return status
 
         try:
-            self.geodb.maxmind.register_credentials(account_id_text, license_key_text)
-        except Exception:
-            flash = self._flash("Unable to store MaxMind credentials.", self.MIN_FLASH_S)
-            return no_update, no_update, no_update, no_update, flash
+            self.geodb.maxmind.register_credentials(
+                account_id_text,
+                license_key_text,
+            )
 
-        install_status = self.geodb.install("maxmind")
+        except Exception as exc:
+            print("KEYRING ERROR:", repr(exc))
 
-        if install_status.get("error") is None and install_status.get("provider") == "maxmind":
-            snap, cache, sc_store, view, _flash = self._handle_geo_recheck(status_cache)
-            flash = self._flash("MaxMind databases installed successfully.", self.MIN_FLASH_S)
-            return snap, cache, sc_store, view, flash
+            if exc.__cause__ is not None:
+                print("CAUSE:", repr(exc.__cause__))
 
-        snap = self.model.snapshot()
-        if isinstance(snap, dict):
-            snap["app_info"] = self._build_app_info()
+            status = self.geodb.local_status()
+            status["message"] = "Unable to store MaxMind credentials"
+            status["error"] = "credential_store_failed"
+            return status
 
-        view = self.view_builder.build_view_from_cache(ui_cache)
-        message = str(install_status.get("message") or "Unable to install MaxMind databases")
-        flash = self._flash(message, self.MIN_FLASH_S)
-        return snap, ui_cache, status_cache.to_store(), view, flash
+        return self._reload_after_geodb_operation(
+            self.geodb.install("maxmind")
+        )
     
-    def _handle_geo_install_dbip(
-        self,
-        status_cache: StatusCache,
-        ui_cache: dict[str, Any],
-    ) -> tuple[Any, Any, Any, Any, Any]:
-        install_status = self.geodb.install("dbip")
-
-        if install_status.get("error") is None and install_status.get("provider") == "dbip":
-            snap, cache, sc_store, view, _flash = self._handle_geo_recheck(status_cache)
-            flash = self._flash("DB-IP databases installed successfully.", self.MIN_FLASH_S)
-            return snap, cache, sc_store, view, flash
-
-        snap = self.model.snapshot()
-        if isinstance(snap, dict):
-            snap["app_info"] = self._build_app_info()
-
-        view = self.view_builder.build_view_from_cache(ui_cache)
-        message = str(install_status.get("message") or "Unable to install DB-IP databases")
-        flash = self._flash(message, self.MIN_FLASH_S)
-        return snap, ui_cache, status_cache.to_store(), view, flash
-
-    def _handle_geo_update(self) -> Any:
-        """Run GeoDB update and refresh local status."""
-        update_response = self.geodb.update()
-        print("GEO UPDATE RESPONSE:", repr(update_response))
-
-        if not self._reload_geodb_runtime():
-            update_response["error"] = "reload_failed"
-            update_response["message"] = (
-                f'{update_response.get("message", "")} '
-                "Runtime reload failed."
-            ).strip()
-
-        return update_response
-
+    def _handle_geo_update(self) -> GeoDbResponse:
+        return self._reload_after_geodb_operation(
+            self.geodb.update()
+        )
+    
+    def _handle_geo_recheck(self) -> GeoDbResponse:
+        return self._reload_after_geodb_operation(
+            self.geodb.recheck()
+        )
+   
     def _handle_clear_cache(self, status_cache: StatusCache) -> tuple[Any, Any, Any, Any, Any]:
         snap = self.model.snapshot()
         if isinstance(snap, dict):
@@ -563,26 +571,27 @@ class TapMap:
         snapshot: Any,
         ui_view: Any,
         geo_path: str,
-        geodb_response: dict[str, Any] | None,
+        geodb_event: dict[str, Any] | None,
     ) -> tuple[list[Any], str]:
-        print("RENDER GEODB RESPONSE:", repr(geodb_response))
+        
         if not isinstance(modal_state, dict):
             return [], "modal-body"
 
         screen = modal_state.get("screen")
         payload = self._ensure_dict(modal_state.get("payload"))
+        modal_opened_at = modal_state.get("t")
 
         if not isinstance(screen, str) or not screen:
             return [], "modal-body"
 
         if screen == self.SCR_GEODB_MANAGEMENT:
-
             children = self._as_children(
                 self.modal_text.geodb_management(
                     status=self.geodb.local_status(),
                     geo_data_dir=geo_path,
                     is_docker=self.runtime.is_docker,
-                    geodb_response=geodb_response,
+                    geodb_event=geodb_event,
+                    modal_opened_at=modal_opened_at,
                 )
             )
             return children, self._class_for_modal_screen(screen)
@@ -656,60 +665,27 @@ class TapMap:
             Output("status_cache", "data"),
             Output("ui_view", "data"),
             Output("status_flash", "data"),
-            # Output("geodb_response", "data"),
             Input("tick_model", "n_intervals"),
             Input("key_action", "data"),
             Input("menu_clear_cache", "n_clicks"),
             Input("menu_cache_terminal", "n_clicks"),
-            # Input("btn_check_databases", "n_clicks", allow_optional=True),
-            # Input("btn_install_maxmind", "n_clicks", allow_optional=True),
-            # Input("btn_install_dbip", "n_clicks", allow_optional=True),
-            # Input("btn_update_databases", "n_clicks", allow_optional=True),
             State("ui_cache", "data"),
             State("status_cache", "data"),
             State("status_flash", "data"),
-            State("input_maxmind_account_id", "value", allow_optional=True),
-            State("input_maxmind_license_key", "value", allow_optional=True),
-            State("modal_state", "data"),
             prevent_initial_call=True,
-            # running=[
-            #     (
-            #         Output("btn_update_databases", "disabled"),
-            #         True,
-            #         False,
-            #     ),
-            # ],
         )
         def poll_model(
             tick_n: int,
             key_action: Any,
             _clear_clicks: int,
             _cache_terminal_clicks: int,
-            # _check_db_clicks: int | None,
-            # _install_maxmind_clicks: int | None,
-            # _install_dbip_clicks: int | None,
-            # _update_databases_clicks: int | None,
             ui_cache_data: Any,
             status_cache_data: Any,
             status_flash_data: Any,
-            input_maxmind_account_id: Any,
-            input_maxmind_license_key: Any, 
-            modal_state_data: Any,
         ):
-            self._poll_count += 1
-            poll_id = datetime.now().strftime("%H:%M:%S.%f")
-
-            print(
-                f"\nPOLL #{self._poll_count} "
-                f"ID={poll_id} "
-                f"THREAD={threading.get_ident()} "
-            )
             status_cache = StatusCache.from_store(status_cache_data)
             ui_cache = self._ensure_dict(ui_cache_data)
             trigger = ctx.triggered_id
-            print("POLL ENTER", trigger)
-
-           # Resolve the requested poll action from the current trigger context.
             decision = decide_poll_action(
                 trigger=trigger,
                 key_action=key_action,
@@ -717,12 +693,10 @@ class TapMap:
 
             if decision.action == ACTION_CACHE_TERMINAL:
                 a, b, c, d, flash = self._handle_cache_terminal(status_cache, ui_cache)
-                print("POLL RETURN ACTION_CACHE_TERMINAL")
                 return a, b, c, d, flash
 
             if decision.action == ACTION_CLEAR_CACHE:
                 snap, cache, sc_store, view, flash = self._handle_clear_cache(status_cache)
-                print("POLL RETURN ACTION_CLEAR_CACHE")
                 return snap, cache, sc_store, view, flash
 
             
@@ -735,13 +709,10 @@ class TapMap:
                 if isinstance(status_flash_data, dict):
                     until = status_flash_data.get("until")
                     if isinstance(until, (int, float)) and now < until:
-                        print("POLL RETURN NORMAL WITH FLASH")
                         return snap, cache, sc_store, view, no_update
 
-                print("POLL RETURN NORMAL")
                 return snap, cache, sc_store, view, None
 
-            print("POLL RETURN DEFAULT NO_UPDATE")
             return no_update, no_update, no_update, no_update, no_update
 
     def _register_menu_callbacks(self) -> None:
@@ -832,63 +803,59 @@ class TapMap:
 
     def _register_geodb_callbacks(self) -> None:
         @self.app.callback(
-            Output("geodb_response", "data"),
-            Input("btn_check_databases", "n_clicks", allow_optional=True),
-            Input("btn_install_maxmind", "n_clicks", allow_optional=True),
+            Output("geodb_event", "data"),
             Input("btn_install_dbip", "n_clicks", allow_optional=True),
+            Input("btn_install_maxmind", "n_clicks", allow_optional=True),
             Input("btn_update_databases", "n_clicks", allow_optional=True),
+            Input("btn_check_databases", "n_clicks", allow_optional=True),
             State("input_maxmind_account_id", "value", allow_optional=True),
             State("input_maxmind_license_key", "value", allow_optional=True),
+            running=[
+                (Output("btn_install_dbip", "disabled"), True, False),
+                (Output("btn_install_maxmind", "disabled"), True, False),
+                (Output("btn_update_databases", "disabled"), True, False),
+                (Output("btn_check_databases", "disabled"), True, False),
+],
             prevent_initial_call=True,
         )
         def geodb_controller(
-            check_clicks: int | None,
-            install_maxmind_clicks: int | None,
             install_dbip_clicks: int | None,
+            install_maxmind_clicks: int | None,
             update_clicks: int | None,
+            check_clicks: int | None,
             account_id: str | None,
             license_key: str | None,
-        ) -> Any:
-            self._geodb_controller_count += 1
-            geodb_controller_id = datetime.now().strftime("%H:%M:%S.%f")
-
-            print(
-                f"\nGEODB_CONTROLLER #{self._geodb_controller_count} "
-                f"ID={ geodb_controller_id} "
-                f"THREAD={threading.get_ident()} "
-                f"update_clicks={update_clicks} "
-            )
+        ) -> GeoDbEvent:
             trigger = ctx.triggered_id
-            print("GEODB CALLBACK:", trigger)
-
-            if trigger == "btn_check_databases":
-                if not check_clicks:
-                    print("GEODB CHECK: no clicks, ignoring")
-                    raise PreventUpdate
-
-                return self.geodb.recheck()
-
-            if trigger == "btn_install_maxmind":
-                if not install_maxmind_clicks:
-                    raise PreventUpdate
-
-                return self.geodb.install_maxmind(
-                    account_id=account_id,
-                    license_key=license_key,
-                )
 
             if trigger == "btn_install_dbip":
                 if not install_dbip_clicks:
                     raise PreventUpdate
 
-                return self.geodb.install("dbip")
+                response = self._handle_geo_install_dbip()
+                return {"action": "install_dbip", "response": response}
+
+            if trigger == "btn_install_maxmind":
+                if not install_maxmind_clicks:
+                    raise PreventUpdate
+
+                response = self._handle_geo_install_maxmind(account_id, license_key)
+                return {"action": "install_maxmind", "response": response}
 
             if trigger == "btn_update_databases":
                 if not update_clicks:
                     raise PreventUpdate
 
-                return  self._handle_geo_update()
+                response = self._handle_geo_update()
+                return {"action": "update", "response": response}
 
+            if trigger == "btn_check_databases":
+                if not check_clicks:
+                    raise PreventUpdate
+
+                response = self._handle_geo_recheck()
+                return {"action": "recheck", "response": response}
+    
             raise PreventUpdate
         
     def _register_os_callbacks(self) -> None:
@@ -897,7 +864,6 @@ class TapMap:
             prevent_initial_call=True,
         )
         def open_data_folder(n_clicks: int | None) -> None:
-            print("OS CALLBACK: btn_open_data", n_clicks)
             if not n_clicks:
                 raise PreventUpdate
 
@@ -915,22 +881,17 @@ class TapMap:
             Output("modal_body", "children"),
             Output("modal_body", "className"),
             Input("modal_state", "data"),
-            Input("geodb_response", "data"),
+            Input("geodb_event", "data"),
             State("ui_view", "data"),
             State("model_snapshot", "data"),
             prevent_initial_call=False,
         )
         def modal_renderer(
             modal_state_data: Any,
-            geodb_response_data: Any,
+            geodb_event_data: Any,
             ui_view: Any,
             snapshot: Any,
         ):
-            print("RENDER CALLBACK")
-            print("MODAL STATE:", modal_state_data)
-            trigger = ctx.triggered_id
-            print("RENDER TRIGGER:", trigger)
-            print('TRIGGERED PROPS:', list(ctx.triggered_prop_ids.keys()))
             geo_path = str(self.runtime.geo_data_dir)
 
             children, body_class = self._render_modal(
@@ -938,7 +899,7 @@ class TapMap:
                 snapshot,
                 ui_view,
                 geo_path,
-                geodb_response_data,
+                geodb_event_data,
             )
 
             overlay_class = self._modal_overlay_class(
@@ -950,10 +911,6 @@ class TapMap:
     def _register_modal_callbacks(self) -> None:
         @self.app.callback(
             Output("modal_state", "data"),
-            # Output("modal_overlay", "className"),
-            # Output("modal_body", "children"),
-            # Output("modal_body", "className"),
-           # Input("tick_model", "n_intervals"),
             Input("menu_open_ports", "n_clicks"),
             Input("menu_unmapped", "n_clicks"),
             Input("menu_lan_local", "n_clicks"),
@@ -962,23 +919,16 @@ class TapMap:
             Input("menu_help", "n_clicks"),
             Input("menu_daily_report", "n_clicks"),
             Input("btn_close", "n_clicks"),
-            # Input("btn_check_databases", "n_clicks", allow_optional=True),
             Input("toggle_open_ports_system", "value", allow_optional=True),
             Input("map", "clickData"),
-            # Input("btn_open_data", "n_clicks", allow_optional=True),
             Input("btn_view_log", "n_clicks", allow_optional=True),
             Input("btn_log_back", "n_clicks", allow_optional=True),
             Input("key_action", "data"),
-            # Input("status_flash", "data"),
-            # Input("geodb_response", "data"),
             State("modal_state", "data"),
-            State("ui_view", "data"),
             State("open_ports_prefs", "data"),
-            State("model_snapshot", "data"),
             prevent_initial_call=True,
         )
         def modal_controller(
-        #    _tick_n: int,
             _open_ports_clicks: int,
             _unmapped_clicks: int,
             _lan_local_clicks: int,
@@ -987,141 +937,29 @@ class TapMap:
             _help_clicks: int,
             _daily_report_clicks: int,
             _close_clicks: int,
-            # _check_db_clicks: int | None,
             toggle_system_value: Any,
             click_data: Any,
-            # open_data_clicks: int | None,
             _view_log_clicks: int | None,
             _log_back_clicks: int | None,
             key_action: Any,
-            # status_flash_data: Any,
-            # geodb_response_data: Any,
             modal_state_data: Any,
-            ui_view: Any,
             open_ports_prefs_data: Any,
-            snapshot: Any,
         ):
-            # Apply a modal_state to the UI by rendering and updating overlay classes.
-            def _apply_modal_state(next_state: dict[str, Any] | None) -> Any:
-                print("APPLY MODAL:", next_state)
-                return next_state
-            
-            def _build_geodb_payload() -> dict[str, Any]:
-                payload: dict[str, Any] = {}
-
-                if bool(current_payload.get("startup_required", False)):
-                    payload["startup_required"] = True
-
-                return payload
-                          
             current_state = modal_state_data if isinstance(modal_state_data, dict) else None
             current_screen = (
                 current_state.get("screen") if isinstance(current_state, dict) else None
             )
-            current_payload = (
-                self._ensure_dict(current_state.get("payload"))
-                if isinstance(current_state, dict)
-                else {}
-            )
             trigger = ctx.triggered_id
-            trigger = ctx.triggered_id  
-
-            print("MC TRIGGER:", trigger)
-            print("MC VIEW_LOG CLICKS:", _view_log_clicks)
-            print("MC LOG_BACK CLICKS:", _log_back_clicks)
-            # geo_path = str(self.runtime.geo_data_dir)
-           
-            # Handle modal close before other modal actions.
+       
             if trigger == "btn_close":
-                print("APPLY MODAL FROM CLOSE")
-                print(
-                    "BTN_CLOSE:",
-                    trigger,
-                    _close_clicks,
-                )
-                return _apply_modal_state(None)
+                return None
 
-            print(
-                "THREAD:",
-                threading.get_ident()
-            )
-            self._modal_count += 1
-            print(
-                f"\nMODAL CALL #{self._modal_count} "
-                f"THREAD={threading.get_ident()}"
-            )        
-            print("MODAL TRIGGER:", trigger)
-            print("TRIGGERED:", list(ctx.triggered_prop_ids.keys()))
-            print("CURRENT SCREEN:", current_screen)
-            # print(
-            #     "GEODB:",
-            #     "geodb_response.data" in ctx.triggered_prop_ids,
-            #     type(geodb_response_data).__name__,
-            # )
-            # Close startup GeoDB modal after successful database install.
-            # if (current_screen == self.SCR_GEODB_MANAGEMENT
-            #     and self._startup_geodb_modal_should_close(current_state, snapshot)
-            # ):
-            #     print("APPLY MODAL FROM STARTUP CLOSE CONDITION")
-            #     return _apply_modal_state(None)
-
-            print(
-                "GEODB CONDITION:",
-                current_screen,
-                "geodb_response.data" in ctx.triggered_prop_ids,
-            )
-
-            # Update GeoDB modal from GeoDB status changes.
-            # if (
-            #     current_screen == self.SCR_GEODB_MANAGEMENT
-            #     and "geodb_response.data" in ctx.triggered_prop_ids
-            # ):
-            # if (
-            #     "geodb_response.data" in ctx.triggered_prop_ids
-            #     and isinstance(geodb_response_data, dict)
-            # ):
-            #     print("GEODB RESPONSE TRIGGERED")    
-                
-            #     geodb_response = (
-            #         geodb_response_data
-            #         if isinstance(geodb_response_data, dict)
-            #         else {}
-            #     )
-            #     print("GEODB RESPONSE:", geodb_response)
-            #     print("CURRENT PAYLOAD:", current_payload)
-            #     print("NEW PAYLOAD:", _build_geodb_payload())
-                
-            #     payload = {
-            #         "screen": self.SCR_GEODB_MANAGEMENT,
-            #         "t": datetime.now().isoformat(),
-            #         "payload": _build_geodb_payload(),
-            #     }
-
-            #     print("MODAL OUT:", payload)
-
-            #     return _apply_modal_state(payload)
-
-            # Recheck is executed by poll_model via the shared button id.
-            # Keep GeoDB management open for in-modal recheck.
-            # if trigger == "btn_check_databases":
-            #     print("APPLY MODAL FROM RECHECK")
-            #     return _apply_modal_state(
-            #         {
-            #             "screen": self.SCR_GEODB_MANAGEMENT,
-            #             "t": datetime.now().isoformat(),
-            #             "payload": _build_geodb_payload(),
-            #         }
-            #     )
-
-            # Normalize current modal state.
             is_open = current_state is not None
-
-            # Normalize keyboard action payload.
             action = None
+
             if trigger == "key_action" and isinstance(key_action, dict):
                 action = key_action.get("action")
 
-            # Delegate routing decisions to the state layer.
             now_iso = datetime.now().isoformat()
             open_ports_prefs = (
                 open_ports_prefs_data if isinstance(open_ports_prefs_data, dict) else None
@@ -1138,27 +976,11 @@ class TapMap:
                 now_iso=now_iso,
             )
 
-            # Execute the decided route.
             if route.action == "apply":
-                print("APPLY MODAL FROM APPLY ROUTE")
-                return _apply_modal_state(route.modal_state)
-
-            # if (
-            #     route.action == "open_data"
-            #     and isinstance(open_data_clicks, int)
-            #     and open_data_clicks >= 1
-            # ):
-            #     if self.runtime.is_docker:
-            #         print("APPLY MODAL FROM OPEN DATA DOCKER")
-            #         return no_update
-
-            #     open_folder(Path(geo_path))
-            #     # fall through to default no_update return
-               
-            print("APPLY MODAL FROM DEFAULT")
+                return route.modal_state
+              
             return no_update
-git add -A
-git commit -m "WIP: geodb callback split"
+
         @self.app.callback(
             Output("open_ports_prefs", "data"),
             Input("toggle_open_ports_system", "value", allow_optional=True),

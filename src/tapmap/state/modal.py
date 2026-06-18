@@ -22,7 +22,8 @@ class ModalRoute:
       - full next modal_state dict, or None to close, used when action == "apply"
     """
 
-    action: Literal["apply", "open_data", "noop"]
+    # action: Literal["apply", "open_data", "noop"]
+    action: Literal["apply", "noop"]
     modal_state: dict[str, Any] | None = None
 
 
@@ -54,7 +55,6 @@ def _decide_screen_change(
     now_iso: str,
 ) -> dict[str, Any] | None:
     """Return full modal_state for screen transitions, or None if not applicable."""
-    # Open a modal screen from keyboard action.
     if trigger == "key_action" and isinstance(action, str) and action in menu_screens:
         screen = action
         payload: dict[str, Any] = {}
@@ -65,13 +65,11 @@ def _decide_screen_change(
 
         return {"screen": screen, "t": now_iso, "payload": payload}
 
-    # Update Open Ports payload when the toggle changes.
     if trigger == "toggle_open_ports_system":
         if not is_open or current_screen != "menu_open_ports":
             return None
         return {"screen": "menu_open_ports", "t": now_iso, "payload": {"show_system": show_system}}
 
-    # Open a modal screen from menu click.
     if trigger in menu_screens:
         screen = str(trigger)
         payload: dict[str, Any] = {}
@@ -134,7 +132,6 @@ def decide_modal_route(
     now_iso: str,
 ) -> ModalRoute:
     """Decide modal routing in a single priority ordered function."""
-    # 1) Close has highest priority (ESC, Close button, auto close).
     close_result = _decide_close(
         trigger=trigger,
         is_open=is_open,
@@ -146,7 +143,6 @@ def decide_modal_route(
         # This should never happen, but keeps the contract explicit.
         return ModalRoute(action="noop")
 
-    # 2) Screen routing (menu, keyboard, toggle).
     next_state = _decide_screen_change(
         trigger=trigger,
         is_open=is_open,
@@ -160,7 +156,6 @@ def decide_modal_route(
     if next_state is not None:
         return ModalRoute(action="apply", modal_state=next_state)
     
-    # Handle navigation between modal subviews.
     next_state = _decide_internal_navigation(
         trigger=trigger,
         now_iso=now_iso,
@@ -171,11 +166,6 @@ def decide_modal_route(
             modal_state=next_state,
         )   
 
-    # 3) Side-effect request.
-    if trigger == "btn_open_data":
-        return ModalRoute(action="open_data")
-
-    # 4) Map click.
     next_state = _decide_map_click(
         trigger=trigger,
         click_data=click_data,

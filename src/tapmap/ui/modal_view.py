@@ -6,6 +6,7 @@ and modal screens shown by the application.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from dash import dcc, html
@@ -123,8 +124,6 @@ class ModalTextBuilder:
 
         body_text = f"lon={lon}  lat={lat}\n\n{detail}"
         return html.Pre(body_text)
-
-    # Common UI helpers
 
     @staticmethod
     def _h1(title: str) -> html.H1:
@@ -263,7 +262,6 @@ class ModalTextBuilder:
 
         return [*header, table]
 
-    # Helpers for unmapped and LAN/LOCAL services views
     @staticmethod
     def _process_text(row: dict[str, Any]) -> tuple[str, str | None]:
         """Return process label and tooltip."""
@@ -441,7 +439,6 @@ class ModalTextBuilder:
 
         return [header, table]
 
-    # LAN/LOCAL services view
     @classmethod
     def _render_lan_local(cls, snapshot: Any | None) -> list[Any]:
         """Render LAN and LOCAL established services."""
@@ -477,36 +474,46 @@ class ModalTextBuilder:
         return [header, table]
 
     def geodb_management(
-            self,
-            *,
-            status: dict[str, Any],
-            geo_data_dir: str,
-            is_docker: bool,
-            geodb_response: dict[str, Any] | None = None,
-        ) -> list[Any]:
+        self,
+        *,
+        status: dict[str, Any],
+        geo_data_dir: str,
+        is_docker: bool,
+        geodb_event: dict[str, Any] | None = None,
+        modal_opened_at: str | None = None,
+    ) -> list[Any]:
             """Render the GeoDB management modal for local status and explicit recheck."""
             provider = safe_str(status.get("provider")) or "none"
             no_provider = provider == "none"
-            modal_status = ""
-            response = (
-                geodb_response
-                if isinstance(geodb_response, dict)
-                else {}
-            )
 
-            geodb_message = str(response.get("message") or "")
-            geodb_error = str(response.get("error") or "")
+
+            response = {}
+
+            if isinstance(geodb_event, dict):
+                response = geodb_event.get("response", {})
+
             checked_at = str(response.get("checked_at") or "")
 
+            show_event = False
 
-            if geodb_error:
-                modal_status = f"Error ({geodb_error}): {geodb_message}"
-            elif geodb_message:
-                modal_status = geodb_message
+            if checked_at and modal_opened_at:
+                show_event = (
+                    datetime.fromisoformat(checked_at)
+                    >= datetime.fromisoformat(modal_opened_at)
+                )
 
-            if checked_at:
-                modal_status += f"\nLast checked: {checked_at}"
+            geodb_message = ""
+            geodb_error = ""
+            status_text = ""
 
+            if show_event:
+                geodb_message = str(response.get("message") or "")
+                geodb_error = str(response.get("error") or "")
+
+                if geodb_error:
+                    status_text = f"Error: {geodb_message}"
+                elif geodb_message:
+                    status_text = geodb_message
             if no_provider:
                 return [
                     self._h1("GeoIP Database Management"),
@@ -527,8 +534,13 @@ class ModalTextBuilder:
                                         ],
                                         className="mx-geodb-card__header",
                                     ),
-                                    html.P("Better coverage and accuracy."),
-                                    html.P("Requires a free MaxMind account."),
+                                                                        html.Ul(
+                                        [
+                                            html.Li("+ Better coverage and accuracy"),
+                                            html.Li("- Requires a free MaxMind account"),
+                                        ],
+                                        className="mx-feature-list",
+                                    ),
                                     html.A(
                                         "Create free MaxMind account",
                                         href="#",
@@ -540,7 +552,7 @@ class ModalTextBuilder:
                                         className="mx-link",
                                     ),
                                     html.Div(
-                                        className="mx-form-row",
+                                        className="mx-form-grid",
                                         children=[
                                             html.Label("Account ID"),
                                             dcc.Input(
@@ -570,43 +582,57 @@ class ModalTextBuilder:
                                         className="mx-btn mx-btn--primary mx-btn--nowrap",
                                         type="button",
                                     ),
-                                    html.Div(
-                                        id="geodb-status-maxmind",
-                                        className="mx-status",
-                                        children=[
-                                            html.Span(
-                                                modal_status,
-                                                className="mx-status__value",
-                                            )
-                                        ]
-                                        if modal_status
-                                        else [],
-                                    ),
                                 ],
                             ),
                             html.Div(
-                                className="mx-geodb-card",
+                                className="mx-geodb-right-column",
                                 children=[
                                     html.Div(
-                                        [
-                                            html.H2("DB-IP Lite"),
-                                            html.Span("", className="mx-pill mx-pill--spacer"),
+                                        className="mx-geodb-card",
+                                        children=[
+                                            html.Div(
+                                                [
+                                                    html.H2("DB-IP Lite"),
+                                                    html.Span("",
+                                                               className="mx-pill mx-pill--spacer"),
+                                                ],
+                                                className="mx-geodb-card__header",
+                                            ),
+                                            html.Ul(
+                                                [
+                                                    html.Li("+ Simpler setup"),
+                                                    html.Li("+ No account required"),
+                                                    html.Li("- Lower coverage and accuracy"),
+                                                ],
+                                                className="mx-feature-list",
+                                            ),
+                                            html.Button(
+                                                "Install DB-IP database files",
+                                                id="btn_install_dbip",
+                                                n_clicks=0,
+                                                className="mx-btn mx-btn--primary mx-btn--nowrap",
+                                                type="button",
+                                            ),
                                         ],
-                                        className="mx-geodb-card__header",
-                                    ),
-                                    html.P("Simpler setup."),
-                                    html.P("No account required."),
-                                    html.P("Lower coverage and accuracy."),
-                                    html.Button(
-                                        "Install DB-IP database files",
-                                        id="btn_install_dbip",
-                                        n_clicks=0,
-                                        className="mx-btn mx-btn--primary mx-btn--nowrap",
-                                        type="button",
                                     ),
                                     html.Div(
-                                        id="geodb-status-dbip",
-                                        className="mx-status",
+                                        className="mx-geodb-card mx-geodb-status-card",
+                                        children=[
+                                            html.Div(
+                                                [
+                                                    html.H2("Status"),
+                                                    html.Span("",
+                                                               className="mx-pill mx-pill--spacer"),
+                                                ],
+                                                className="mx-geodb-card__header",
+                                            ),
+                                            html.Div(
+                                                status_text,
+                                                id="geodb-status-text",
+                                                key=checked_at,
+                                                className="mx-status__value",
+                                            )
+                                        ],
                                     ),
                                 ],
                             ),
@@ -615,23 +641,45 @@ class ModalTextBuilder:
                     html.Div(
                         className="mx-manual-install",
                         children=[
-                            html.P("Manual installation is also supported:"),
+                            html.H3(
+                                "Alternative: Manual installation",
+                                className="mx-section-title",
+                            ),
                             html.Ol([
                                 html.Li("Open the data folder."),
-                                html.Li("Copy the City and ASN MMDB database files into the folder."),
+                                html.Li("Copy the City and ASN MMDB database files "
+                                        "into the folder."),
                                 html.Li("Recheck databases to detect them."),
                             ]),
                             html.Div(
                                 className="mx-path-row",
                                 children=[
-                                    html.Pre(geo_data_dir, className="mx-path-box"),
-                                    *(
-                                        []
-                                        if is_docker
-                                        else [
+                                    html.Pre(
+                                        geo_data_dir,
+                                        className="mx-path-box",
+                                    ),
+                                    html.Div(
+                                        className="mx-manual-actions",
+                                        children=[
+                                            *(
+                                                []
+                                                if is_docker
+                                                else [
+                                                    html.Button(
+                                                        "Open data folder",
+                                                        id="btn_open_data",
+                                                        n_clicks=0,
+                                                        className=(
+                                                            "mx-btn mx-btn--primary mx-btn--nowrap "
+                                                            "mx-manual-btn"
+                                                        ),
+                                                        type="button",
+                                                    ),
+                                                ]
+                                            ),
                                             html.Button(
-                                                "Open data folder",
-                                                id="btn_open_data",
+                                                "Recheck databases",
+                                                id="btn_check_databases",
                                                 n_clicks=0,
                                                 className=(
                                                     "mx-btn mx-btn--primary mx-btn--nowrap "
@@ -639,30 +687,9 @@ class ModalTextBuilder:
                                                 ),
                                                 type="button",
                                             ),
-                                        ]
-                                    ),
-                                    html.Button(
-                                        "Recheck databases",
-                                        id="btn_check_databases",
-                                        n_clicks=0,
-                                        className="mx-btn mx-btn--primary mx-btn--nowrap mx-manual-btn",
-                                        type="button",
+                                        ],
                                     ),
                                 ],
-                            ),
-                            html.Div(
-                                className="mx-status",
-                                children=[
-                                    html.Span(modal_status, className="mx-status__value")
-                                ]
-                                if modal_status
-                                and (
-                                    "geolocation" in modal_status.lower()
-                                    or "missing" in modal_status.lower()
-                                    or "recheck" in modal_status.lower()
-                                    or "installed successfully" in modal_status.lower()
-                                )
-                                else [],
                             ),
                             *(
                                 [
@@ -678,8 +705,6 @@ class ModalTextBuilder:
                         ],
                     ),
                 ]
-
-            print("MODAL STATUS:", repr(modal_status))    
             
             provider_name = (
                 "MaxMind GeoLite2"
@@ -693,9 +718,6 @@ class ModalTextBuilder:
                 header_children.append(
                     html.Span("Recommended", className="mx-pill")
                 )
-                
-            print("STATUS CHILDREN:", bool(modal_status))
-            print("modal_status:", repr(modal_status))
 
             return [
                 self._h1("GeoIP Database Management"),
@@ -710,30 +732,21 @@ class ModalTextBuilder:
                                     className="mx-geodb-card__header",
                                 ),
                                 html.P(
-                                    f"Local version/date: {safe_str(status.get('local_display_date'))}"
-                                ), 
-                                    html.Button(
-                                        "Update databases",
-                                        id="btn_update_databases",
-                                        n_clicks=0,
-                                        className="mx-btn mx-btn--primary mx-btn--nowrap",
-                                        type="button",
-                                    ),
+                                    f"Local version/date: "
+                                    f"{safe_str(status.get('local_display_date'))}"
+                                ),
+                                html.Button(
+                                    "Update databases",
+                                    id="btn_update_databases",
+                                    n_clicks=0,
+                                    className="mx-btn mx-btn--primary mx-btn--nowrap",
+                                    type="button",
+                                ),
                                 html.Div(
-                                    id="geodb-status-update",
-                                    className="mx-status",
-                                    children=[
-                                        html.Div(
-                                            "TEST",
-                                            id="geodb-working",
-                                            className="mx-status__working",
-                                        ),
-                                        html.Div(
-                                            id="geodb-status-text",
-                                            className="mx-status__value",
-                                            children=modal_status,
-                                        ),
-                                    ],
+                                    status_text,
+                                    id="geodb-status-text",
+                                    key=checked_at,
+                                    className="mx-status__value",
                                 )
                             ],
                         )
@@ -742,7 +755,14 @@ class ModalTextBuilder:
                 html.Div(
                     className="mx-manual-install",
                     children=[
-                        html.Pre(geo_data_dir, className="mx-path-box"),
+                        html.H3(
+                            "Database folder",
+                            className="mx-section-title",
+                        ),
+                         html.Pre(
+                            geo_data_dir,
+                            className="mx-path-box",
+                        ),
                         html.Div(
                             className="mx-manual-actions",
                             children=[
@@ -751,7 +771,7 @@ class ModalTextBuilder:
                                     if is_docker
                                     else [
                                         html.Button(
-                                            "Open data folder",
+                                              "Open data folder",
                                             id="btn_open_data",
                                             n_clicks=0,
                                             className=(
@@ -785,8 +805,6 @@ class ModalTextBuilder:
                     ],
                 ),
             ]
-
-    # Click helpers
 
     @staticmethod
     def first_idx(customdata: Any) -> int | None:

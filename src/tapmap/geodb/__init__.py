@@ -1,15 +1,11 @@
-"""GeoIP database management service package for TapMap.
+"""GeoDB services and provider integrations for TapMap.
 
-This package owns operational GeoDB logic (disk/network/keyring) and exposes
-service-level APIs for application callbacks.
+Modules in this package manage GeoIP databases and
+provider-specific operations.
+
+They contain no UI rendering or Dash callbacks.
 """
 
-from .dbip import DbIpProvider
-from .maxmind import MaxMindProvider
 from .service import GeoDbService
 
-__all__ = [
-    "DbIpProvider",
-    "GeoDbService",
-    "MaxMindProvider",
-]
+__all__ = ["GeoDbService"]

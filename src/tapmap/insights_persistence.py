@@ -26,15 +26,12 @@ def load_insights(path: Path) -> dict[str, Any]:
         insights = data.get("insights")
         if not isinstance(insights, dict):
             raise ValueError("insights is not a dict")
-        # Normalize: only keep expected keys, fill missing with empty dicts
         normalized = {
             k: dict(insights[k]) if isinstance(insights.get(k), dict) else {}
             for k in expected_keys
         }
-        # Strip unknown keys (ignore extras)
         return normalized
     except Exception:
-        # Safe fallback: empty structure
         return {k: {} for k in ["countries", "providers", "ports", "applications"]}
 
 

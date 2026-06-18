@@ -83,7 +83,7 @@ class MaxMindProvider:
         local_display_date: str | None = None
         if city_valid and asn_valid and city_epoch is not None and asn_epoch is not None:
             # For update logic, use the minimum (oldest) comparable local build key.
-            local_version = str(min(city_epoch, asn_epoch))
+            local_version = self._epoch_to_date(min(city_epoch, asn_epoch))
             # For UI display, show minimum freshness across the active pair.
             local_display_date = self._epoch_to_date(min(city_epoch, asn_epoch))
 
@@ -211,11 +211,11 @@ class MaxMindProvider:
     def fetch_remote_version(self) -> str:
         """Return MaxMind remote version key for update logic.
 
-        Uses the minimum (oldest) City/ASN Last-Modified epoch.
+        Uses the minimum (oldest) City/ASN Last-Modified date.
         """
         city_epoch = self._remote_last_modified_epoch(self.CITY_DOWNLOAD_NAME)
         asn_epoch = self._remote_last_modified_epoch(self.ASN_DOWNLOAD_NAME)
-        return str(min(city_epoch, asn_epoch))
+        return self._epoch_to_date(min(city_epoch, asn_epoch))
 
     def _download_edition_to(self, *, edition_id: str, target_path: Path) -> Path:
         """Download one MaxMind edition and extract MMDB into target_path."""

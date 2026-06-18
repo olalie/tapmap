@@ -85,13 +85,8 @@ class GeoInfo:
 
         self._city_reader: maxminddb.Reader | None = None
         self._asn_reader: maxminddb.Reader | None = None
-
-        # Cache: IP string -> GeoResult
         self._ip_cache: OrderedDict[str, GeoResult] = OrderedDict()
-
         self._open_readers()
-
-    # Properties
 
     @property
     def paths(self) -> GeoDbPaths:
@@ -112,8 +107,6 @@ class GeoInfo:
     def asn_enabled(self) -> bool:
         """Return True when the ASN database is open (asn, asn_org)."""
         return self._asn_reader is not None
-
-    # Lifecycle
 
     def reload(self) -> bool:
         """Reopen database readers from disk.
@@ -141,8 +134,6 @@ class GeoInfo:
     def __exit__(self, exc_type, exc, tb) -> None:
         """Close database readers on context exit."""
         self.close()
-
-    # Public API
 
     def enrich(self, connections: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Enrich connection dictionaries in-place using raddr_ip.
@@ -201,8 +192,6 @@ class GeoInfo:
 
         self._ip_cache_put(ip, result)
         return result
-
-    # Internal helpers
 
     def _open_readers(self) -> None:
         """Open database readers if files exist."""
@@ -282,8 +271,6 @@ class GeoInfo:
 
         org = record.get("autonomous_system_organization")
         result["asn_org"] = org if isinstance(org, str) and org else None
-
-    # LRU cache
 
     def _ip_cache_get(self, ip: str) -> GeoResult | None:
         """Return cached value and refresh LRU order."""

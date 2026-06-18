@@ -244,11 +244,9 @@ class Model:
         local_address = self._format_local_address(l_ip, l_port)
 
         process_status = conn.get("process_status") or "Unavailable"
-        # Raw OS process name if available.
         process_name = conn.get("process_name") or None
         exe = conn.get("exe") or None
 
-        # User-facing display label with fallback semantics.
         if process_name:
             process_label = process_name
         elif process_status == "No process":
