@@ -1,9 +1,69 @@
 ## Unreleased
 
-### Daily Activity Report
-- Refine narrative wording and report tone
-- Improve alignment between wording, recurrence visuals, and provider concentration curves
-- Simplify provider concentration summaries
+## 1.8.0 (2026-06-18)
+
+### Features
+- Add GeoDB Management
+  - Manage GeoIP databases directly from the application
+  - Support MaxMind GeoLite2 installation and updates
+  - Support DB-IP Lite installation and updates
+  - Detect installed provider and database status
+  - Show database version and freshness information
+  - Recheck and reload databases without restarting TapMap
+
+### Improvements
+- Improve Daily Activity Report
+  - Refine narrative wording and report tone
+  - Improve alignment between wording, recurrence visuals, and provider concentration curves
+  - Simplify provider concentration summaries
+
+- Improve GeoIP database handling
+  - Add dedicated GeoDB service layer
+  - Add provider-specific MaxMind and DB-IP integrations
+  - Automatically reload GeoIP runtime after database operations
+  - Persist MaxMind credentials securely using system keyring
+  - Improve startup handling when databases are missing
+
+- Improve GeoDB user experience
+  - Add provider selection workflow
+  - Add installation and update status feedback
+  - Disable actions while GeoDB operations are running
+  - Add loading indicators for long-running operations
+  - Add direct access to the GeoDB data directory
+
+- Improve About view
+  - Show active GeoIP provider
+  - Show installed database date information
+
+### UI
+- Add GeoDB Management modal
+- Add GeoDB provider comparison and installation workflow
+- Add GeoDB status cards and operation feedback
+- Add GeoDB loading indicators and status animations
+- Improve modal rendering architecture
+
+### Refactor
+- Introduce dedicated GeoDB package
+  - Add GeoDB orchestration service
+  - Add MaxMind provider implementation
+  - Add DB-IP provider implementation
+
+- Replace GeoDB response flow with event-based UI updates
+- Separate GeoDB controller, rendering and OS integration responsibilities
+- Simplify callback architecture and runtime reload handling
+- Split frontend assets into dedicated keyboard, accordion and GeoDB modules
+- Remove obsolete GeoDB code paths and diagnostics
+
+### Testing
+- Add GeoDB regression coverage
+- Expand smoke-test coverage for GeoDB workflows
+- Add application data directory tests
+- Add GeoInfo provider-related tests
+
+### Documentation
+- Update application data directory README handling
+- Automatically refresh bundled GeoDB README when format changes
+- Update GeoDB-related application and module documentation
 
 ## 1.7.2 (2026-05-26)
 

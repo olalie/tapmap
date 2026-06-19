@@ -28,10 +28,10 @@
 
 ## Branch protection
 
-- main is protected
-- PR required for normal changes
-- CI checks required before merge
-- direct push to main allowed for version bump (intentional exception)
+- main is protected for normal development
+- feature changes require PR and passing CI
+- documentation-only changes may bypass CI
+- release metadata updates may be committed directly to main
 
 ## Immutable releases
 

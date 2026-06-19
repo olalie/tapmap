@@ -121,12 +121,10 @@ def render_about(
         html.P("Runs locally. No telemetry. TapMap does not inspect traffic contents."),
         kv_table(tapmap_rows),
         html.H2("Command line"),
-        html.Ul(
-            [
-                html.Li([html.Code("tapmap"), " Start application"]),
-                html.Li([html.Code("tapmap --help"), " Show options"]),
-                html.Li([html.Code("tapmap -v"), " Show version"]),
-            ]
+        html.Pre(
+            "tapmap            Start application\n"
+            "tapmap --help     Show options\n"
+            "tapmap --version  Show version"
         ),
         html.H2("Geolocation"),
         html.P(

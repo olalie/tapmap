@@ -31,32 +31,28 @@ def render_help() -> list[Any]:
         html.Ul(
             [
                 html.Li("Start TapMap."),
-                html.Li(
-                    [
-                        "If a 'Missing GeoIP databases' window appears:",
-                        html.Ul(
-                            [
-                                html.Li("Click Open data folder."),
-                                html.Li(
-                                    "Copy GeoLite2-City.mmdb and GeoLite2-ASN.mmdb into that "
-                                    "folder."
-                                ),
-                                html.Li(
-                                    "Open GeoIP Database Management (G) and click Recheck "
-                                    "databases."
-                                ),
-                            ]
-                        ),
-                    ]
-                ),
                 html.Li("Hover map markers for a summary."),
                 html.Li("Click map markers for detailed information."),
+                html.Li(
+                    "The Insights panel highlights new and frequent activity."
+                ),
+                html.Li(
+                    "Open the Daily Activity Report (D) for deeper analysis of activity patterns."
+                ),
+                html.Li(
+                    "Use the menu to explore unmapped services, LAN/LOCAL services, "
+                    "open ports, and additional tools."
+                ),
                 html.Li(
                     "Use the mouse or Plotly tools (top right) to pan, zoom, or reset the view."
                 ),
             ]
         ),
         html.H2("Definitions"),
+        html.P(
+            "The map shows connections observed since TapMap started or Clear cache "
+            "(C) was last used."
+        ),
         html.Table(
             className="mx-table mx-kv",
             children=[
@@ -180,8 +176,8 @@ def render_help() -> list[Any]:
         ),
         html.H2("Menu"),
         html.P(
-            "The menu is organized into expandable sections for insights, network "
-            "views, actions, and information."
+            "The menu is organized into the expandable sections INSIGHTS, NETWORK, "
+            "TOOLS, and INFO."
         ),
         html.Table(
             className="mx-table mx-kv",
@@ -206,9 +202,9 @@ def render_help() -> list[Any]:
                         ),
                         html.Tr(
                             [
-                                html.Td("ACTIONS"),
+                                html.Td("TOOLS"),
                                 html.Td(
-                                    "Cache actions and GeoIP database checks."
+                                    "GeoIP Database Management and cache actions."
                                 ),
                             ]
                         ),
@@ -282,16 +278,16 @@ def render_help() -> list[Any]:
                             ]
                         ),
                         html.Tr(
-                            [html.Td("T"), html.Td("Show cache in terminal"), html.Td("Status")]
-                        ),
-                        html.Tr([html.Td("C"), html.Td("Clear cache"), html.Td("Status")]),
-                        html.Tr(
                             [
                                 html.Td("G"),
                                 html.Td("Open GeoIP Database Management"),
                                 html.Td("Window"),
                             ]
                         ),
+                        html.Tr(
+                            [html.Td("T"), html.Td("Show cache in terminal"), html.Td("Status")]
+                        ),
+                        html.Tr([html.Td("C"), html.Td("Clear cache"), html.Td("Status")]),
                         html.Tr([html.Td("H"), html.Td("Help"), html.Td("Window")]),
                         html.Tr([html.Td("A"), html.Td("About"), html.Td("Window")]),
                         html.Tr([html.Td("ESC"), html.Td("Close window"), html.Td("Window")]),
@@ -300,12 +296,7 @@ def render_help() -> list[Any]:
             ],
         ),
         html.H2("Insights"),
-        html.P(
-            "Insights track activity observed during the last 30 days."
-        ),
-        html.P(
-            "The Insights panel includes:"
-        ),
+        html.P("The Insights panel highlights activity observed during the last 30 days."),
         html.Ul(
             [
                 html.Li(
@@ -350,7 +341,7 @@ def render_help() -> list[Any]:
             "To build a complete 30-day history, keep TapMap running while your "
             "system is in use. Running it at startup is recommended."
         ),
-        html.H2("Unmapped public services"),
+        html.H2("Unmapped public services (missing geolocation)"),
         html.P(
             "The Unmapped window lists PUBLIC services that are not shown on the map because "
             "geolocation is missing."
@@ -376,7 +367,7 @@ def render_help() -> list[Any]:
             "Rows are grouped by scope, protocol, IP, port, PID, and process for the other side."
         ),
         html.P("Scope in this window describes where the service address belongs."),
-        html.H2("Open ports"),
+        html.H2("Open ports (TCP LISTEN and UDP bound)"),
         html.P(
             [
                 "The Open ports window lists local TCP sockets in LISTEN state and UDP sockets "
@@ -393,12 +384,10 @@ def render_help() -> list[Any]:
             "loopback only, LAN only, or all interfaces."
         ),
         html.P("System processes are hidden by default. Use the toggle to include them."),
-        html.H2("Show cache in terminal"),
-        html.P("Print the current cache contents to the terminal where TapMap is running."),
         html.H2("Status line"),
         html.P(
-            "Short status messages may appear after commands such as Clear cache or "
-            "Recheck databases."
+            "Short status messages may appear after commands such as Show cache in terminal "
+            "or Clear cache."
         ),
         html.H3("STATUS: WAIT | OK | ERROR"),
         html.Table(
@@ -534,86 +523,26 @@ def render_help() -> list[Any]:
                 ),
             ],
         ),
-        html.H2("GeoIP databases (MaxMind GeoLite2)"),
+        html.H2("GeoIP databases"),
         html.P(
-            "TapMap uses local MaxMind mmdb files for geolocation. The databases are not included."
-        ),
-        html.P("Required files:"),
-        html.Ul([html.Li("GeoLite2-City.mmdb"), html.Li("GeoLite2-ASN.mmdb")]),
-        html.P("If the databases are missing, a setup window appears at startup."),
-        html.P(
-            "Open the data folder from the startup window or from About. Copy the files into it "
-            "then open GeoIP Database Management (G) and click Recheck databases to enable "
-            "geolocation without restarting."
+            "TapMap uses local GeoIP databases for geolocation. Supported providers "
+            "include MaxMind GeoLite2 and DB-IP Lite."
         ),
         html.P(
-            [
-                "The databases are free from MaxMind but require an account and acceptance of "
-                "license terms. Download them here: ",
-                html.A(
-                    "MaxMind GeoLite2 download page",
-                    href="https://dev.maxmind.com/geoip/geolite2-free-geolocation-data",
-                    target="_blank",
-                ),
-                ".",
-            ]
+            "GeoIP Database Management is used to install, update, verify, and manage "
+            "supported databases."
         ),
-        html.P("Update the databases regularly, for example monthly."),
-        html.H2("Configuration (config.py)"),
-        html.P("TapMap reads settings from config.py. Edit this file to adjust behavior."),
-        html.P("Common settings:"),
-        html.Table(
-            className="mx-table mx-kv",
-            children=[
-                html.Colgroup([html.Col(style={"width": "130px"}), html.Col()]),
-                html.Tbody(
-                    [
-                        html.Tr(
-                            [
-                                html.Td("SERVER_PORT"),
-                                html.Td(
-                                    "Default port used by the local Dash server. "
-                                    "Can be overridden at startup using the "
-                                    "TAPMAP_PORT environment variable."
-                                ),
-                            ]
-                        ),
-                        html.Tr(
-                            [
-                                html.Td("MY_LOCATION"),
-                                html.Td(
-                                    "'none' hides the local marker. Use (lon, lat) for fixed "
-                                    "coordinates, or 'auto' to detect from public IP. "
-                                    "Runtime environment variables can override this setting."
-                                ),
-                            ]
-                        ),
-                        html.Tr(
-                            [
-                                html.Td("POLL_INTERVAL_MS"),
-                                html.Td("Snapshot refresh interval in milliseconds."),
-                            ]
-                        ),
-                        html.Tr(
-                            [
-                                html.Td("COORD_PRECISION"),
-                                html.Td(
-                                    "Decimal precision used to group PUBLIC services into one "
-                                    "marker. 3 is approximately 100 meters."
-                                ),
-                            ]
-                        ),
-                        html.Tr(
-                            [
-                                html.Td("ZOOM_NEAR_KM"),
-                                html.Td(
-                                    "Distance threshold for marking locations as nearby in yellow."
-                                ),
-                            ]
-                        ),
-                    ]
-                ),
-            ],
+            html.P(
+                "When no supported databases are detected, GeoIP Database Management "
+                "provides installation options for supported providers."
+            ),
+        html.P(
+            "Databases can be installed from GeoIP Database Management or managed "
+            "manually using the data folder."
+        ),
+        html.P(
+            "Keep the databases up to date. Use the Update databases button regularly, "
+            "for example once a month."
         ),
         html.H2("Network and location notes"),
         html.P("IP based geolocation is approximate."),
@@ -623,12 +552,23 @@ def render_help() -> list[Any]:
         ),
         html.P("CDNs and hosting providers can make a service appear in another country."),
         html.P("VPN and Tor can hide the true origin of a PUBLIC service location."),
-        html.H2("Privacy and safety"),
-        html.P("TapMap runs locally and reads local network connections."),
-        html.P("Geolocation lookups are performed locally using the mmdb files."),
-        html.P(
-            "If MY_LOCATION is set to 'auto', TapMap may query external services to detect the "
-            "public IP address. It stops after the first valid result. "
-            "This lookup is skipped when TAPMAP_LON and TAPMAP_LAT are provided."
+        html.H2("Privacy"),
+        html.Ul(
+            [
+                html.Li("TapMap runs locally."),
+                html.Li("No connection data is sent anywhere."),
+                html.Li("Geolocation uses local GeoIP databases."),
+                html.Li(
+                    "If automatic local geolocation is enabled, TapMap contacts a public "
+                    "IP lookup service to determine your public IP address."
+                ),
+                html.Li(
+                    "External public-IP lookup can be avoided by using fixed local coordinates."
+                ),
+                html.Li(
+                    "GeoIP databases can be installed and updated from within TapMap or "
+                    "managed manually."
+                ),
+            ]
         ),
     ]

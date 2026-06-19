@@ -40,7 +40,15 @@ plugins:
 
 nav:
   - Home: index.md
-  - Backend testing: backend-testing.md
+
+  - User Guide:
+      - GeoDB Management: geodb-management.md
+      - Environment Variables: environment-variables.md
+      - Docker: docker.md
+
+  - Developer Guide:
+      - Backend Testing: backend-testing.md
+
   - API: reference/
 
 extra:

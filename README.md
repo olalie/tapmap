@@ -17,26 +17,33 @@ TapMap inspects local socket data, enriches IP addresses with geolocation, and v
 It is an awareness tool, not a firewall or a full security suite.
 It makes network activity visible and easy to explore.
 
+---
+
 ## Quick start
 
-### Download and run (Windows, Linux, macOS)
+#### Download and run (Windows, Linux, macOS)
 
-Download from Releases:
-https://github.com/olalie/tapmap/releases  
+Download the latest version from the [Releases page](https://github.com/olalie/tapmap/releases).
 
-Extract and run:
+Extract and start TapMap:
 
-    ./tapmap
-
-On Windows:
+**Windows**
 
     tapmap.exe
 
-Note:
-Windows and macOS may show a security warning the first time you run TapMap.
-See below for how to allow the application.
+**Linux and macOS**
 
-### Docker (Linux host only)
+    ./tapmap
+
+**Note**
+
+Windows and macOS may show a security warning the first time you run TapMap.
+
+See:
+- [Windows SmartScreen](#windows-smartscreen)
+- [macOS security warning](#macos-security-warning)
+
+#### Docker (Linux host only)
 
     docker run --rm \
     --network host \
@@ -45,28 +52,7 @@ See below for how to allow the application.
     -e TAPMAP_IN_DOCKER=1 \
     olalie/tapmap:latest
 
----
-
-## Insights and Daily Activity Report
-
-TapMap builds a rolling 30-day history of network activity and helps you understand what is normal, new, recurring, or unusual.
-
-The Insights panel highlights:
-
-- New apps, providers (ASN), countries, and ports
-- Frequent activity (Top 5+, including ties)
-- Click countries to zoom and inspect on the map
-
-The Daily Activity Report provides a broader summary of recent activity:
-
-- Application recurrence patterns (seen once, occasional, recurring, and stable)
-- Provider concentration analysis
-- Country activity visualization
-- Generated activity logs with detailed timelines
-
-The map only shows live connections from the current session, while Insights and the Daily Activity Report use historical activity collected during the last 30 days.
-
-To build a complete activity history, keep TapMap running while your system is in use. Running it at startup is recommended.
+For Docker configuration, updates, process visibility, and Docker Compose usage, see [Docker](https://olalie.github.io/tapmap/docker/).
 
 ---
 
@@ -97,6 +83,39 @@ All data is collected locally on your machine.
 
 ---
 
+## How to use
+
+- Hover map markers for a summary
+- Click map markers for detailed information
+- Open the menu in the upper-left corner to access Insights, network views, and application information
+- Open the Daily Activity Report with D
+- Click countries in Insights to zoom to the location
+
+---
+
+## Insights and Daily Activity Report
+
+TapMap builds a rolling 30-day history of network activity and helps you understand what is normal, new, recurring, or unusual.
+
+The Insights panel highlights:
+
+- New apps, providers (ASN), countries, and ports
+- Frequent activity (Top 5+, including ties)
+- Click countries to zoom and inspect on the map
+
+The Daily Activity Report provides a broader summary of recent activity:
+
+- Application recurrence patterns (seen once, occasional, recurring, and stable)
+- Provider concentration analysis
+- Country activity visualization
+- Generated activity logs with detailed timelines
+
+The map shows connections observed since TapMap started or the cache was last cleared, while Insights and the Daily Activity Report use historical activity collected during the last 30 days.
+
+To build a complete activity history, keep TapMap running while your system is in use. Running it at startup is recommended.
+
+---
+
 ## How it works
 
 TapMap follows a simple local pipeline:
@@ -106,61 +125,128 @@ TapMap follows a simple local pipeline:
 It uses:
 
 - `psutil` (Windows and Linux) or `lsof` (macOS) to read active network connections
-- MaxMind GeoLite2 databases for IP geolocation
+- GeoIP databases for IP geolocation
 - Dash and Plotly to render an interactive world map
 
 ---
 
-## How to use
+## How it runs
 
-- Hover map markers for a summary
-- Click map markers for detailed information
-- Open the Daily Activity Report with D
-- Click countries in Insights to zoom to the location
+TapMap runs locally as a web server and opens your browser:
+
+http://127.0.0.1:8050/
+
+If it does not open automatically, enter the address manually.
+
+TapMap works with the default configuration.
+
+Runtime configuration through environment variables is documented in [Environment Variables](https://olalie.github.io/tapmap/environment-variables/).
+
+Users running TapMap from source can also adjust settings in `config.py`.
+
+---
+
+## GeoIP databases
+
+TapMap uses GeoIP databases to display locations on the map.
+
+If no supported databases are found, GeoIP Database Management opens automatically and guides you through database setup.
+
+Installation, updates, provider selection, and manual installation are documented in [GeoIP Database Management](https://olalie.github.io/tapmap/geodb-management/).
 
 ---
 
 ## Documentation
 
-Full documentation, including API reference and platform behavior notes:
+Additional documentation:
 
-https://olalie.github.io/tapmap/
+- [Docker](https://olalie.github.io/tapmap/docker/)
+- [GeoIP Database Management](https://olalie.github.io/tapmap/geodb-management/)
+- [Environment Variables](https://olalie.github.io/tapmap/environment-variables/)
+- [Backend Testing](https://olalie.github.io/tapmap/backend-testing/)
 
 ---
 
-## Installation
+## Interface
 
-Download the latest executable from the
-[Releases page](https://github.com/olalie/tapmap/releases)
+![TapMap features](docs/images/features.gif)
+
+#### Main view
+Interactive world map with live connections, Insights, and quick access to major features.
+
+![Main view](docs/images/menu_and_insights.png)
+
+#### Daily Activity Report
+Historical analysis of applications, providers, countries, and activity patterns observed during the last 30 days.
+
+![Daily Activity Report](docs/images/daily_activity_report.png)
+
+#### GeoIP Database Management
+Install, update, verify, and manage GeoIP databases used for geolocation.
+
+![GeoIP Database Management](docs/images/geoip_db_mgt.png)
+
+#### Open ports
+View local TCP listening ports and UDP bound ports, including processes and services.
+
+![Open ports](docs/images/open-ports.png)
+
+#### Unmapped services
+Inspect connections that could not be geolocated and therefore do not appear on the map.
+
+![Unmapped services](docs/images/unmapped-services.png)
+
+---
+
+## Keyboard controls
+
+| Key | Action |
+|-----|--------|
+| D   | Daily Activity Report |
+| I   | Toggle Insights panel |
+| U   | Unmapped public services |
+| L   | Established LAN/LOCAL services |
+| O   | Open ports |
+| G   | GeoIP Database Management |
+| T   | Show cache in terminal |
+| C   | Clear cache |
+| H   | Help |
+| A   | About |
+| ESC | Close window |
+
+---
+
+## Privacy
+
+- TapMap runs locally.
+- No connection data is sent anywhere.
+- Geolocation uses local GeoIP databases.
+- If automatic local geolocation is enabled, TapMap contacts a public IP lookup service to determine your public IP address.
+- External public-IP lookup can be avoided by using fixed local coordinates.
+- GeoIP databases can be installed and updated from within TapMap or managed manually.
+
+---
+
+## Platforms and builds
+
+Download the latest version from the [Releases page](https://github.com/olalie/tapmap/releases).
 
 Available builds:
 
-- Windows (zip)
-- Linux (zip)
-- macOS (zip)
+- Windows
+- Linux
+- macOS (Apple Silicon)
+- macOS (Intel)
 
-Tested on Windows 11, Ubuntu, and macOS (Apple Silicon).
+Tested on:
 
-No installation required. Download, extract, and run the executable.
+- Windows 11
+- Ubuntu
+- macOS (Apple Silicon)
 
-Start TapMap:
+Community testing has confirmed support on additional platforms and architectures.
 
-    ./tapmap
-
-On Windows, double-click `tapmap.exe`.
-
-On Linux, you may need:
-
-    chmod +x tapmap
-
-Platform notes:
-
-- Linux uses `xdg-open` for the **Open data folder** action
-- macOS uses `open`
-
----
-
-## Command line
+Command-line options:
 
     tapmap --help
 
@@ -200,137 +286,9 @@ Alternatively, you can remove the warning using Terminal:
 
 ---
 
-## How it runs
-
-TapMap runs locally and opens in your browser:
-
-http://127.0.0.1:8050/
-
-If it does not open automatically, enter the address manually.
-
-The default port is defined by `SERVER_PORT` in `config.py`.
-
-The port can be overridden using the environment variable `TAPMAP_PORT`.
-
-Examples:
-
-Linux / macOS:
-
-    TAPMAP_PORT=8060 python -m tapmap
-    TAPMAP_PORT=8060 tapmap
-
-PowerShell:
-
-    $env:TAPMAP_PORT="8060"
-    python -m tapmap
-
----
-
-## GeoIP databases (required for map locations)
-
-TapMap uses local MaxMind GeoLite2 databases for geolocation.  
-The databases are not included in the download.
-
-TapMap works without these files, but map locations will not be displayed.
-
-Required files:
-
-- GeoLite2-City.mmdb  
-- GeoLite2-ASN.mmdb  
-
-Download (free, account required):
-    https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
-
-After downloading:
-
-1. Start TapMap.
-2. Follow the setup window to open the **data folder**.
-3. Copy the `.mmdb` files into that folder.
-4. Click **Recheck GeoIP databases**.
-
-Update recommendation: download updated databases regularly, for example monthly.  
-Redistribution is subject to the MaxMind license terms.
-
----
-
-## Interface
-
-![TapMap features](docs/images/features.gif)
-
-### Main view
-![Main view](docs/images/main-view.png)
-
-### Actions menu
-![Actions menu](docs/images/actions-menu.png)
-
-### Insights panel
-![Insights panel](docs/images/insights.png)
-
-### Unmapped services
-![Unmapped services](docs/images/unmapped-services.png)
-
-### Open ports
-![Open ports](docs/images/open-ports.png)
-
-### About
-![About](docs/images/about.png)
-
----
-
-## Keyboard controls
-
-| Key | Action |
-|-----|--------|
-| D   | Daily Activity Report |
-| I   | Toggle Insights panel |
-| U   | Unmapped public services |
-| L   | Established LAN/LOCAL services |
-| O   | Open ports |
-| T   | Show cache in terminal |
-| C   | Clear cache |
-| R   | Recheck GeoIP databases |
-| H   | Help |
-| A   | About |
-| ESC | Close window |
-
----
-
-## Privacy
-
-- TapMap runs locally.
-- No connection data is sent anywhere.
-- Geolocation uses local MaxMind databases.
-- If automatic local geolocation is enabled, TapMap may make a small request to detect your public IP.
-- External public-IP lookup can be avoided by using fixed local coordinates in `config.py` or through runtime environment variables.
-
----
-
-## Configuration
-
-TapMap reads settings from `config.py`.
-
-Common settings:
-
-- `SERVER_PORT`
-- `MY_LOCATION`
-- `POLL_INTERVAL_MS`
-- `COORD_PRECISION`
-- `ZOOM_NEAR_KM`
-
-Some settings can also be overridden at runtime using environment variables:
-
-- `TAPMAP_HOST`
-- `TAPMAP_PORT`
-- `TAPMAP_LON`
-- `TAPMAP_LAT`
-
-If both `TAPMAP_LON` and `TAPMAP_LAT` are provided, TapMap uses those coordinates for the local map marker instead of automatic public-IP geolocation.
-
----
-
 ## Build from source
 
-TapMap uses a src-layout and must be installed before running.
+TapMap must be installed before running from source.
 
 Requirements:
 
@@ -360,7 +318,7 @@ Run tests:
 
 ---
 
-### Build executable (optional)
+#### Build executable (optional)
 
 Build a standalone executable using PyInstaller:
 
@@ -382,120 +340,14 @@ The executable must be built on the target operating system.
 
 ---
 
-## Docker (Linux)
-
-TapMap can run in Docker on Linux hosts.
-
-### Requirements
-
-- Linux host  
-- Docker installed  
-- GeoLite2 `.mmdb` files  
-
-### Setup
-
-Place the GeoLite2 database files in:
-
-    docker-data/
-
-### Run
-
-    docker compose -f compose.linux.yaml up --build
-
-The server binds to 0.0.0.0 by default in Docker.
-
-Override in compose if needed:
-
-    TAPMAP_HOST: "127.0.0.1"
-    TAPMAP_PORT: "8060"
-
-Open in browser on the host:
-
-http://127.0.0.1:8050 (default)
-
-If you override `TAPMAP_PORT`, use that port instead.
-
-If you access the app from another machine, use the host IP address instead.
-
-### Notes
-
-- Docker provides full TCP and UDP socket data  
-- Process information may be unavailable in Docker mode, depending on host security policies  
-- Requires Linux host (not supported on Docker Desktop for Windows or macOS)
-
-Process visibility in Docker depends on host security policies.
-
-On Ubuntu with the default Docker AppArmor profile (`docker-default`), `SYS_PTRACE` alone was not sufficient.
-
-In this setup, process names became available with:
-
-    --cap-add=SYS_PTRACE
-    --security-opt apparmor=unconfined
-
-Behavior may vary across systems.
-
----
-
-## Docker Hub
-
-TapMap can run directly from Docker Hub without cloning the repository.
-
-### Setup
-
-Create a local data folder:
-
-    mkdir -p ~/tapmap-data
-
-Place the GeoLite2 database files in that folder:
-
-- GeoLite2-City.mmdb
-- GeoLite2-ASN.mmdb
-
-### Run
-
-    docker run --rm \
-    --network host \
-    --pid host \
-    -v ~/tapmap-data:/data \
-    -e TAPMAP_IN_DOCKER=1 \
-    olalie/tapmap:latest
-
-The server binds to 0.0.0.0 by default in Docker.
-
-To override the bind address, port, or local map location:
-
-    -e TAPMAP_HOST=127.0.0.1
-    -e TAPMAP_PORT=8060
-    -e TAPMAP_LON=10.7522
-    -e TAPMAP_LAT=59.9139
-
-If `TAPMAP_LON` and `TAPMAP_LAT` are provided, TapMap uses those coordinates for the local map marker and skips automatic public-IP geolocation.
-
-Open in browser on the host:
-
-http://127.0.0.1:8050 (default)
-
-If you override `TAPMAP_PORT`, use that port instead.
-
-If you access the app from another machine, use the host IP address instead.
-
-### Notes
-
-- The mounted folder is used as the container data directory (`/data`)  
-- The host folder name can be chosen freely  
-- Process information may be unavailable in Docker mode, depending on host security policies  
-- Requires Linux host (not supported on Docker Desktop for Windows or macOS)
-
----
-
 ## Support the project
 
 TapMap is free and open source.
 
 If you find it useful, consider supporting the project:
 
-- https://www.buymeacoffee.com/olalie  
-- https://www.paypal.com/donate/?hosted_button_id=ELLXBK9BY8EDU  
+- [Buy Me a Coffee](https://www.buymeacoffee.com/olalie)
+- [PayPal](https://www.paypal.com/donate/?hosted_button_id=ELLXBK9BY8EDU)
 
 You can also give the project a star on GitHub.
 
