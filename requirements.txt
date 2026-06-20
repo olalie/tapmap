@@ -1,6 +1,8 @@
 certifi==2024.8.30
 dash==4.0.0
+keyring==25.7.0
 maxminddb==3.0.0
 plotly==6.3.1
 psutil==7.0.0
 pycountry==26.2.16
+requests==2.32.5
