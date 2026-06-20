@@ -14,6 +14,8 @@ Runs locally. No telemetry. Docker supported on Linux.
 
 TapMap inspects local socket data, enriches IP addresses with geolocation, and visualizes the locations on an interactive map.
 
+It also builds a local activity history to provide insights and identify patterns in network activity over time.
+
 It is an awareness tool, not a firewall or a full security suite.
 It makes network activity visible and easy to explore.
 
@@ -73,8 +75,9 @@ TapMap makes this visible so you can:
 
 - Services your computer connects to  
 - Their approximate locations on a world map  
-- Nearby locations highlighted visually  
-- Insights panel showing new and frequent activity over time  
+- Nearby locations highlighted when multiple connections overlap  
+- Insights panel showing new and frequent activity over time
+- Daily Activity Report with application patterns, provider analysis, and activity timelines  
 - Unmapped public services with missing geolocation  
 - Established LAN and LOCAL services  
 - Local open ports (TCP LISTEN and UDP bound)

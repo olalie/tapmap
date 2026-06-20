@@ -64,6 +64,9 @@
 - Update application data directory README handling
 - Automatically refresh bundled GeoDB README when format changes
 - Update GeoDB-related application and module documentation
+- Reorganize MkDocs documentation structure
+- Add dedicated Docker, GeoIP Database Management, and Environment Variables guides
+- Refresh Help and About documentation
 
 ## 1.7.2 (2026-05-26)
 
