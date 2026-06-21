@@ -573,10 +573,9 @@ class ModalTextBuilder:
                                         ],
                                     ),
                                     html.P(
-                                            "Stored in the Docker data directory for future updates."
-                                            if is_docker
-                                            else "Stored securely in your computer's keyring "
-                                                 "for future updates."
+                                        "Stored in Docker data directory for future updates."
+                                        if is_docker
+                                        else "Stored securely in keyring for future updates."
                                     ),
                                     html.Button(
                                         "Install MaxMind database files",

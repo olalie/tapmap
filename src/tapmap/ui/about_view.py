@@ -128,8 +128,7 @@ def render_about(
         ),
         html.H2("Geolocation"),
         html.P(
-            "Geolocation is based on local MaxMind GeoLite2 or DB-IP Lite .mmdb databases. "
-            "Databases can be installed and updated from the GeoIP Database Management screen."
+            "Geolocation uses locally installed MaxMind GeoLite2 or DB-IP Lite .mmdb databases."
         ),
         kv_table(geo_rows),
         html.P(
