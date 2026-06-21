@@ -11,6 +11,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, TypedDict
 
+from tapmap.runtime import RuntimeContext
+
 from .dbip import DbIpProvider
 from .maxmind import MaxMindProvider
 
@@ -41,9 +43,13 @@ class GeoDbService:
     added in later implementation steps.
     """
 
-    def __init__(self, data_dir: Path) -> None:
-        self.data_dir = Path(data_dir)
-        self.maxmind = MaxMindProvider(data_dir=self.data_dir)
+    def __init__(self, runtime: RuntimeContext) -> None:
+        self.runtime = runtime
+        self.data_dir = runtime.geo_data_dir
+        self.maxmind = MaxMindProvider(
+            data_dir=self.data_dir,
+            is_docker=runtime.is_docker,
+        )
         self.dbip = DbIpProvider(data_dir=self.data_dir)
         self._busy = False
 
@@ -261,8 +267,7 @@ class GeoDbService:
 
             if provider == "maxmind" and not self.maxmind.credentials_exist():
                 status["message"] = (
-                    "Configure MaxMind Account ID and License Key "
-                    "before updating databases"
+                    "Configure MaxMind Account ID and License Key before updating databases"
                 )
                 status["error"] = "credentials_missing"
                 status["update_available"] = "unknown"

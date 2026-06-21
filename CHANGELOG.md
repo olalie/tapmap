@@ -21,7 +21,7 @@
   - Add dedicated GeoDB service layer
   - Add provider-specific MaxMind and DB-IP integrations
   - Automatically reload GeoIP runtime after database operations
-  - Persist MaxMind credentials securely using system keyring
+  - Persist MaxMind credentials using system keyring on desktop installations and local storage in Docker
   - Improve startup handling when databases are missing
 
 - Improve GeoDB user experience

@@ -5,6 +5,7 @@ Contains credential and remote/download logic specific to MaxMind GeoLite2.
 
 from __future__ import annotations
 
+import json
 import shutil
 import tarfile
 import tempfile
@@ -32,8 +33,13 @@ class MaxMindProvider:
     ASN_DOWNLOAD_NAME = "GeoLite2-ASN"
     BASE_URL = "https://download.maxmind.com/app/geoip_download"
 
-    def __init__(self, data_dir: Path) -> None:
+    def __init__(
+        self,
+        data_dir: Path,
+        is_docker: bool = False,
+    ) -> None:
         self.data_dir = Path(data_dir)
+        self.is_docker = is_docker
 
     @property
     def city_path(self) -> Path:
@@ -44,6 +50,11 @@ class MaxMindProvider:
     def asn_path(self) -> Path:
         """Return expected path for MaxMind ASN database."""
         return self.data_dir / self.ASN_FILENAME
+
+    @property
+    def credentials_path(self) -> Path:
+        """Return Docker credential file path."""
+        return self.data_dir / "maxmind.json"
 
     @staticmethod
     def _read_build_epoch(path: Path) -> int | None:
@@ -101,20 +112,26 @@ class MaxMindProvider:
     @classmethod
     def _download_url(cls, edition_id: str, license_key: str) -> str:
         """Build MaxMind download URL for one edition."""
-        return (
-            f"{cls.BASE_URL}"
-            f"?edition_id={edition_id}"
-            f"&license_key={license_key}"
-            f"&suffix=tar.gz"
-        )
+        return f"{cls.BASE_URL}?edition_id={edition_id}&license_key={license_key}&suffix=tar.gz"
 
     def load_credentials(self) -> tuple[str, str]:
-        """Load MaxMind credentials from keyring.
+        """Load MaxMind credentials."""
+        if self.is_docker:
+            account_id, license_key = self.stored_credentials()
 
-        Credentials are returned only for immediate operation use.
-        """
-        account_id = keyring.get_password(self.KEYRING_SERVICE, self.ACCOUNT_ID_KEY)
-        license_key = keyring.get_password(self.KEYRING_SERVICE, self.LICENSE_KEY_NAME)
+            if not account_id or not license_key:
+                raise ValueError("MaxMind credentials are not configured")
+
+            return account_id, license_key
+
+        account_id = keyring.get_password(
+            self.KEYRING_SERVICE,
+            self.ACCOUNT_ID_KEY,
+        )
+        license_key = keyring.get_password(
+            self.KEYRING_SERVICE,
+            self.LICENSE_KEY_NAME,
+        )
 
         if not account_id or not license_key:
             raise ValueError("MaxMind credentials are not configured")
@@ -122,24 +139,79 @@ class MaxMindProvider:
         return account_id, license_key
 
     def credentials_exist(self) -> bool:
-        """Return whether MaxMind credentials are available in keyring."""
-        account_id = keyring.get_password(self.KEYRING_SERVICE, self.ACCOUNT_ID_KEY)
-        license_key = keyring.get_password(self.KEYRING_SERVICE, self.LICENSE_KEY_NAME)
+        """Return whether MaxMind credentials are available."""
+        if self.is_docker:
+            return self.credentials_path.exists()
+
+        account_id = keyring.get_password(
+            self.KEYRING_SERVICE,
+            self.ACCOUNT_ID_KEY,
+        )
+        license_key = keyring.get_password(
+            self.KEYRING_SERVICE,
+            self.LICENSE_KEY_NAME,
+        )
+
         return bool(account_id and license_key)
 
     def stored_credentials(self) -> tuple[str | None, str | None]:
         """Return stored MaxMind credentials without enforcing completeness."""
-        account_id = keyring.get_password(self.KEYRING_SERVICE, self.ACCOUNT_ID_KEY)
-        license_key = keyring.get_password(self.KEYRING_SERVICE, self.LICENSE_KEY_NAME)
+        if self.is_docker:
+            if not self.credentials_path.exists():
+                return None, None
+
+            try:
+                data = json.loads(self.credentials_path.read_text())
+            except Exception:
+                return None, None
+
+            return (
+                data.get("account_id"),
+                data.get("license_key"),
+            )
+
+        account_id = keyring.get_password(
+            self.KEYRING_SERVICE,
+            self.ACCOUNT_ID_KEY,
+        )
+        license_key = keyring.get_password(
+            self.KEYRING_SERVICE,
+            self.LICENSE_KEY_NAME,
+        )
+
         return account_id, license_key
 
     def register_credentials(self, account_id: str, license_key: str) -> None:
-        """Persist MaxMind credentials to keyring."""
+        """Persist MaxMind credentials."""
         if not account_id or not license_key:
             raise ValueError("Account ID and license key are required")
 
-        keyring.set_password(self.KEYRING_SERVICE, self.ACCOUNT_ID_KEY, account_id)
-        keyring.set_password(self.KEYRING_SERVICE, self.LICENSE_KEY_NAME, license_key)
+        if self.is_docker:
+            data = {
+                "account_id": account_id,
+                "license_key": license_key,
+            }
+
+            self.credentials_path.write_text(
+                json.dumps(data, indent=2),
+                encoding="utf-8",
+            )
+
+            self.credentials_path.chmod(0o600)
+
+            return
+
+        keyring.set_password(
+            self.KEYRING_SERVICE,
+            self.ACCOUNT_ID_KEY,
+            account_id,
+        )
+
+        keyring.set_password(
+            self.KEYRING_SERVICE,
+            self.LICENSE_KEY_NAME,
+            license_key,
+        )
 
     def validate_credentials(self, account_id: str, license_key: str) -> None:
         """Validate MaxMind credentials."""
@@ -169,18 +241,12 @@ class MaxMindProvider:
                 ) from exc
 
             if status == 503:
-                raise ValueError(
-                    "MaxMind service unavailable. Please try again later."
-                ) from exc
+                raise ValueError("MaxMind service unavailable. Please try again later.") from exc
 
-            raise ValueError(
-                f"MaxMind request failed (HTTP {status})."
-            ) from exc
+            raise ValueError(f"MaxMind request failed (HTTP {status}).") from exc
 
         except requests.RequestException as exc:
-            raise ValueError(
-                "Unable to contact MaxMind."
-            ) from exc
+            raise ValueError("Unable to contact MaxMind.") from exc
 
     def _remote_last_modified_epoch(self, edition_id: str) -> int:
         """Return remote Last-Modified epoch for one MaxMind edition."""

@@ -148,7 +148,7 @@ class TapMap:
             self.runtime.meta.version,
             self.runtime.meta.author,
         )
-        self.geodb = GeoDbService(self.runtime.geo_data_dir)
+        self.geodb = GeoDbService(self.runtime)
 
         self.model = Model(
             netinfo=NetInfo(),

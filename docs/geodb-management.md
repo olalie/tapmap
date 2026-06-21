@@ -186,13 +186,15 @@ If you choose MaxMind GeoLite2, you may enter or update your MaxMind credentials
 
 ## Credential storage
 
-MaxMind credentials are stored securely in the operating system keyring.
+On desktop installations, MaxMind credentials are stored securely in the operating system keyring.
+
+In Docker, credentials are stored in the Docker data directory for future updates.
 
 Credentials are not stored in TapMap configuration files.
 
 The installation workflow is the recommended way to create or update credentials.
 
-TapMap uses:
+Desktop installations use:
 
 ```text
 Service: tapmap_geolite2
