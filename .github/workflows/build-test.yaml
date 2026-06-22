@@ -10,6 +10,9 @@ on:
       - "mkdocs.yaml"
       - "README.md"
       - "CHANGELOG.md"
+      - "CONTRIBUTING.md"
+      - "SECURITY.md"
+      - "ARCHITECTURE.md"
       - ".github/workflows/docs.yaml"
 
 jobs:
