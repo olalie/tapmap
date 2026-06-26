@@ -5,10 +5,11 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
-import os
 import unittest.mock
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
+import psutil
 import pytest
 
 from tapmap.app import TapMap
@@ -117,30 +118,109 @@ def test_save_and_reload_preserves_data(tmp_path: Path) -> None:
         "applications": {"curl": 2},
     }
 
+# --- _acquire_lock ---
 
-# --- _acquire_lock: running PID blocks startup ---
 
-
-def test_acquire_lock_blocks_when_pid_running(tmp_path: Path) -> None:
-    """A lock file with a live foreign PID must cause sys.exit(1)."""
+def test_acquire_lock_without_existing_lock(tmp_path: Path) -> None:
+    """Create a new lock file when none exists."""
     app = _bare_app(tmp_path)
-    fake_pid = 99999
-    app._lock_path.write_text(str(fake_pid), encoding="utf-8")
+
+    current = MagicMock()
+    current.pid = 123
+    current.create_time.return_value = 1.23
+
+    with patch("psutil.Process", return_value=current):
+        app._acquire_lock()
+
+    lock = json.loads(app._lock_path.read_text())
+
+    assert lock["pid"] == 123
+    assert lock["create_time"] == 1.23
+
+
+def test_acquire_lock_exits_when_same_process_running(tmp_path: Path) -> None:
+    """Exit when the lock belongs to a currently running TapMap instance."""
+    app = _bare_app(tmp_path)
+
+    app._lock_path.write_text(
+        json.dumps(
+            {
+                "pid": 123,
+                "create_time": 1.23,
+            }
+        )
+    )
+
+    running = MagicMock()
+    running.pid = 123
+    running.create_time.return_value = 1.23
+
     with (
-        unittest.mock.patch("tapmap.app.psutil.pid_exists", return_value=True),
+        patch("psutil.Process", return_value=running),
         pytest.raises(SystemExit) as exc_info,
     ):
         app._acquire_lock()
+
     assert exc_info.value.code == 1
 
 
-# --- _acquire_lock: stale lock is replaced ---
-
-
 def test_acquire_lock_replaces_stale_lock(tmp_path: Path) -> None:
-    """A lock file whose PID is no longer running must be overwritten silently."""
+    """Replace a lock whose PID has been reused."""
     app = _bare_app(tmp_path)
-    app._lock_path.write_text("99999", encoding="utf-8")
-    with unittest.mock.patch("tapmap.app.psutil.pid_exists", return_value=False):
-        app._acquire_lock()  # must not raise
-    assert app._lock_path.read_text(encoding="utf-8").strip() == str(os.getpid())
+
+    app._lock_path.write_text(
+        json.dumps(
+            {
+                "pid": 123,
+                "create_time": 1.23,
+            }
+        )
+    )
+
+    running = MagicMock()
+    running.pid = 123
+    running.create_time.return_value = 9.99
+
+    current = MagicMock()
+    current.pid = 456
+    current.create_time.return_value = 5.55
+
+    with patch("psutil.Process", side_effect=[running, current]):
+        app._acquire_lock()
+
+    lock = json.loads(app._lock_path.read_text())
+
+    assert lock["pid"] == 456
+    assert lock["create_time"] == 5.55
+
+
+def test_acquire_lock_replaces_missing_process(tmp_path: Path) -> None:
+    """Replace a lock whose process no longer exists."""
+    app = _bare_app(tmp_path)
+
+    app._lock_path.write_text(
+        json.dumps(
+            {
+                "pid": 123,
+                "create_time": 1.23,
+            }
+        )
+    )
+
+    current = MagicMock()
+    current.pid = 456
+    current.create_time.return_value = 5.55
+
+    with patch(
+        "psutil.Process",
+        side_effect=[
+            psutil.NoSuchProcess(123),
+            current,
+        ],
+    ):
+        app._acquire_lock()
+
+    lock = json.loads(app._lock_path.read_text())
+
+    assert lock["pid"] == 456
+    assert lock["create_time"] == 5.55

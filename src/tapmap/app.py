@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import json
 import logging
 import os
 import platform
@@ -1148,18 +1149,45 @@ class TapMap:
             self.logger.warning("Failed to save insights: %s", exc)
 
     def _acquire_lock(self) -> None:
-        """Write a PID lock file, or exit if another instance is already running."""
+        """Write a lock file, or exit if another instance is already running."""
+        # Prevent multiple TapMap instances from accessing the same
+        # application data files simultaneously. The lock file stores
+        # the creator's PID and process start time. The PID locates the
+        # process, while create_time confirms that it is the same process
+        # because operating systems may reuse PIDs.
         if self._lock_path.exists():
             try:
-                pid = int(self._lock_path.read_text(encoding="utf-8").strip())
-            except (ValueError, OSError):
-                pid = None
-            if pid is not None and psutil.pid_exists(pid) and pid != os.getpid():
-                self.logger.warning(
-                    "Another TapMap instance is already running (PID %d). Exiting.", pid
-                )
-                sys.exit(1)
-        self._lock_path.write_text(str(os.getpid()), encoding="utf-8")
+                lock = json.loads(self._lock_path.read_text(encoding="utf-8"))
+
+                running_process = psutil.Process(int(lock["pid"]))
+
+                if running_process.create_time() == float(lock["create_time"]):
+                    self.logger.warning(
+                        "Another TapMap instance is already running (PID %d). Exiting.",
+                        running_process.pid,
+                    )
+                    sys.exit(1)
+
+            except (
+                OSError,
+                ValueError,
+                KeyError,
+                json.JSONDecodeError,
+                psutil.NoSuchProcess,
+            ):
+                pass
+
+        current_process = psutil.Process()
+
+        self._lock_path.write_text(
+            json.dumps(
+                {
+                    "pid": current_process.pid,
+                    "create_time": current_process.create_time(),
+                }
+            ),
+            encoding="utf-8",
+        )
 
     def _release_lock(self) -> None:
         """Remove the PID lock file."""
