@@ -37,6 +37,11 @@ def render_about(
     poll_ms = app_info.get("poll_interval_ms")
     coord_precision = app_info.get("coord_precision")
     near_km = app_info.get("zoom_near_km")
+    launch_browser = bool(app_info.get("launch_browser", True))
+
+    cache_retention_min = app_info.get("cache_retention_min")
+    if not isinstance(cache_retention_min, int):
+        cache_retention_min = 0
 
     geoinfo_enabled = bool(app_info.get("geoinfo_enabled", False))
     geo_provider = str(app_info.get("geo_provider") or "-")
@@ -100,6 +105,13 @@ def render_about(
         ("Backend version", net_backend_version),
         ("Server host", server_host),
         ("Docker", "Yes" if is_docker else "No"),
+        ("Browser launch", "Enabled" if launch_browser else "Disabled"),
+        (
+            "Cache retention",
+            "Until Clear cache"
+            if cache_retention_min == 0
+            else f"{cache_retention_min} min",
+        ),
     ]
 
     return [

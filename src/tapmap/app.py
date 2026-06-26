@@ -342,6 +342,8 @@ class TapMap:
             "net_backend_version": self.runtime.net_backend_version,
             "server_host": self.runtime.server_host,
             "server_port": self.runtime.server_port,
+            "launch_browser": self.runtime.launch_browser,
+            "cache_retention_min": self.runtime.cache_retention_min,
             "is_docker": self.runtime.is_docker,
             "geo_provider": geo_status["provider"],
             "geo_database_date": geo_status["local_display_date"]
