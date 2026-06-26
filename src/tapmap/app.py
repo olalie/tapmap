@@ -141,6 +141,7 @@ class TapMap:
             coord_precision=COORD_PRECISION,
             debug=self.DEBUG_COORDS,
             is_docker=self.runtime.is_docker,
+            cache_retention_min=self.runtime.cache_retention_min,
         )
 
         self.modal_text = ModalTextBuilder(
@@ -1107,7 +1108,8 @@ class TapMap:
         host = self.runtime.server_host
         port = self.runtime.server_port
         url = f"http://{host}:{port}/"
-        self._open_browser(url)
+        if self.runtime.launch_browser and not self.runtime.is_docker:
+            self._open_browser(url)
 
         self.app.run(
             host=host,

@@ -7,7 +7,11 @@ from unittest.mock import patch
 
 import pytest
 
-from tapmap.runtime import _get_location_override
+from tapmap.runtime import (
+    _get_cache_retention_min,
+    _get_launch_browser,
+    _get_location_override,
+)
 
 
 class TestGetLocationOverride:
@@ -96,3 +100,54 @@ class TestGetLocationOverride:
             result = _get_location_override()
             assert result == (10.0, 50.0)
 
+
+class TestGetLaunchBrowser:
+    """Test _get_launch_browser() env var parser."""
+
+    def test_default_returns_config(self) -> None:
+        """Missing env var returns config default."""
+        with patch.dict(os.environ, {}, clear=True):
+            assert _get_launch_browser() is True
+
+    @pytest.mark.parametrize("value", ["1", "true", "yes", "on"])
+    def test_true_values(self, value: str) -> None:
+        """Accepted true values return True."""
+        with patch.dict(os.environ, {"TAPMAP_LAUNCH_BROWSER": value}, clear=True):
+            assert _get_launch_browser() is True
+
+    @pytest.mark.parametrize("value", ["0", "false", "no", "off"])
+    def test_false_values(self, value: str) -> None:
+        """Accepted false values return False."""
+        with patch.dict(os.environ, {"TAPMAP_LAUNCH_BROWSER": value}, clear=True):
+            assert _get_launch_browser() is False
+
+    def test_invalid_value_returns_config_default(self) -> None:
+        """Invalid value falls back to config default."""
+        with patch.dict(os.environ, {"TAPMAP_LAUNCH_BROWSER": "banana"}, clear=True):
+            assert _get_launch_browser() is True
+
+
+class TestGetCacheRetentionMin:
+    """Test _get_cache_retention_min() env var parser."""
+
+    def test_default_returns_config(self) -> None:
+        """Missing env var returns config default."""
+        with patch.dict(os.environ, {}, clear=True):
+            assert _get_cache_retention_min() == 0
+
+    def test_valid_value(self) -> None:
+        """Positive integer is accepted."""
+        with patch.dict(os.environ, {"TAPMAP_CACHE_RETENTION_MIN": "15"}, clear=True):
+            assert _get_cache_retention_min() == 15
+
+    @pytest.mark.parametrize("value", ["-1", "-15"])
+    def test_negative_values_return_zero(self, value: str) -> None:
+        """Negative values are clamped to zero."""
+        with patch.dict(os.environ, {"TAPMAP_CACHE_RETENTION_MIN": value}, clear=True):
+            assert _get_cache_retention_min() == 0
+
+    @pytest.mark.parametrize("value", ["abc", "1.5", ""])
+    def test_invalid_values_return_config_default(self, value: str) -> None:
+        """Invalid values fall back to config default."""
+        with patch.dict(os.environ, {"TAPMAP_CACHE_RETENTION_MIN": value}, clear=True):
+            assert _get_cache_retention_min() == 0

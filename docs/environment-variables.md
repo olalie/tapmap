@@ -104,3 +104,55 @@ If both values are present and valid, TapMap uses the specified coordinates for 
 If either value is missing or invalid, TapMap falls back to the configured location behavior.
 
 This setting is useful when automatic location detection is inaccurate or when you prefer not to use public-IP based location detection.
+
+## TAPMAP_LAUNCH_BROWSER
+
+Control whether TapMap automatically opens the default web browser at startup.
+
+Default:
+
+```text
+true
+```
+
+Values:
+
+```text
+true
+false
+```
+
+Example:
+
+```bash
+TAPMAP_LAUNCH_BROWSER=false tapmap
+```
+
+This setting is useful when running TapMap as a service or starting it automatically without user interaction.
+
+## TAPMAP_CACHE_RETENTION_MIN
+
+Control how long inactive services remain visible on the map.
+
+Default:
+
+```text
+0
+```
+
+Values:
+
+```text
+0     Keep cached services until Clear cache is used.
+>0    Remove cached services not seen for the specified number of minutes.
+```
+
+Example:
+
+```bash
+TAPMAP_CACHE_RETENTION_MIN=15 tapmap
+```
+
+This setting affects only the map cache.
+
+It does not affect the current network snapshot, Open Ports, LAN/LOCAL Services, Unmapped Services, or the 30-day Insights history.

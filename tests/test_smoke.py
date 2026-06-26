@@ -39,6 +39,8 @@ def _runtime_ctx(tmp_path: Path) -> RuntimeContext:
         net_backend_version="test",
         server_host="127.0.0.1",
         server_port=8050,
+        launch_browser=True,
+        cache_retention_min=0,
         is_docker=False,
         location_override=None,
     )

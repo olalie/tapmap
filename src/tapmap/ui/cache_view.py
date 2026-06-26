@@ -22,10 +22,12 @@ class CacheViewBuilder:
         coord_precision: int = 3,
         debug: bool = False,
         is_docker: bool = False,
+        cache_retention_min: int = 0,
     ) -> None:
         self.coord_precision = int(coord_precision)
         self.debug = bool(debug)
         self.is_docker = bool(is_docker)
+        self.cache_retention_min = int(cache_retention_min)
         self.logger = logging.getLogger(__name__)
 
     @staticmethod
@@ -75,6 +77,7 @@ class CacheViewBuilder:
         map_candidates: list[dict[str, Any]],
     ) -> dict[str, Any]:
         """Merge map candidates into a per-service cache."""
+        now = datetime.now().timestamp()
         cache = dict(ui_cache) if isinstance(ui_cache, dict) else {}
 
         for candidate in map_candidates:
@@ -100,6 +103,8 @@ class CacheViewBuilder:
                 entry = self._new_entry(candidate, ip=ip, port=port, proto=proto)
                 cache[key] = entry
 
+            entry["last_seen"] = now
+
             if process_name:
                 self._merge_process(entry, process_name=process_name, pid=pid)
             
@@ -109,7 +114,25 @@ class CacheViewBuilder:
                 attrs=("proto", "lon", "lat", "city", "country", "asn", "asn_org"),
             )
 
+        self._prune_cache(cache, now)
         return cache
+    
+    def _prune_cache(
+        self,
+        cache: dict[str, Any],
+        now: float,
+    ) -> None:
+        """Remove cache entries older than the configured retention period."""
+        retention_min = self.cache_retention_min
+
+        if retention_min <= 0:
+            return
+
+        cutoff = now - (retention_min * 60)
+
+        for key, entry in list(cache.items()):
+            if entry["last_seen"] < cutoff:
+                del cache[key]
 
     def _new_entry(
         self, candidate: dict[str, Any], *, ip: str, port: int, proto: str | None

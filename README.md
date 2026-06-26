@@ -375,3 +375,4 @@ Thanks to @TechnVision for raising the configurable port use case.
 Thanks to @desrod for suggesting a solution for configurable port support.  
 Thanks to @hugalafutro for suggesting optional SYS_PTRACE support for process visibility on Linux.
 
+Thanks to @mad-tunes for suggesting optional browser launch control when running TapMap as a service, and configurable cache retention to reduce map clutter on busy systems.

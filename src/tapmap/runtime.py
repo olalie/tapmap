@@ -7,7 +7,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .app_dirs import ensure_app_data_dir, ensure_native_app_data_dir
-from .config import SERVER_PORT
+from .config import (
+    CACHE_RETENTION_MIN,
+    LAUNCH_BROWSER,
+    SERVER_PORT,
+)
 
 
 @dataclass(frozen=True)
@@ -40,6 +44,8 @@ class RuntimeContext:
     net_backend_version: str
     server_host: str
     server_port: int
+    launch_browser: bool
+    cache_retention_min: int
     is_docker: bool
     location_override: tuple[float, float] | None
 
@@ -72,6 +78,36 @@ def _get_server_host(is_docker: bool) -> str:
 def _get_server_port() -> int:
     """Return server port for the current runtime."""
     return int(os.environ.get("TAPMAP_PORT", str(SERVER_PORT)))
+
+def _get_launch_browser() -> bool:
+    """Return whether to launch the browser automatically."""
+    value = os.environ.get("TAPMAP_LAUNCH_BROWSER")
+
+    if value is None:
+        return LAUNCH_BROWSER
+
+    value = value.strip().lower()
+
+    if value in {"1", "true", "yes", "on"}:
+        return True
+
+    if value in {"0", "false", "no", "off"}:
+        return False
+
+    return LAUNCH_BROWSER
+
+
+def _get_cache_retention_min() -> int:
+    """Return UI cache retention time in minutes."""
+    value = os.environ.get("TAPMAP_CACHE_RETENTION_MIN")
+
+    if value is None:
+        return CACHE_RETENTION_MIN
+
+    try:
+        return max(0, int(value))
+    except ValueError:
+        return CACHE_RETENTION_MIN
 
 def _detect_docker() -> bool:
     """Return True when running in Docker."""
@@ -114,6 +150,8 @@ def build_runtime(meta: AppMeta) -> RuntimeContext:
     is_docker = _detect_docker()
     server_host = _get_server_host(is_docker)
     server_port = _get_server_port()
+    launch_browser = _get_launch_browser()
+    cache_retention_min = _get_cache_retention_min()
     location_override = _get_location_override()
 
     return RuntimeContext(
@@ -125,6 +163,8 @@ def build_runtime(meta: AppMeta) -> RuntimeContext:
         net_backend_version=net_backend_version,
         server_host=server_host,
         server_port=server_port,
+        launch_browser=launch_browser,
+        cache_retention_min=cache_retention_min,
         is_docker=is_docker,
         location_override=location_override,
     )

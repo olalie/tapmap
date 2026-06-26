@@ -12,6 +12,15 @@ LocationMode = Literal["auto", "none"]
 SERVER_PORT: Final[int] = 8050
 """HTTP port used by the local Dash server."""
 
+LAUNCH_BROWSER: Final[bool] = True
+"""Open the default web browser automatically at startup."""
+
+CACHE_RETENTION_MIN: Final[int] = 0
+"""Keep cached connections until Clear cache.
+
+0 disables automatic cache expiration.
+"""
+
 MY_LOCATION: Final[tuple[float, float] | LocationMode] = "auto"
 """Local map marker options:
 - (lon, lat): fixed manual coordinates
