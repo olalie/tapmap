@@ -345,16 +345,17 @@ The executable must be built on the target operating system.
 
 ---
 
-## Support the project
+## Professional services
 
-TapMap is free and open source.
+TapMap is developed by Ola Lie.
 
-If you find it useful, consider supporting the project:
+Professional services:
 
-- [Buy Me a Coffee](https://www.buymeacoffee.com/olalie)
-- [PayPal](https://www.paypal.com/donate/?hosted_button_id=ELLXBK9BY8EDU)
+- System development
+- Data analysis
+- TapMap support
 
-You can also give the project a star on GitHub.
+[https://tip.no](https://tip.no)
 
 ---
 

@@ -159,9 +159,8 @@ def render_about(
         html.H2("Runtime"),
         kv_table(runtime_rows),
         html.H2("Project"),
-        html.P(
-            "TapMap is free, open source, and available on GitHub and Docker Hub."
-        ),
+        html.P("TapMap is free and open source, "
+               "developed by Ola Lie at TIP Teknologi i Praksis AS."),
         html.Ul(
             [
                 html.Li(
@@ -182,8 +181,8 @@ def render_about(
                 ),
                 html.Li(
                     html.A(
-                        "Buy Me a Coffee",
-                        href="https://www.buymeacoffee.com/olalie",
+                        "Professional services",
+                        href="https://tip.no",
                         target="_blank",
                         rel="noopener noreferrer",
                     )
