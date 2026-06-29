@@ -94,7 +94,7 @@ All data is collected locally on your machine.
 - Click map markers for detailed information
 - Open the menu in the upper-left corner to access Insights, network views, and application information
 - Open the Daily Activity Report with D
-- Click countries in Insights to zoom to the location
+- Click countries in Insights to zoom to a country
 
 ---
 
@@ -217,6 +217,7 @@ Inspect connections that could not be geolocated and therefore do not appear on 
 | C   | Clear cache |
 | H   | Help |
 | A   | About |
+| Z   | Fit Connections |
 | ESC | Close window |
 
 ---
@@ -376,3 +377,5 @@ Thanks to @desrod for suggesting a solution for configurable port support.
 Thanks to @hugalafutro for suggesting optional SYS_PTRACE support for process visibility on Linux.
 
 Thanks to @mad-tunes for suggesting optional browser launch control when running TapMap as a service, and configurable cache retention to reduce map clutter on busy systems.
+
+Thanks to @forthrin for detailed first-use feedback and suggestions that improved map navigation and overall usability.

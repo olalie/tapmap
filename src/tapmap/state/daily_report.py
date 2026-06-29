@@ -439,7 +439,7 @@ def _build_country_map_points(
     country_state: dict[str, dict[str, Any]],
 ) -> list[CountryMapPoint]:
     """Return map point data for all observed countries with known centroids."""
-    from tapmap.ui.country_centers import get_center  # deferred to avoid import cycle
+    from tapmap.ui.country_info import get_center  # deferred to avoid import cycle
 
     points: list[CountryMapPoint] = []
     for code, item in country_state.items():

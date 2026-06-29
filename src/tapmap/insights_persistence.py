@@ -1,10 +1,14 @@
 """Persistence and orchestration helpers for insights data."""
 
 import json
+import logging
+import time
 from pathlib import Path
 from typing import Any
 
 from tapmap.state.daily_report import DailyReportData, build_report_data
+
+logger = logging.getLogger(__name__)
 
 
 def load_insights(path: Path) -> dict[str, Any]:
@@ -27,8 +31,7 @@ def load_insights(path: Path) -> dict[str, Any]:
         if not isinstance(insights, dict):
             raise ValueError("insights is not a dict")
         normalized = {
-            k: dict(insights[k]) if isinstance(insights.get(k), dict) else {}
-            for k in expected_keys
+            k: dict(insights[k]) if isinstance(insights.get(k), dict) else {} for k in expected_keys
         }
         return normalized
     except Exception:
@@ -56,7 +59,22 @@ def save_insights(path: Path, data: dict[str, Any]) -> None:
         )
         f.flush()
 
-    tmp_path.replace(path)
+    # The temporary file has been closed. Retry the atomic replace in
+    # case another process briefly locks the destination file.
+    for attempt in range(6):
+        try:
+            tmp_path.replace(path)
+            return
+
+        except OSError:
+            if attempt == 5:
+                raise
+
+            logger.info(
+                "insights.json temporarily locked; retrying in 1 second (%d/5)...",
+                attempt + 1,
+            )
+            time.sleep(1)
 
 
 def build_daily_report(insights: dict[str, Any]) -> DailyReportData:

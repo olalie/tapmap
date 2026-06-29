@@ -33,6 +33,7 @@ def render_layout(
             dcc.Store(id="menu_open", data=False),
             dcc.Store(id="insights_on", data=True),
             dcc.Store(id="selected_country", data=None),
+            dcc.Store(id="camera_mode", data=None),
             dcc.Store(id="key_action", data=None),
             dcc.Store(id="status_flash", data=None),
             dcc.Store(id="geodb_event", data=None),

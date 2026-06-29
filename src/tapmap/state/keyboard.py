@@ -20,6 +20,7 @@ KEY_MAP = {
     "__c__": "menu_clear_cache",
     "__h__": "menu_help",
     "__a__": "menu_about",
+    "__z__": "zoom_connections",
     "__esc__": "escape",
 }
 

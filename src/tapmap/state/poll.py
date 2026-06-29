@@ -16,6 +16,8 @@ ACTION_GEO_UPDATE = "geo_update"
 ACTION_CLEAR_CACHE = "clear_cache"
 ACTION_CACHE_TERMINAL = "cache_terminal"
 ACTION_NORMAL_POLL = "normal_poll"
+ACTION_ZOOM_CONNECTIONS = "zoom_connections"
+
 @dataclass(frozen=True)
 class PollDecision:
     """Describe which poll action to execute."""
@@ -48,5 +50,7 @@ def decide_poll_action(*, trigger: Any, key_action: Any) -> PollDecision:
             return PollDecision(action=ACTION_CLEAR_CACHE)
         if action == "menu_cache_terminal":
             return PollDecision(action=ACTION_CACHE_TERMINAL)
+        if action == "zoom_connections":
+            return PollDecision(action=ACTION_ZOOM_CONNECTIONS)
 
     return PollDecision(action=ACTION_NORMAL_POLL)

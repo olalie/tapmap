@@ -345,6 +345,13 @@ summary.mx-acc-header:hover {
   opacity: 0.8;
 }
 
+.insights-row.selected {
+  border-left: 4px solid var(--mx-green);
+  padding-left: 6px;
+  color: white;
+  font-weight: 700;
+}
+
 /* Cells */
 .insights-flag {
   flex: 0 0 21px;

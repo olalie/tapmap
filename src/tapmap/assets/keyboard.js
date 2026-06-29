@@ -12,6 +12,7 @@
         "c",
         "h",
         "a",
+        "z",
     ]);
 
     function isTypingTarget(el) {
@@ -66,7 +67,7 @@
         setter.call(el, value);
     }
 
-    function sendToken(token) {
+    window.sendToken = function (token) {
         const inp = document.getElementById("key_capture");
 
         if (!inp) return;

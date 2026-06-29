@@ -9,7 +9,7 @@ from typing import Final, TypeAlias
 import plotly.graph_objects as go
 import pycountry
 
-from .country_centers import get_center
+from .country_info import get_bounds
 
 LonLat: TypeAlias = tuple[float, float]
 PointSets: TypeAlias = tuple[list[LonLat], list[LonLat]]  # (geo_points, my_location)
@@ -172,10 +172,10 @@ class MapUI:
         texts: list[str] = []
 
         for i in range(len(geo_points)):
-            # Color based on proximity (unchanged logic)
+            # Color based on proximity
             colors.append(self.COLOR_ZOOM if zoom_flags[i] else self.COLOR_NORMAL)
 
-            # Hover text
+            # Build hover text for each mapped location.
             base = summaries.get(str(i), f"Summary {i}")
             texts.append(base)
 
@@ -219,9 +219,61 @@ class MapUI:
         fig: go.Figure,
         *,
         geo_points,
+        my_location,
         selected_country,
+        fit_connections: bool = False,
     ) -> None:
-        """Configure projection. Center view on selected country when provided."""
+        """Configure map projection and camera."""
+        
+        def camera_from_bounds(
+            min_lon: float, max_lon: float, min_lat: float, max_lat: float,
+            *,
+            scale_factor: float,
+        ) -> tuple[dict[str, float], float]:
+            """Return camera center and projection scale for geographic bounds."""
+            camera_center = {
+                "lon": (min_lon + max_lon) / 2,
+                "lat": (min_lat + max_lat) / 2,
+            }
+
+            lon_fraction = (max_lon - min_lon) / 360
+            lat_fraction = (max_lat - min_lat) / 180
+
+            span = max(lon_fraction, lat_fraction, 1e-6)
+
+            return camera_center, scale_factor / span
+
+        camera_center = None
+        camera_scale = None
+
+        # Zoom to include all mapped connections (and my location).
+        if fit_connections and geo_points:
+            points = list(geo_points)
+            points.extend(my_location)
+
+            lons = [lon for lon, _ in points]
+            lats = [lat for _, lat in points]
+
+            camera_center, camera_scale = camera_from_bounds(
+                min(lons), max(lons), min(lats), max(lats),
+                scale_factor=0.95,
+            )
+        
+        # Zoom to the selected country.
+        elif isinstance(selected_country, str):
+            try:
+                min_lon, max_lon, min_lat, max_lat = get_bounds(
+                    selected_country.upper()
+                )
+
+                camera_center, camera_scale = camera_from_bounds(
+                    min_lon, max_lon, min_lat, max_lat,
+                    scale_factor=0.50,
+                )
+
+            except Exception:
+                pass
+
         fig.update_geos(
             visible=True,
             projection_type="natural earth",
@@ -234,18 +286,11 @@ class MapUI:
             bgcolor="black",
         )
 
-        if isinstance(selected_country, str):
-            country_code = selected_country
-
-            try:
-                lat, lon = get_center(country_code.upper())
-
-                fig.update_geos(
-                    center=dict(lon=lon, lat=lat),
-                    projection_scale=2,
-                )
-            except Exception:
-                pass
+        if camera_center is not None:
+            fig.update_geos(
+                center=camera_center,
+                projection_scale=camera_scale,
+            )
 
     def _apply_layout(self, fig: go.Figure) -> None:
         """Apply layout styling and interaction settings."""
@@ -278,6 +323,7 @@ class MapUI:
         point_sets: PointSets,
         summaries: dict[str, str] | None = None,
         selected_country: str | None = None,
+        fit_connections: bool = False,
     ) -> go.Figure:
         """Return map figure with world layer, connections, markers, and layout."""
         summaries = summaries or {}
@@ -317,7 +363,9 @@ class MapUI:
         self._apply_geos(
             fig,
             geo_points=geo_points,
+            my_location=my_location,
             selected_country=selected_country,
+            fit_connections=fit_connections,
         )
 
         self._apply_layout(fig)

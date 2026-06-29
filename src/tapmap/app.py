@@ -1,6 +1,6 @@
 """Dash application entry point for TapMap.
 
-This module wires together:
+This module wires together the main application layers:
 
 - model: runtime state and data collection (snapshot, GeoIP reload, caches)
 - geodb: GeoIP database installation, updates, validation, and status
@@ -60,6 +60,7 @@ from tapmap.state.poll import (
     ACTION_CACHE_TERMINAL,
     ACTION_CLEAR_CACHE,
     ACTION_NORMAL_POLL,
+    ACTION_ZOOM_CONNECTIONS,
     decide_poll_action,
 )
 from tapmap.state.status_cache import StatusCache
@@ -702,7 +703,6 @@ class TapMap:
                 snap, cache, sc_store, view, flash = self._handle_clear_cache(status_cache)
                 return snap, cache, sc_store, view, flash
 
-            
             if decision.action == ACTION_NORMAL_POLL:
                 snap, cache, sc_store, view, _flash = self._handle_normal_poll(
                     tick_n, status_cache, ui_cache
@@ -998,9 +998,11 @@ class TapMap:
             Output("map", "figure"),
             Input("ui_view", "data"),
             Input("selected_country", "data"),
+            Input("camera_mode", "data"),
         )
-        def render_map(ui_view: Any, selected_country: Any) -> Any:
+        def render_map(ui_view: Any, selected_country: Any, camera_mode: Any) -> Any:
             view = self._ensure_dict(ui_view)
+            fit_connections = (camera_mode == "connections")
 
             if "points" not in view:
                 return no_update
@@ -1013,16 +1015,20 @@ class TapMap:
                     ([], self.my_location),
                     summaries=summaries,
                     selected_country=selected_country,
+                    fit_connections=fit_connections,
                 )
 
             return self.ui.create_figure(
                 (points, self.my_location),
                 summaries=summaries,
                 selected_country=selected_country,
+                fit_connections=fit_connections,
             )
 
         @self.app.callback(
             Output("selected_country", "data"),
+            Output("camera_mode", "data"),
+            Input("key_action", "data"),
             Input(
                 {
                     "type": "insights-country",
@@ -1032,31 +1038,53 @@ class TapMap:
                 "n_clicks",
             ),
             State("selected_country", "data"),
+            State("camera_mode", "data"),
             prevent_initial_call=True,
         )
-        def select_insight(_clicks_country: list[int], current: Any) -> Any:
-            if not ctx.triggered:
-                return no_update
-
-            trigger = ctx.triggered[0]
-
-            if not trigger["value"]:
-                return no_update
+        def update_map_state(
+            key_action: Any,
+            _clicks_country: list[int],
+            current_country: Any,
+            current_camera_mode: Any,
+        ) -> tuple[Any, Any]:
 
             trigger_id = ctx.triggered_id
 
+            # Keyboard
+            if trigger_id == "key_action":
+                if (
+                    isinstance(key_action, dict)
+                    and key_action.get("action") == ACTION_ZOOM_CONNECTIONS
+                ):
+                    if current_camera_mode == "connections":
+                        return None, None
+
+                    return None, "connections"
+
+                return no_update, no_update
+
+            # Country selection
+            current = current_country if isinstance(current_country, str) else None
+
+            if not ctx.triggered:
+                return no_update, no_update
+
+            trigger = ctx.triggered[0]
+            if not trigger["value"]:
+                return no_update, no_update
+
             if not isinstance(trigger_id, dict):
-                return no_update
+                return no_update, no_update
 
             country_code = trigger_id.get("country_code")
             if not isinstance(country_code, str):
-                return no_update
+                return no_update, no_update
 
             if current == country_code:
-                return None
+                return None, None
 
-            return country_code
-
+            return country_code, None
+        
     def _register_status_callbacks(self) -> None:
         @self.app.callback(
             Output("status_bar", "children"),
@@ -1081,12 +1109,17 @@ class TapMap:
         @self.app.callback(
             Output("insights_panel", "children"),
             Input("insights_cache", "data"),
+            Input("selected_country", "data"),
         )
-        def update_insights(data: dict[str, Any] | None) -> list[Any]:
+        def update_insights(
+            data: dict[str, Any] | None,
+            selected_country: Any,
+        ) -> list[Any]:
+
             if not isinstance(data, dict):
                 return []
 
-            return render_insights_panel(data)
+            return render_insights_panel(data, selected_country=selected_country)
 
         @self.app.callback(
             Output("insights_cache", "data"),
@@ -1137,8 +1170,8 @@ class TapMap:
         now = datetime.now().timestamp()
 
         if now - self._last_insights_save >= 60:
-            self._save_insights()
             self._last_insights_save = now
+            self._save_insights()
 
     def _save_insights(self) -> None:
         """Write insights data to disk atomically (delegated)."""
@@ -1158,19 +1191,22 @@ class TapMap:
             try:
                 lock = json.loads(self._lock_path.read_text(encoding="utf-8"))
 
-                running_process = psutil.Process(int(lock["pid"]))
+                if (
+                    isinstance(lock, dict)
+                    and "pid" in lock
+                    and "create_time" in lock
+                ):
+                    running_process = psutil.Process(int(lock["pid"]))
 
-                if running_process.create_time() == float(lock["create_time"]):
-                    self.logger.warning(
-                        "Another TapMap instance is already running (PID %d). Exiting.",
-                        running_process.pid,
-                    )
-                    sys.exit(1)
+                    if running_process.create_time() == float(lock["create_time"]):
+                        self.logger.warning(
+                            "Another TapMap instance is already running (PID %d). Exiting.",
+                            running_process.pid,
+                        )
+                        sys.exit(1)
 
             except (
                 OSError,
-                ValueError,
-                KeyError,
                 json.JSONDecodeError,
                 psutil.NoSuchProcess,
             ):

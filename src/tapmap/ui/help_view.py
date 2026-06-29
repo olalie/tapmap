@@ -44,7 +44,8 @@ def render_help() -> list[Any]:
                     "open ports, and additional tools."
                 ),
                 html.Li(
-                    "Use the mouse or Plotly tools (top right) to pan, zoom, or reset the view."
+                    "Use the mouse or Plotly tools (top right) to pan, zoom, reset, or fit all "
+                    "mapped connections."
                 ),
             ]
         ),
@@ -290,10 +291,18 @@ def render_help() -> list[Any]:
                         html.Tr([html.Td("C"), html.Td("Clear cache"), html.Td("Status")]),
                         html.Tr([html.Td("H"), html.Td("Help"), html.Td("Window")]),
                         html.Tr([html.Td("A"), html.Td("About"), html.Td("Window")]),
+                        html.Tr([html.Td("Z"), html.Td("Fit mapped connections"),
+                                 html.Td("Map")]),
                         html.Tr([html.Td("ESC"), html.Td("Close window"), html.Td("Window")]),
                     ]
                 ),
             ],
+        ),
+        html.H2("Map navigation"),
+        html.P(
+            "Use the Fit Connections button in the Plotly toolbar (top right), or press "
+            "Z, to fit all mapped connections. Click a country in the Insights panel to "
+            "zoom to that country."
         ),
         html.H2("Insights"),
         html.P("The Insights panel highlights activity observed during the last 30 days."),
@@ -306,7 +315,7 @@ def render_help() -> list[Any]:
                     "Top 5+ most frequently observed items over the last 30 days."
                 ),
                 html.Li(
-                    "Click countries to zoom to their locations on the map."
+                    "Click countries to zoom to the selected country."
                 ),
             ]
         ),

@@ -5,7 +5,10 @@ from typing import Any
 from dash import html
 
 
-def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
+def render_insights_panel(
+    data: dict[str, Any] | None,
+    selected_country: str | None = None,
+) -> list[Any]:
     """Render insights panel content from data."""
     if not isinstance(data, dict):
         return []
@@ -35,9 +38,14 @@ def render_insights_panel(data: dict[str, Any] | None) -> list[Any]:
         )
 
         if is_country and isinstance(value, str):
+            row_class = "insights-row clickable"
+
+            if value == selected_country:
+                row_class += " selected"
+
             return html.Div(
                 header,
-                className="insights-row clickable",
+                className=row_class,
                 id={
                     "type": "insights-country",
                     "country_code": value,
