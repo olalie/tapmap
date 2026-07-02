@@ -26,6 +26,7 @@ exe = EXE(
     a.datas,
     [],
     name='tapmap',
+    icon='src/tapmap/assets/tapmap.ico',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
