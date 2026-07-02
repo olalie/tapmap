@@ -6,6 +6,7 @@ API suitable for callback orchestration in app.py.
 
 from __future__ import annotations
 
+import logging
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -16,6 +17,7 @@ from tapmap.runtime import RuntimeContext
 from .dbip import DbIpProvider
 from .maxmind import MaxMindProvider
 
+logger = logging.getLogger(__name__)
 
 class GeoDbResponse(TypedDict):
     """Service payload contract for GeoDB callbacks."""
@@ -159,6 +161,7 @@ class GeoDbService:
                 else:
                     self.dbip.download_pair_to(staged_dir)
             except Exception:
+                logger.exception("Unable to download provider databases")
                 status = self.local_status()
                 status["message"] = "Unable to download provider databases"
                 status["error"] = "download_failed"
@@ -173,6 +176,7 @@ class GeoDbService:
             try:
                 self._activate_staged_pair(provider, staged_dir)
             except Exception:
+                logger.exception("Unable to activate downloaded databases")
                 status = self.local_status()
                 status["message"] = "Unable to activate downloaded databases"
                 status["error"] = "activation_failed"
@@ -279,18 +283,13 @@ class GeoDbService:
                 else:
                     remote_version = self.dbip.fetch_remote_version()
             except ValueError as exc:
-                print("REMOTE CHECK ERROR:", repr(exc))
                 status["message"] = str(exc)
                 status["error"] = "credentials_missing"
                 status["update_available"] = "unknown"
                 return status
 
-            except Exception as exc:
-                print("REMOTE CHECK ERROR:", repr(exc))
-
-                if exc.__cause__ is not None:
-                    print("CAUSE:", repr(exc.__cause__))
-
+            except Exception:
+                logger.exception("Unable to check for database updates")
                 status["message"] = "Unable to check for database updates"
                 status["error"] = "remote_check_failed"
                 status["update_available"] = "unknown"

@@ -119,9 +119,6 @@ class TapMap:
     )
 
     DASH_DEBUG = False
-    DEBUG_COORDS = False
-    DEBUG_COORDS_EVERY_N_TICKS = 6
-
     MIN_FLASH_S = 3.0
 
     def __init__(self, runtime_ctx: RuntimeContext) -> None:
@@ -137,10 +134,9 @@ class TapMap:
             suppress_callback_exceptions=True,
         )
 
-        self.ui = MapUI(zoom_near_km=ZOOM_NEAR_KM, debug=self.DEBUG_COORDS)
+        self.ui = MapUI(zoom_near_km=ZOOM_NEAR_KM)
         self.view_builder = CacheViewBuilder(
             coord_precision=COORD_PRECISION,
-            debug=self.DEBUG_COORDS,
             is_docker=self.runtime.is_docker,
             cache_retention_min=self.runtime.cache_retention_min,
         )
@@ -209,13 +205,6 @@ class TapMap:
     def _build_layout(self, start_fig: Any) -> html.Div:
         geo_status = self.geodb.local_status()
         geo_ready = geo_status["provider"] != "none"
-        self.logger.info(
-            "Startup missing-db gate: provider=%s geo_ready=%s open_missing_modal=%s",
-            geo_status.get("provider"),
-            geo_ready,
-            not geo_ready,
-        )
-
         initial_modal_state: dict[str, Any] | None = None
         if not geo_ready:
             initial_modal_state = {
@@ -406,7 +395,7 @@ class TapMap:
         self,
         account_id: Any,
         license_key: Any,
-    ) ->GeoDbResponse:
+    ) -> GeoDbResponse:
         account_id_text, license_key_text = self._resolve_maxmind_install_credentials(
             account_id,
             license_key,
@@ -417,14 +406,8 @@ class TapMap:
                 account_id_text,
                 license_key_text,
             )
-            print("VALIDATE OK")
 
         except ValueError as exc:
-            print("VALIDATE ERROR:", repr(exc))
-
-            if exc.__cause__ is not None:
-                print("CAUSE:", repr(exc.__cause__))
-
             status = self.geodb.local_status()
             status["message"] = str(exc)
             status["error"] = "credentials_invalid"
@@ -436,12 +419,8 @@ class TapMap:
                 license_key_text,
             )
 
-        except Exception as exc:
-            print("KEYRING ERROR:", repr(exc))
-
-            if exc.__cause__ is not None:
-                print("CAUSE:", repr(exc.__cause__))
-
+        except Exception:
+            self.logger.exception("Unable to store MaxMind credentials")
             status = self.geodb.local_status()
             status["message"] = "Unable to store MaxMind credentials"
             status["error"] = "credential_store_failed"
@@ -501,10 +480,6 @@ class TapMap:
         items_any = snap.get("cache_items")
         items = items_any if isinstance(items_any, list) else []
         status_cache.update(items)
-
-        if self.DEBUG_COORDS and (tick_n % self.DEBUG_COORDS_EVERY_N_TICKS == 0):
-            self.view_builder.debug_coords(updated_cache)
-
         view = self.view_builder.build_view_from_cache(updated_cache)
         self._maybe_save_insights()
 
@@ -1162,7 +1137,10 @@ class TapMap:
         try:
             self.insights = load_insights(self.insights_path)
         except Exception as exc:
-            self.logger.warning("Failed to load insights: %s. Starting fresh.", exc)
+            self.logger.warning(
+                "Unable to load insights. Starting with empty history. Reason: %s",
+                exc,
+            )
             self.insights = self._empty_insights()
 
     def _maybe_save_insights(self) -> None:
@@ -1178,7 +1156,10 @@ class TapMap:
         try:
             save_insights(self.insights_path, self.insights)
         except Exception as exc:
-            self.logger.warning("Failed to save insights: %s", exc)
+            self.logger.warning(
+                "Unable to save insights. Changes will not be preserved. Reason: %s",
+                exc,
+            )
 
     def _acquire_lock(self) -> None:
         """Write a lock file, or exit if another instance is already running."""
@@ -1259,7 +1240,7 @@ def main(argv: list[str] | None = None) -> int:
     _build_arg_parser().parse_args(argv)
 
     logging.basicConfig(
-        level=logging.DEBUG if TapMap.DEBUG_COORDS else logging.INFO,
+        level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
     logging.getLogger("werkzeug").setLevel(logging.WARNING)

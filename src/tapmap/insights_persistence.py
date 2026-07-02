@@ -1,14 +1,11 @@
 """Persistence and orchestration helpers for insights data."""
 
 import json
-import logging
 import time
 from pathlib import Path
 from typing import Any
 
 from tapmap.state.daily_report import DailyReportData, build_report_data
-
-logger = logging.getLogger(__name__)
 
 
 def load_insights(path: Path) -> dict[str, Any]:
@@ -70,10 +67,6 @@ def save_insights(path: Path, data: dict[str, Any]) -> None:
             if attempt == 5:
                 raise
 
-            logger.info(
-                "insights.json temporarily locked; retrying in 1 second (%d/5)...",
-                attempt + 1,
-            )
             time.sleep(1)
 
 

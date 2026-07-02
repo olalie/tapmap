@@ -20,12 +20,10 @@ class CacheViewBuilder:
     def __init__(
         self,
         coord_precision: int = 3,
-        debug: bool = False,
         is_docker: bool = False,
         cache_retention_min: int = 0,
     ) -> None:
         self.coord_precision = int(coord_precision)
-        self.debug = bool(debug)
         self.is_docker = bool(is_docker)
         self.cache_retention_min = int(cache_retention_min)
         self.logger = logging.getLogger(__name__)
@@ -453,43 +451,3 @@ class CacheViewBuilder:
                 parts.append(name)
 
         return ", ".join(parts) if parts else "-"
-
-    def debug_coords(self, ui_cache: dict[str, Any], *, top_n: int = 10) -> None:
-        """Log coordinate collision statistics."""
-        if not self.debug:
-            return
-
-        cache = ui_cache if isinstance(ui_cache, dict) else {}
-        coords: list[tuple[float, float]] = []
-
-        for raw in cache.values():
-            if not isinstance(raw, dict):
-                continue
-
-            lon = raw.get("lon")
-            lat = raw.get("lat")
-            if lon is None or lat is None:
-                continue
-
-            try:
-                coords.append(
-                    (
-                        round(float(lon), self.coord_precision),
-                        round(float(lat), self.coord_precision),
-                    )
-                )
-            except (TypeError, ValueError):
-                continue
-
-        total = len(coords)
-        unique = len(set(coords))
-        self.logger.debug("Coords: total=%s unique=%s", total, unique)
-
-        counts = Counter(coords)
-        top = [(k, n) for k, n in counts.most_common(top_n) if n > 1]
-        if not top:
-            return
-
-        self.logger.debug("Top coord duplicates:")
-        for (lon, lat), n in top:
-            self.logger.debug("  (%s, %s) x%s", lon, lat, n)

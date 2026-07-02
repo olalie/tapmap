@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 import math
 from typing import Final, TypeAlias
 
@@ -34,10 +33,8 @@ class MapUI:
 
     EARTH_RADIUS_KM: Final[float] = 6371.0
 
-    def __init__(self, *, zoom_near_km: float, debug: bool = False) -> None:
+    def __init__(self, *, zoom_near_km: float) -> None:
         self.zoom_near_km = zoom_near_km
-        self.debug = debug
-        self.logger = logging.getLogger(__name__)
 
     @staticmethod
     def _cd_geo_point(idx: int) -> CustomData:
@@ -161,13 +158,6 @@ class MapUI:
         """Add markers for geo_points with hover text."""
         lons = [lon for lon, _ in geo_points]
         lats = [lat for _, lat in geo_points]
-
-        if self.debug:
-            unique_xy = len(set(zip(lons, lats, strict=False)))
-            self.logger.debug(
-                "Figure geo_points: count=%s unique_xy=%s", len(lons), unique_xy
-            )
-
         colors: list[str] = []
         texts: list[str] = []
 

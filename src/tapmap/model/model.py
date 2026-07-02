@@ -153,8 +153,8 @@ class Model:
                 "open_ports": open_ports,
             }
 
-        except Exception as exc:
-            self.logger.error("Error in Model.snapshot(): %s", exc)
+        except Exception:
+            self.logger.exception("Error while building model snapshot")
             return {
                 "error": True,
                 "stats": {

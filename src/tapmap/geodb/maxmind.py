@@ -262,7 +262,6 @@ class MaxMindProvider:
             )
             response.raise_for_status()
         except requests.RequestException as exc:
-            print("MAXMIND HEAD ERROR:", repr(exc))
             raise RuntimeError("Unable to fetch MaxMind remote version") from exc
 
         last_modified = response.headers.get("Last-Modified")
