@@ -316,45 +316,28 @@ def build_applications_summary(
     application_total_text = format_count(application_total)
     frequent = counts["Stable"] + counts["Recurring"]
     transient = counts["Occasional"] + counts["Seen once"]
-    seen_once = counts["Seen once"]
     total = frequent + transient
     fraction = frequent / total if total > 0 else 0.0
 
-    once_phrase = ""
-    if 2 <= seen_once <= 5:
-        once_phrase = ", and some only once"
-    elif seen_once >= 6:
-        once_phrase = ", and many only once"
-
     if frequent == 0:
-        distribution_text = (
-            f"Most apps appeared briefly{once_phrase}."
-        )
+        distribution_text = "All apps appeared briefly."
     elif transient == 0:
-        distribution_text = (
-            "Apps appeared repeatedly during the period."
-        )
+        distribution_text = "All apps were active throughout the period."
     elif fraction < 0.33:
-        distribution_text = (
-            f"Most apps appeared briefly{once_phrase}. "
-            "Some appeared repeatedly during the period."
-        )
+        distribution_text = "Most apps appeared briefly."
     elif fraction <= 0.66:
         distribution_text = (
-            "Some apps appeared repeatedly during the period. "
-            "Many others appeared briefly."
+            "There was a fairly even mix of apps that appeared briefly "
+            "and those active throughout the period."
         )
     else:
-        distribution_text = (
-            "Many apps appeared repeatedly during the period. "
-            "Others appeared briefly."
-        )
-
+        distribution_text = "Most apps were active throughout the period."
+        
     return (
         f"{application_total_text.capitalize()} "
         f"{application_label} used the internet during this period. "
         "Some were applications you used directly. "
-        f"Others were background services running on your system. "
+        "Others were probably running in the background. "
         f"{distribution_text}"
     )
 
