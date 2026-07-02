@@ -358,10 +358,10 @@ def test_build_applications_summary_mixed() -> None:
 
 
 def test_build_applications_summary_mostly_recurring() -> None:
-    """Use the 'Many apps' phrasing when most apps are recurring."""
+    """Use the 'Most apps' phrasing when recurring apps dominate."""
     counts = {"Stable": 3, "Recurring": 0, "Occasional": 1, "Seen once": 0}
     result = build_applications_summary(4, counts)
-    assert "Many" in result
+    assert "Most apps were active throughout the period." in result
 
 
 def test_build_applications_summary_uses_singular_label_for_one_app() -> None:
