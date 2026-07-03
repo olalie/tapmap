@@ -36,12 +36,12 @@ def test_render_status_text_returns_flash_message_when_present(cache_chain_stub:
     result = status_line.render_status_text(
         snapshot=None,
         status_cache_data=None,
-        status_flash={"message": "Cache shown in terminal."},
+        status_flash={"message": "Clearing cache..."},
         myloc_label="Oslo",
         to_int=int,
     )
 
-    assert result == "Cache shown in terminal."
+    assert result == "Clearing cache..."
 
 
 def test_render_status_text_returns_wait_status_when_snapshot_is_missing(

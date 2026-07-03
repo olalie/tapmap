@@ -44,6 +44,7 @@ def render_layout(
             dcc.Store(id="ui_view", data={"points": [], "summaries": {}, "details": {}}),
             dcc.Store(id="modal_state", data=initial_modal_state),
             dcc.Store(id="open_ports_prefs", data={"show_system": False}),
+            dcc.Download(id="cache_download"),
             html.Div(
                 dcc.Input(
                     id="key_capture",
@@ -124,10 +125,7 @@ def render_layout(
                                         "GeoIP Database Management (G)",
                                         "menu_geodb_management",
                                     ),
-                                    _menu_button(
-                                        "Show cache in terminal (T)",
-                                        "menu_cache_terminal",
-                                    ),
+                                    _menu_button("Export cache (E)", "menu_export_cache"),
                                     _menu_button("Clear cache (C)", "menu_clear_cache"),
                                 ],
                                 className="mx-acc-body",

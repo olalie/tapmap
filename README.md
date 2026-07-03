@@ -213,11 +213,12 @@ Inspect connections that could not be geolocated and therefore do not appear on 
 | L   | Established LAN/LOCAL services |
 | O   | Open ports |
 | G   | GeoIP Database Management |
-| T   | Show cache in terminal |
+| E   | Export cache |
 | C   | Clear cache |
 | H   | Help |
 | A   | About |
 | Z   | Fit Connections |
+| X   | Exit |
 | ESC | Close window |
 
 ---

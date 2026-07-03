@@ -285,14 +285,13 @@ def render_help() -> list[Any]:
                                 html.Td("Window"),
                             ]
                         ),
-                        html.Tr(
-                            [html.Td("T"), html.Td("Show cache in terminal"), html.Td("Status")]
-                        ),
+                        html.Tr([html.Td("E"), html.Td("Export cache"), html.Td("Download")]),
                         html.Tr([html.Td("C"), html.Td("Clear cache"), html.Td("Status")]),
                         html.Tr([html.Td("H"), html.Td("Help"), html.Td("Window")]),
                         html.Tr([html.Td("A"), html.Td("About"), html.Td("Window")]),
                         html.Tr([html.Td("Z"), html.Td("Fit mapped connections"),
                                  html.Td("Map")]),
+                        html.Tr([html.Td("X"), html.Td("Exit"), html.Td("Exit")]),
                         html.Tr([html.Td("ESC"), html.Td("Close window"), html.Td("Window")]),
                     ]
                 ),
@@ -395,8 +394,7 @@ def render_help() -> list[Any]:
         html.P("System processes are hidden by default. Use the toggle to include them."),
         html.H2("Status line"),
         html.P(
-            "Short status messages may appear after commands such as Show cache in terminal "
-            "or Clear cache."
+            "Short status messages may appear after commands such as Clear cache."
         ),
         html.H3("STATUS: WAIT | OK | ERROR"),
         html.Table(

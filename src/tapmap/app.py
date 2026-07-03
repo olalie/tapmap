@@ -34,7 +34,7 @@ from datetime import datetime
 from typing import Any, ClassVar, Final, Literal, TypedDict
 
 import psutil
-from dash import ALL, Dash, Input, Output, State, ctx, html, no_update
+from dash import ALL, Dash, Input, Output, State, ctx, dcc, html, no_update
 from dash.exceptions import PreventUpdate
 
 from tapmap import __version__
@@ -58,7 +58,6 @@ from tapmap.state.menu import compute_menu_open_state
 from tapmap.state.modal import decide_modal_route
 from tapmap.state.open_ports_prefs import set_show_system_pref
 from tapmap.state.poll import (
-    ACTION_CACHE_TERMINAL,
     ACTION_CLEAR_CACHE,
     ACTION_NORMAL_POLL,
     ACTION_ZOOM_CONNECTIONS,
@@ -118,7 +117,7 @@ class TapMap:
         }
     )
     MENU_COMMANDS: ClassVar[frozenset[str]] = frozenset(
-        {"menu_clear_cache", "menu_cache_terminal"}
+        {"menu_clear_cache", "menu_export_cache"}
     )
 
     DASH_DEBUG = False
@@ -454,13 +453,6 @@ class TapMap:
         flash = self._flash("Clearing cache...", self.MIN_FLASH_S)
         return snap, empty_cache, status_cache.to_store(), view, flash
 
-    def _handle_cache_terminal(
-        self, status_cache: StatusCache, ui_cache: dict[str, Any]
-    ) -> tuple[Any, Any, Any, Any, Any]:
-        status_cache.show_ui_cache(ui_cache, title="UI CACHE")
-        flash = self._flash("Cache shown in terminal.", self.MIN_FLASH_S)
-        return no_update, no_update, no_update, no_update, flash
-
     def _handle_normal_poll(
         self, tick_n: int, status_cache: StatusCache, ui_cache: dict[str, Any]
     ) -> tuple[Any, Any, Any, Any, Any]:
@@ -666,7 +658,6 @@ class TapMap:
             Input("tick_model", "n_intervals"),
             Input("key_action", "data"),
             Input("menu_clear_cache", "n_clicks"),
-            Input("menu_cache_terminal", "n_clicks"),
             State("ui_cache", "data"),
             State("status_cache", "data"),
             State("status_flash", "data"),
@@ -676,7 +667,6 @@ class TapMap:
             tick_n: int,
             key_action: Any,
             _clear_clicks: int,
-            _cache_terminal_clicks: int,
             ui_cache_data: Any,
             status_cache_data: Any,
             status_flash_data: Any,
@@ -688,10 +678,6 @@ class TapMap:
                 trigger=trigger,
                 key_action=key_action,
             )
-
-            if decision.action == ACTION_CACHE_TERMINAL:
-                a, b, c, d, flash = self._handle_cache_terminal(status_cache, ui_cache)
-                return a, b, c, d, flash
 
             if decision.action == ACTION_CLEAR_CACHE:
                 snap, cache, sc_store, view, flash = self._handle_clear_cache(status_cache)
@@ -724,7 +710,7 @@ class TapMap:
             Input("menu_open_ports", "n_clicks"),
             Input("menu_unmapped", "n_clicks"),
             Input("menu_lan_local", "n_clicks"),
-            Input("menu_cache_terminal", "n_clicks"),
+            Input("menu_export_cache", "n_clicks"),
             Input("menu_geodb_management", "n_clicks"),
             Input("menu_about", "n_clicks"),
             Input("menu_help", "n_clicks"),
@@ -743,7 +729,7 @@ class TapMap:
             _open_ports: int,
             _unmapped: int,
             _lan_local: int,
-            _cache_terminal: int,
+            _export_cache: int,
             _geodb_management: int,
             _info: int,
             _help: int,
@@ -873,6 +859,33 @@ class TapMap:
 
             if not ok:
                 self.logger.warning(message)
+
+        @self.app.callback(
+            Output("cache_download", "data"),
+            Input("menu_export_cache", "n_clicks"),
+            Input("key_action", "data"),
+            State("ui_cache", "data"),
+            State("status_cache", "data"),
+            prevent_initial_call=True,
+        )
+        def export_cache(
+            n_clicks: int | None,
+            key_action: Any,
+            ui_cache_data: Any,
+            status_cache_data: Any,
+        ) -> Any:
+            trigger = ctx.triggered_id
+            if trigger == "key_action":
+                if not (isinstance(key_action, dict) and key_action.get("action") == "menu_export_cache"):
+                    raise PreventUpdate
+            elif not n_clicks:
+                raise PreventUpdate
+            status_cache = StatusCache.from_store(status_cache_data)
+            ui_cache = self._ensure_dict(ui_cache_data)
+            now = datetime.now()
+            filename = f"tapmap-cache-{now.strftime('%Y-%m-%d_%H-%M-%S')}.txt"
+            header = f"TapMap Cache Export\nGenerated: {now.strftime('%Y-%m-%d %H:%M:%S')}"
+            return dcc.send_string(status_cache.format_ui_cache_text(ui_cache, header=header), filename)
 
         @self.app.callback(
             Input("key_action", "data"),

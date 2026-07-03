@@ -12,14 +12,14 @@ def test_clear_cache_from_menu() -> None:
     assert decision.action == poll.ACTION_CLEAR_CACHE
 
 
-def test_cache_terminal_from_menu() -> None:
-    """Return cache_terminal when cache terminal menu item is clicked."""
+def test_export_cache_is_not_a_poll_command() -> None:
+    """Return normal_poll when export cache menu item is clicked."""
     decision = poll.decide_poll_action(
-        trigger="menu_cache_terminal",
+        trigger="menu_export_cache",
         key_action=None,
     )
 
-    assert decision.action == poll.ACTION_CACHE_TERMINAL
+    assert decision.action == poll.ACTION_NORMAL_POLL
 
 
 def test_geodb_management_from_keyboard_action_is_not_a_poll_command() -> None:
@@ -42,14 +42,14 @@ def test_clear_cache_from_keyboard_action() -> None:
     assert decision.action == poll.ACTION_CLEAR_CACHE
 
 
-def test_cache_terminal_from_keyboard_action() -> None:
-    """Return cache_terminal when keyboard action requests cache display."""
+def test_export_cache_keyboard_action_is_not_a_poll_command() -> None:
+    """Return normal_poll when keyboard action requests export cache."""
     decision = poll.decide_poll_action(
         trigger="key_action",
-        key_action={"action": "menu_cache_terminal"},
+        key_action={"action": "menu_export_cache"},
     )
 
-    assert decision.action == poll.ACTION_CACHE_TERMINAL
+    assert decision.action == poll.ACTION_NORMAL_POLL
 
 
 def test_normal_poll_when_no_special_trigger() -> None:

@@ -61,6 +61,18 @@ def test_build_key_action_maps_escape(monkeypatch) -> None:
     }
 
 
+def test_build_key_action_maps_export_cache(monkeypatch) -> None:
+    """Map E token to export cache action."""
+    monkeypatch.setattr(keyboard, "datetime", DummyDatetime)
+
+    result = keyboard.build_key_action("__e__")
+
+    assert result == {
+        "action": "menu_export_cache",
+        "t": "2026-01-01T00:00:00",
+    }
+
+
 def test_build_key_action_maps_geodb_management(monkeypatch) -> None:
     """Map G token to GeoDB management action."""
     monkeypatch.setattr(keyboard, "datetime", DummyDatetime)

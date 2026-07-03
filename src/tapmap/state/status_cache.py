@@ -276,21 +276,22 @@ class StatusCache:
 
         return ", ".join(parts) if parts else "-"
 
-    def show_ui_cache(self, ui_cache: dict[str, Any], *, title: str = "UI CACHE") -> None:
-        """Show UI cache snapshot in terminal log."""
-        logger = logging.getLogger("tapmap.cache")
+    def format_ui_cache_text(
+        self,
+        ui_cache: dict[str, Any],
+        *,
+        title: str = "UI CACHE",
+        header: str | None = None,
+    ) -> str:
+        """Format UI cache snapshot as a plain-text string."""
         ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         cache = ui_cache if isinstance(ui_cache, dict) else {}
 
         lines: list[str] = []
-        lines.append(f"\n{title} ({ts})")
+        lines.append(header if header is not None else f"\n{title} ({ts})")
         lines.append(f"CACHE: {self.format_chain()}")
         lines.append(f"Cache entries: {len(cache)}")
-
-        if not cache:
-            logger.info("\n".join(lines))
-            return
 
         for key in sorted(cache.keys(), key=self._key_ip_port):
             entry = cache.get(key)
@@ -313,4 +314,10 @@ class StatusCache:
 
             addr = f"{ip}:{port_txt}"
             lines.append(f"{addr:<22} ({proto})  procs={procs_txt}  {asn_org}  place={place}")
-        logger.info("\n".join(lines))
+
+        return "\n".join(lines)
+
+    def show_ui_cache(self, ui_cache: dict[str, Any], *, title: str = "UI CACHE") -> None:
+        """Show UI cache snapshot in terminal log."""
+        logger = logging.getLogger("tapmap.cache")
+        logger.info(self.format_ui_cache_text(ui_cache, title=title))

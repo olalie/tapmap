@@ -16,7 +16,7 @@ KEY_MAP = {
     "__l__": "menu_lan_local",
     "__o__": "menu_open_ports",
     "__g__": "menu_geodb_management",
-    "__t__": "menu_cache_terminal",
+    "__e__": "menu_export_cache",
     "__c__": "menu_clear_cache",
     "__h__": "menu_help",
     "__a__": "menu_about",

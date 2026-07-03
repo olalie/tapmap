@@ -5,6 +5,47 @@ from __future__ import annotations
 from tapmap.state import status_cache
 
 
+def test_format_ui_cache_text_empty_cache_uses_default_title() -> None:
+    """Default header contains the UI CACHE title."""
+    cache = status_cache.StatusCache()
+    text = cache.format_ui_cache_text({})
+
+    assert "\nUI CACHE (" in text
+    assert "Cache entries: 0" in text
+
+
+def test_format_ui_cache_text_custom_header_replaces_default() -> None:
+    """Custom header replaces the default title line."""
+    cache = status_cache.StatusCache()
+    header = "TapMap Cache Export\nGenerated: 2026-01-01 00:00:00"
+    text = cache.format_ui_cache_text({}, header=header)
+
+    assert text.startswith(header)
+    assert "UI CACHE" not in text
+
+
+def test_format_ui_cache_text_formats_entry_fields() -> None:
+    """Entry line contains IP, proto, ASN org, and place."""
+    cache = status_cache.StatusCache()
+    ui_cache = {
+        "8.8.8.8|53": {
+            "ip": "8.8.8.8",
+            "port": 53,
+            "proto": "udp",
+            "asn_org": "Google LLC",
+            "city": "Mountain View",
+            "country": "US",
+        }
+    }
+    text = cache.format_ui_cache_text(ui_cache, header="HDR")
+
+    assert "8.8.8.8:53" in text
+    assert "(udp)" in text
+    assert "Google LLC" in text
+    assert "Mountain View, US" in text
+    assert "Cache entries: 1" in text
+
+
 def test_clear_removes_all_cached_keys() -> None:
     """Clear all cached key sets."""
     cache = status_cache.StatusCache()

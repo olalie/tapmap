@@ -41,7 +41,7 @@ class ModalTextBuilder:
             "menu_lan_local": "Show established LAN/LOCAL services",
             "menu_open_ports": "Show open ports",
             "menu_geodb_management": "GeoIP Database Management",
-            "menu_cache_terminal": "Show cache in terminal",
+            "menu_export_cache": "Export cache",
             "menu_clear_cache": "Clear cache",
             "menu_help": "Help",
             "menu_about": "About",
