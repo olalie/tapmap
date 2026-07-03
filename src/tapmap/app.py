@@ -75,6 +75,7 @@ from tapmap.ui.modal_view import ModalTextBuilder
 
 from .app_dirs import open_folder
 from .config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
+from .logging_config import configure_logging
 from .runtime import AppMeta, RuntimeContext, build_runtime
 
 LonLat = tuple[float, float]
@@ -1121,6 +1122,13 @@ class TapMap:
         if self.runtime.launch_browser and not self.runtime.is_docker:
             self._open_browser(url)
 
+        self.logger.info(
+            "Starting %s %s on %s",
+            self.runtime.meta.name,
+            self.runtime.meta.version,
+            url,
+            extra={"section_break": True},
+        )
         self.app.run(
             host=host,
             port=port,
@@ -1212,6 +1220,7 @@ class TapMap:
 
     def close(self) -> None:
         """Close model resources."""
+        self.logger.info("Shutting down")
         self._save_insights()
         self._release_lock()
         close_fn = getattr(self.model.geoinfo, "close", None)
@@ -1238,14 +1247,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     """Run application from the command line."""
     _build_arg_parser().parse_args(argv)
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
-    logging.getLogger("werkzeug").setLevel(logging.WARNING)
-
     runtime_ctx = build_runtime(APP_META)
+    configure_logging(runtime_ctx)
     app = TapMap(runtime_ctx)
     try:
         app.run()
