@@ -13,6 +13,7 @@
         "h",
         "a",
         "z",
+        "x",
     ]);
 
     function isTypingTarget(el) {

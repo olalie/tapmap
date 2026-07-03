@@ -476,6 +476,10 @@ summary.mx-acc-header:hover {
   background: var(--mx-bg);
 }
 
+.modal-body.no-close ~ .mx-modal-actions {
+  display: none;
+}
+
 .modal-body.mx-sticky-title {
   padding-top: 0;
   --mx-sticky-top: var(--mx-sticky-title-h);

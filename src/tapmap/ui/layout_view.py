@@ -148,6 +148,7 @@ def render_layout(
                         ],
                         className="mx-acc-section",
                     ),
+                    _menu_button("Exit (X)", "menu_exit"),
                 ],
             ),
             html.Div(

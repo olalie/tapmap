@@ -25,6 +25,7 @@ import argparse
 import contextlib
 import json
 import logging
+import os
 import platform
 import sys
 import threading
@@ -113,6 +114,7 @@ class TapMap:
             "menu_about",
             "menu_daily_report",
             "menu_insights_log",
+            "menu_exit",
         }
     )
     MENU_COMMANDS: ClassVar[frozenset[str]] = frozenset(
@@ -601,6 +603,22 @@ class TapMap:
                 self._class_for_modal_screen(screen),
             )
 
+        if screen == "menu_exit":
+            return (
+                [
+                    html.H1("TapMap has stopped"),
+                    html.Div(
+                        id="shutdown_screen",
+                        children=[
+                            html.P("Network monitoring has ended."),
+                            html.P("You may now close this browser tab."),
+                            html.P("Start TapMap to begin monitoring again."),
+                        ],
+                    ),
+                ],
+                "modal-body no-close",
+            )
+
         if screen in self.MENU_SCREENS:
             show_system = bool(payload.get("show_system", False))
             body = self.modal_text.for_action(
@@ -711,6 +729,7 @@ class TapMap:
             Input("menu_about", "n_clicks"),
             Input("menu_help", "n_clicks"),
             Input("menu_clear_cache", "n_clicks"),
+            Input("menu_exit", "n_clicks"),
             State("menu_open", "data"),
             State("insights_on", "data"),
             prevent_initial_call=True,
@@ -729,6 +748,7 @@ class TapMap:
             _info: int,
             _help: int,
             _clear: int,
+            _exit: int,
             menu_open: Any,
             insights_on: Any,
         ) -> Any:
@@ -854,6 +874,17 @@ class TapMap:
             if not ok:
                 self.logger.warning(message)
 
+        @self.app.callback(
+            Input("key_action", "data"),
+            prevent_initial_call=True,
+        )
+        def exit_app(key_action: Any) -> None:
+            if not (isinstance(key_action, dict) and key_action.get("action") == "exit_confirmed"):
+                raise PreventUpdate
+            self.close()
+            logging.shutdown()
+            os._exit(0)
+
     def _register_modal_render_callbacks(self) -> None:
         @self.app.callback(
             Output("modal_overlay", "className"),
@@ -897,6 +928,7 @@ class TapMap:
             Input("menu_about", "n_clicks"),
             Input("menu_help", "n_clicks"),
             Input("menu_daily_report", "n_clicks"),
+            Input("menu_exit", "n_clicks"),
             Input("btn_close", "n_clicks"),
             Input("toggle_open_ports_system", "value", allow_optional=True),
             Input("map", "clickData"),
@@ -915,6 +947,7 @@ class TapMap:
             _about_clicks: int,
             _help_clicks: int,
             _daily_report_clicks: int,
+            _exit_clicks: int,
             _close_clicks: int,
             toggle_system_value: Any,
             click_data: Any,

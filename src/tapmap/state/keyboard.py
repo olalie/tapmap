@@ -21,6 +21,8 @@ KEY_MAP = {
     "__h__": "menu_help",
     "__a__": "menu_about",
     "__z__": "zoom_connections",
+    "__x__": "menu_exit",
+    "__exit_confirmed__": "exit_confirmed",
     "__esc__": "escape",
 }
 

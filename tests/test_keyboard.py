@@ -22,7 +22,7 @@ def test_build_key_action_returns_none_for_empty_value() -> None:
 
 def test_build_key_action_returns_none_for_unknown_token() -> None:
     """Return None when token is not mapped."""
-    assert keyboard.build_key_action("__x__") is None
+    assert keyboard.build_key_action("__q__") is None
 
 
 def test_build_key_action_parses_simple_token(monkeypatch) -> None:
