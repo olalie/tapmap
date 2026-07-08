@@ -12,6 +12,7 @@ on:
       - "CHANGELOG.md"
       - "CONTRIBUTING.md"
       - "SECURITY.md"
+      - "PRIVACY.md"
       - "ARCHITECTURE.md"
       - ".github/workflows/docs.yaml"
 

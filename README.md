@@ -225,12 +225,9 @@ Inspect connections that could not be geolocated and therefore do not appear on 
 
 ## Privacy
 
-- TapMap runs locally.
-- No connection data is sent anywhere.
-- Geolocation uses local GeoIP databases.
-- If automatic local geolocation is enabled, TapMap contacts a public IP lookup service to determine your public IP address.
-- External public-IP lookup can be avoided by using fixed local coordinates.
-- GeoIP databases can be installed and updated from within TapMap or managed manually.
+TapMap is designed to protect your privacy. It processes network connection data locally, does not transmit connection data, telemetry, analytics, or personal information, and performs geolocation using local GeoIP databases.
+
+For details, see [PRIVACY.md](PRIVACY.md).
 
 ---
 
