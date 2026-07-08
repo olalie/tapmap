@@ -6,6 +6,8 @@ ROOT = Path(__file__).resolve().parents[1]
 REFERENCE_ROOT = Path("reference")
 README_PATH = ROOT / "README.md"
 INDEX_PATH = Path("index.md")
+PRIVACY_PATH = ROOT / "PRIVACY.md"
+PRIVACY_DOC_PATH = Path("privacy.md")
 
 EXCLUDE_DIRS = {
     ".venv",
@@ -41,6 +43,16 @@ def write_home_page() -> None:
         file.write(content)
 
 
+def write_privacy_page() -> None:
+    """Write docs privacy page from PRIVACY.md."""
+    content = PRIVACY_PATH.read_text(encoding="utf-8")
+    content = content.replace("(docs/images/", "(images/")
+    content = content.replace('src="docs/images/', 'src="images/')
+
+    with mkdocs_gen_files.open(PRIVACY_DOC_PATH, "w") as file:
+        file.write(content)
+
+
 def write_reference_page(doc_path: Path, module_name: str) -> None:
     """Write one generated API reference page."""
     with mkdocs_gen_files.open(doc_path, "w") as file:
@@ -55,6 +67,7 @@ def main() -> None:
     nav = mkdocs_gen_files.Nav()
 
     write_home_page()
+    write_privacy_page()
 
     for path in iter_python_files(ROOT):
         module_path = path.relative_to(ROOT).with_suffix("")

@@ -51,5 +51,7 @@ nav:
 
   - API: reference/
 
+  - Privacy Policy: privacy.md
+
 extra:
   generator: false
