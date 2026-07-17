@@ -13,42 +13,50 @@ from pathlib import Path
 
 # Paths
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-
 SPEC_FILE = PROJECT_ROOT / "tapmap.spec"
-
 BUILD_DIR = PROJECT_ROOT / "build"
 DIST_DIR = PROJECT_ROOT / "dist"
 
-# Temporary package staging directory.
+# Temporary staging area used by platform-specific packaging.
 PACKAGE_DIR = PROJECT_ROOT / "package"
 
-# Application names
+# Generic executable name.
 DIST_NAME = "tapmap"
-EXE_NAME_WINDOWS = "tapmap.exe"
 
-MACOS_APP_NAME = "TapMap.app"
-MACOS_DMG_NAME = "TapMap.dmg"
-
+# Signing identity for macOS builds. This is cached after the first lookup.
+SIGNING_IDENTITY: str | None = None
 
 # Helpers
-def run(cmd: list[str]) -> None:
+def run(
+    cmd: list[str],
+    *,
+    capture_output: bool = False,
+) -> subprocess.CompletedProcess[str]:
     """Run a subprocess command."""
-    print(">", " ".join(cmd))
-    subprocess.run(cmd, check=True)
+    print(">", " ".join(cmd), flush=True)
 
+    result = subprocess.run(
+        cmd,
+        check=False,
+        text=True,
+        capture_output=capture_output,
+    )
 
-def stop_running_app() -> None:
-    """Terminate a running packaged executable on Windows."""
-    if os.name != "nt":
-        return
+    if result.returncode:
+        if capture_output:
+            if result.stdout:
+                print(result.stdout, end="")
+            if result.stderr:
+                print(result.stderr, end="", file=sys.stderr)
 
-    with contextlib.suppress(Exception):
-        subprocess.run(
-            ["taskkill", "/F", "/IM", EXE_NAME_WINDOWS],
-            check=False,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+        raise subprocess.CalledProcessError(
+            result.returncode,
+            result.args,
+            output=result.stdout,
+            stderr=result.stderr,
         )
+
+    return result
 
 
 def _on_rm_error(func, path: str, _exc) -> None:
@@ -80,29 +88,7 @@ def rm_tree(path: Path, *, retries: int = 12, delay_s: float = 0.25) -> None:
         raise last_exc
 
 
-def expected_output_file() -> Path:
-    """Return the expected PyInstaller output."""
-    if sys.platform == "darwin":
-        return DIST_DIR / MACOS_APP_NAME
-
-    out = DIST_DIR / DIST_NAME
-
-    if os.name == "nt":
-        out = out.with_suffix(".exe")
-
-    return out
-
-
 # Build
-def clean() -> None:
-    """Remove previous build artifacts."""
-    stop_running_app()
-    rm_tree(BUILD_DIR)
-    rm_tree(DIST_DIR)
-    rm_tree(PACKAGE_DIR)
-    print("✓ Clean build directories")
-
-
 def build_pyinstaller() -> None:
     """Run PyInstaller."""
     run(
@@ -118,17 +104,40 @@ def build_pyinstaller() -> None:
     print("✓ Build application")
 
 
-def verify_build() -> None:
-    """Verify that the expected build output exists."""
-    out_file = expected_output_file()
-
-    if not out_file.exists():
-        raise FileNotFoundError(f"Expected output not found: {out_file}")
-
-    print(f"✓ Verify build ({out_file.name})")
-
-
 def require_tool(name: str) -> None:
     """Raise an error if a required tool is unavailable."""
     if shutil.which(name) is None:
         raise RuntimeError(f"Required tool '{name}' is not installed.")
+    
+def get_signing_identity() -> str:
+    """Return the Developer ID Application signing identity."""
+    global SIGNING_IDENTITY
+
+    if SIGNING_IDENTITY is not None:
+        return SIGNING_IDENTITY
+
+    result = subprocess.run(
+        [
+            "security",
+            "find-identity",
+            "-v",
+            "-p",
+            "codesigning",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    for line in result.stdout.splitlines():
+        if "Developer ID Application:" not in line:
+            continue
+
+        first = line.find('"')
+        last = line.rfind('"')
+
+        if first != -1 and last > first:
+            SIGNING_IDENTITY = line[first + 1 : last]
+            return SIGNING_IDENTITY
+
+    return None

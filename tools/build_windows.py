@@ -1,13 +1,24 @@
 """Windows build pipeline."""
 
 import sys
+from pathlib import Path
 
 from build_common import (
+    BUILD_DIR,
+    DIST_DIR,
+    PACKAGE_DIR,
     build_pyinstaller,
-    clean,
+    rm_tree,
     run,
-    verify_build,
 )
+
+
+def clean() -> None:
+    """Remove previous build artifacts."""
+    rm_tree(BUILD_DIR)
+    rm_tree(DIST_DIR)
+    rm_tree(PACKAGE_DIR)
+    print("✓ Clean build directories")
 
 
 def setup() -> None:
@@ -25,9 +36,24 @@ def build_application() -> None:
     build_pyinstaller()
 
 
+def expected_output_file() -> Path:
+    """Return the expected PyInstaller output."""
+    return DIST_DIR / "tapmap.exe"
+
+
 def verify_application() -> None:
     """Verify the application build."""
-    verify_build()
+    app = expected_output_file()
+
+    if not app.exists():
+        raise FileNotFoundError(f"Expected output not found: {app}")
+
+    print(f"✓ Verify build ({app.name})")
+
+
+def sign_application() -> None:
+    """Sign the application bundle."""
+    raise NotImplementedError
 
 
 def package() -> None:
@@ -35,7 +61,7 @@ def package() -> None:
     raise NotImplementedError
 
 
-def sign() -> None:
+def sign_package() -> None:
     """Sign the release package."""
     raise NotImplementedError
 
@@ -55,14 +81,21 @@ def verify_package() -> None:
     raise NotImplementedError
 
 
-def pipeline() -> None:
+def pipeline(sign: bool = False) -> None:
     """Build the release package."""
     setup()
     run_tests()
     build_application()
+
+    if sign:
+        sign_application()
+
     verify_application()
     package()
-    sign()
-    notarize()
-    staple()
+
+    if sign:
+        sign_package()
+        notarize()
+        staple()
+
     verify_package()

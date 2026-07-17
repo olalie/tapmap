@@ -1,31 +1,54 @@
 """Linux build pipeline."""
 
 import sys
+from pathlib import Path
 
 from build_common import (
+    BUILD_DIR,
+    DIST_DIR,
+    PACKAGE_DIR,
     build_pyinstaller,
-    clean,
+    rm_tree,
     run,
-    verify_build,
 )
+
+
+def clean() -> None:
+    """Remove previous build artifacts."""
+    rm_tree(BUILD_DIR)
+    rm_tree(DIST_DIR)
+    rm_tree(PACKAGE_DIR)
+    print("✓ Clean build directories")
 
 
 def setup() -> None:
     """Prepare the build environment."""
     clean()
 
+
 def run_tests() -> None:
     """Run automated tests."""
     run([sys.executable, "-m", "pytest"])
+
 
 def build_application() -> None:
     """Build the application."""
     build_pyinstaller()
 
 
+def expected_output_file() -> Path:
+    """Return the expected PyInstaller output."""
+    return DIST_DIR / "tapmap"
+
+
 def verify_application() -> None:
     """Verify the application build."""
-    verify_build()
+    app = expected_output_file()
+
+    if not app.exists():
+        raise FileNotFoundError(f"Expected output not found: {app}")
+
+    print(f"✓ Verify build ({app.name})")
 
 
 def package() -> None:
@@ -33,18 +56,8 @@ def package() -> None:
     raise NotImplementedError
 
 
-def sign() -> None:
+def sign_package() -> None:
     """Sign the release package."""
-    raise NotImplementedError
-
-
-def notarize() -> None:
-    """Submit the release package for notarization."""
-    raise NotImplementedError
-
-
-def staple() -> None:
-    """Attach the notarization ticket."""
     raise NotImplementedError
 
 
@@ -53,14 +66,16 @@ def verify_package() -> None:
     raise NotImplementedError
 
 
-def pipeline() -> None:
+def pipeline(sign: bool = False) -> None:
     """Build the release package."""
+
     setup()
     run_tests()
     build_application()
     verify_application()
     package()
-    sign()
-    notarize()
-    staple()
+
+    if sign:
+        sign_package()
+
     verify_package()
