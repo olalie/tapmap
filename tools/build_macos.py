@@ -185,67 +185,6 @@ def package() -> None:
     print(f"✓ Package macOS release ({dmg_file.name})")
 
 
-def sign_package() -> None:
-    """Sign the release package."""
-    package = DIST_DIR / "TapMap.dmg"
-
-    run(
-        [
-            "codesign",
-            "--force",
-            "--timestamp",
-            "--sign",
-            get_signing_identity(),
-            str(package),
-        ]
-    )
-
-    print(f"✓ Signed package ({package.name})")
-
-
-def notarize() -> None:
-    """Submit the release package for notarization."""
-    package = DIST_DIR / "TapMap.dmg"
-
-    result = run(
-        [
-            "xcrun",
-            "notarytool",
-            "submit",
-            str(package),
-            "--keychain-profile",
-            NOTARY_PROFILE,
-            "--wait",
-            "--output-format",
-            "json",
-        ],
-        capture_output=True,
-    )
-
-    data = json.loads(result.stdout)
-
-    if data["status"] != "Accepted":
-        raise RuntimeError(f"Apple notarization failed ({data['status']}).")
-
-    print(f"✓ Notarized package ({package.name})")
-
-
-def staple() -> None:
-    """Staple the notarization ticket to the release package."""
-    package = DIST_DIR / "TapMap.dmg"
-
-    run(
-        [
-            "xcrun",
-            "stapler",
-            "staple",
-            str(package),
-        ]
-    )
-
-    print(f"✓ Stapled package ({package.name})")
-
-
 def verify_package(sign: bool = False) -> None:
     """Verify the release package."""
     package = DIST_DIR / "TapMap.dmg"
