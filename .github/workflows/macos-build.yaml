@@ -78,12 +78,11 @@ jobs:
         shell: bash
         run: |
           ls -la dist
-          ls -la dmg
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
           name: tapmap-macos-dmg
-          path: dmg/TapMap.dmg
+          path: dist/TapMap.dmg
           if-no-files-found: error
           retention-days: 7
