@@ -1,0 +1,61 @@
+.TH TAPMAP 1
+.SH NAME
+tapmap \- visualize your computer's network connections on a world map
+
+.SH SYNOPSIS
+.B tapmap
+.RI [ --help ]
+.RI [ --version ]
+
+.SH DESCRIPTION
+TapMap visualizes your computer's network connections on an interactive
+world map.
+
+It inspects local socket activity, enriches IP addresses with local
+GeoIP databases, and helps you understand network activity through a
+rolling 30-day history of applications, providers, countries, and ports.
+
+TapMap is an awareness tool. It is not a firewall or a security suite.
+
+.SH FEATURES
+.IP \(bu
+Interactive world map of network connections
+.IP \(bu
+Local socket inspection
+.IP \(bu
+GeoIP-based location using local databases
+.IP \(bu
+Insights based on the last 30 days of activity
+.IP \(bu
+Daily Activity Report
+.IP \(bu
+Runs locally with no telemetry
+
+.SH OPTIONS
+.TP
+.B --help
+Display command-line help.
+
+.TP
+.B --version
+Display the application version.
+
+.SH FILES
+.TP
+.I ~/.local/share/TapMap
+Application data.
+
+.SH HOMEPAGE
+https://tip.no/tapmap/
+
+.SH SOURCE
+https://github.com/olalie/tapmap
+
+.SH BUGS
+https://github.com/olalie/tapmap/issues
+
+.SH AUTHOR
+Ola Lie
+
+.SH COPYRIGHT
+MIT License

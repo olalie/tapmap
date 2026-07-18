@@ -11,7 +11,6 @@ import build_windows
 
 def main() -> None:
     """Run the build pipeline for the current operating system."""
-
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--sign",

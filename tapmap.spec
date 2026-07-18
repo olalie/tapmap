@@ -32,7 +32,7 @@ if sys.platform == "darwin":
         pyz,
         a.scripts,
         exclude_binaries=True,
-        name="tapmap",
+        name="TapMap",
         icon=app_icon,
         debug=False,
         bootloader_ignore_signals=False,
@@ -65,7 +65,7 @@ if sys.platform == "darwin":
         a.binaries,
         a.zipfiles,
         a.datas,
-        name="tapmap",
+        name="TapMap",
     )
 
     app = BUNDLE(

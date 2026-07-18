@@ -1,0 +1,51 @@
+name: Linux Build
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches:
+      - refactor/build-architecture
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-tests.txt
+          pip install pyinstaller
+
+          sudo apt-get update
+          sudo apt-get install -y \
+            dpkg-dev \
+            desktop-file-utils
+
+      - name: Build (same as local)
+        shell: bash
+        run: |
+          python tools/build.py
+
+      - name: Show build output
+        shell: bash
+        run: |
+          ls -la dist
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: tapmap-linux-deb
+          path: dist/tapmap-*.deb
+          if-no-files-found: error
+          retention-days: 7

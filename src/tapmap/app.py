@@ -876,7 +876,9 @@ class TapMap:
         ) -> Any:
             trigger = ctx.triggered_id
             if trigger == "key_action":
-                if not (isinstance(key_action, dict) and key_action.get("action") == "menu_export_cache"):
+                if not (
+                    isinstance(key_action, dict) and key_action.get("action") == "menu_export_cache"
+                ):
                     raise PreventUpdate
             elif not n_clicks:
                 raise PreventUpdate
@@ -885,7 +887,9 @@ class TapMap:
             now = datetime.now()
             filename = f"tapmap-cache-{now.strftime('%Y-%m-%d_%H-%M-%S')}.txt"
             header = f"TapMap Cache Export\nGenerated: {now.strftime('%Y-%m-%d %H:%M:%S')}"
-            return dcc.send_string(status_cache.format_ui_cache_text(ui_cache, header=header), filename)
+            return dcc.send_string(
+                status_cache.format_ui_cache_text(ui_cache, header=header), filename
+            )
 
         @self.app.callback(
             Input("key_action", "data"),

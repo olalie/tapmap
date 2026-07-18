@@ -19,7 +19,6 @@ Implementation
   during packaging.
 """
 
-import json
 import sys
 from pathlib import Path
 

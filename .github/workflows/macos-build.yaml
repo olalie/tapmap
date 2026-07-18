@@ -5,7 +5,7 @@ on:
 
   push:
     branches:
-      - refactor/build-architecture
+      - feat/macos-installer
 
 jobs:
   build:

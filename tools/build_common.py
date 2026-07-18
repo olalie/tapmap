@@ -20,9 +20,6 @@ DIST_DIR = PROJECT_ROOT / "dist"
 # Temporary staging area used by platform-specific packaging.
 PACKAGE_DIR = PROJECT_ROOT / "package"
 
-# Generic executable name.
-DIST_NAME = "tapmap"
-
 # Signing identity for macOS builds. This is cached after the first lookup.
 SIGNING_IDENTITY: str | None = None
 
@@ -93,7 +90,8 @@ def build_pyinstaller() -> None:
     """Run PyInstaller."""
     run(
         [
-            sys.executable,
+     
+       sys.executable,
             "-m",
             "PyInstaller",
             "--clean",

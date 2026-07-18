@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>no.tip.tapmap</id>
+
+  <name>TapMap</name>
+
+  <summary>
+    Watch your computer connect across the internet in real time
+  </summary>
+
+  <description>
+    <p>
+      Watch your computer connect across the internet in real time.
+      Discover the world behind your apps.
+    </p>
+  </description>
+
+  <developer id="no.tip">
+    <name>TIP Teknologi i Praksis AS</name>
+  </developer>
+
+  <launchable type="desktop-id">no.tip.tapmap.desktop</launchable>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+
+  <content_rating type="oars-1.1"/>
+
+  <url type="homepage">https://tip.no/tapmap/</url>
+  <url type="bugtracker">https://github.com/olalie/tapmap/issues</url>
+  <url type="vcs-browser">https://github.com/olalie/tapmap</url>
+
+  <categories>
+    <category>Network</category>
+    <category>Monitor</category>
+  </categories>
+
+  <keywords>
+    <keyword>network</keyword>
+    <keyword>internet</keyword>
+    <keyword>connections</keyword>
+    <keyword>map</keyword>
+    <keyword>monitor</keyword>
+    <keyword>privacy</keyword>
+  </keywords>
+</component>
