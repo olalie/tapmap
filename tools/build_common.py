@@ -110,7 +110,7 @@ def run_tests() -> None:
         capture_output=True,
     )
 
-    print("✓ Tests passed")
+    print("[OK] Tests passed")
 
 
 def build_application() -> None:
@@ -128,7 +128,7 @@ def build_application() -> None:
         capture_output=True,
     )
 
-    print("✓ Build application")
+    print("[OK] Build application")
 
 
 # macOS helpers

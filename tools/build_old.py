@@ -133,7 +133,7 @@ def clean() -> None:
     rm_tree(DIST_DIR)
     rm_tree(DMG_DIR)
     rm_tree(PACKAGE_DIR)
-    print("✓ Clean build directories")
+    print("[OK] Clean build directories")
 
 
 def build_pyinstaller() -> None:
@@ -148,7 +148,7 @@ def build_pyinstaller() -> None:
             str(SPEC_FILE),
         ]
     )
-    print("✓ Build application")
+    print("[OK] Build application")
 
 
 def verify_build() -> None:
@@ -158,7 +158,7 @@ def verify_build() -> None:
     if not out_file.exists():
         raise FileNotFoundError(f"Expected output not found: {out_file}")
 
-    print(f"✓ Verify build ({out_file.name})")
+    print(f"[OK] Verify build ({out_file.name})")
 
 
 # Linux packaging helpers
@@ -407,7 +407,7 @@ def package_linux() -> None:
 
     rm_tree(PACKAGE_DIR)
 
-    print(f"✓ Package Linux release ({deb_file.name})")
+    print(f"[OK] Package Linux release ({deb_file.name})")
 
 
 def package_macos() -> None:
@@ -456,7 +456,7 @@ def package_macos() -> None:
         raise FileNotFoundError(f"DMG was not created: {dmg_file}")
 
     rm_tree(PACKAGE_DIR)
-    print(f"✓ Package macOS release ({dmg_file.name})")
+    print(f"[OK] Package macOS release ({dmg_file.name})")
 
 
 def package_release() -> None:

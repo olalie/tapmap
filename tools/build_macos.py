@@ -44,7 +44,7 @@ def clean() -> None:
     rm_tree(BUILD_DIR)
     rm_tree(DIST_DIR)
     rm_tree(PACKAGE_DIR)
-    print("✓ Clean build directories")
+    print("[OK] Clean build directories")
 
 
 def setup() -> None:
@@ -76,7 +76,7 @@ def sign_application() -> None:
         capture_output=True,
     )
 
-    print(f"✓ Signed application ({app.name})")
+    print(f"[OK] Signed application ({app.name})")
 
 
 def verify_application(sign: bool = False) -> None:
@@ -98,7 +98,7 @@ def verify_application(sign: bool = False) -> None:
             ]
         )
 
-    print(f"✓ Verified application ({app.name})")
+    print(f"[OK] Verified application ({app.name})")
 
 
 def package() -> None:
@@ -154,7 +154,7 @@ def package() -> None:
 
     rm_tree(PACKAGE_DIR)
 
-    print(f"✓ Package macOS release ({dmg_file.name})")
+    print(f"[OK] Package macOS release ({dmg_file.name})")
 
 
 def verify_package(sign: bool = False) -> None:
@@ -174,7 +174,7 @@ def verify_package(sign: bool = False) -> None:
             ]
         )
 
-    print(f"✓ Verified package ({package.name})")
+    print(f"[OK] Verified package ({package.name})")
 
 
 def pipeline(sign: bool = False) -> None:

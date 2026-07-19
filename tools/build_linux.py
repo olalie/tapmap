@@ -27,7 +27,7 @@ def clean() -> None:
     rm_tree(BUILD_DIR)
     rm_tree(DIST_DIR)
     rm_tree(PACKAGE_DIR)
-    print("✓ Clean build directories")
+    print("[OK] Clean build directories")
 
 
 def setup() -> None:
@@ -47,7 +47,7 @@ def verify_application() -> None:
     if not app.exists():
         raise FileNotFoundError(f"Expected output not found: {app}")
 
-    print(f"✓ Verify build ({app.name})")
+    print(f"[OK] Verify build ({app.name})")
 
 
 # Linux packaging helpers
@@ -281,7 +281,7 @@ def package() -> None:
 
     rm_tree(PACKAGE_DIR)
 
-    print(f"✓ Package Linux release ({deb_file.name})")
+    print(f"[OK] Package Linux release ({deb_file.name})")
 
 
 def verify_package(sign: bool = False) -> None:
@@ -292,7 +292,7 @@ def verify_package(sign: bool = False) -> None:
     if not package.exists():
         raise FileNotFoundError(f"Expected package not found: {package}")
 
-    print(f"✓ Verified package ({package.name})")
+    print(f"[OK] Verified package ({package.name})")
 
 
 def pipeline(sign: bool = False) -> None:
