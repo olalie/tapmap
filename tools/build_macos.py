@@ -26,11 +26,12 @@ from build_common import (
     BUILD_DIR,
     DIST_DIR,
     PACKAGE_DIR,
-    SPEC_FILE,
+    build_application,
     get_signing_identity,
     require_tool,
     rm_tree,
     run,
+    run_tests,
 )
 
 APP_NAME = "TapMap.app"
@@ -51,34 +52,6 @@ def setup() -> None:
     """Prepare the build environment."""
     clean()
     require_tool("create-dmg")
-
-
-def run_tests() -> None:
-    """Run automated tests."""
-    _ = run(
-        [sys.executable, "-m", "pytest", "-qq"],
-        capture_output=True,
-    )
-
-    print("✓ Tests passed")
-
-
-def build_application() -> None:
-    """Build the application."""
-    _ = run(
-        [
-            sys.executable,
-            "-m",
-            "PyInstaller",
-            "--clean",
-            "--noconfirm",
-            "--log-level=WARN",
-            str(SPEC_FILE),
-        ],
-        capture_output=True,
-    )
-
-    print("✓ Build application")
 
 
 def expected_output_file() -> Path:

@@ -3,7 +3,6 @@
 import gzip
 import shutil
 import subprocess
-import sys
 from datetime import datetime
 from email.utils import format_datetime
 from pathlib import Path
@@ -14,9 +13,10 @@ from build_common import (
     DIST_DIR,
     PACKAGE_DIR,
     PROJECT_ROOT,
-    SPEC_FILE,
+    build_application,
     rm_tree,
     run,
+    run_tests,
 )
 
 EXECUTABLE_NAME = "tapmap"
@@ -41,32 +41,9 @@ def setup() -> None:
     clean()
 
 
-def run_tests() -> None:
-    """Run automated tests."""
-    _ = run(
-        [sys.executable, "-m", "pytest", "-qq"],
-        capture_output=True,
-    )
-
-    print("✓ Tests passed")
 
 
-def build_application() -> None:
-    """Build the application."""
-    _ = run(
-        [
-            sys.executable,
-            "-m",
-            "PyInstaller",
-            "--clean",
-            "--noconfirm",
-            "--log-level=WARN",
-            str(SPEC_FILE),
-        ],
-        capture_output=True,
-    )
 
-    print("✓ Build application")
 
 
 def expected_output_file() -> Path:

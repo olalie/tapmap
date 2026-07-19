@@ -23,7 +23,8 @@ PACKAGE_DIR = PROJECT_ROOT / "package"
 # Signing identity for macOS builds. This is cached after the first lookup.
 SIGNING_IDENTITY: str | None = None
 
-# Helpers
+
+# Process helpers
 def run(
     cmd: list[str],
     *,
@@ -56,6 +57,13 @@ def run(
     return result
 
 
+def require_tool(name: str) -> None:
+    """Raise an error if a required tool is unavailable."""
+    if shutil.which(name) is None:
+        raise RuntimeError(f"Required tool '{name}' is not installed.")
+
+
+# File helpers
 def _on_rm_error(func, path: str, _exc) -> None:
     """Retry removal of read-only files."""
     with contextlib.suppress(Exception):
@@ -85,29 +93,37 @@ def rm_tree(path: Path, *, retries: int = 12, delay_s: float = 0.25) -> None:
         raise last_exc
 
 
-# Build
-def build_pyinstaller() -> None:
-    """Run PyInstaller."""
-    run(
+# Common build steps
+def run_tests() -> None:
+    """Run automated tests."""
+    _ = run(
+        [sys.executable, "-m", "pytest", "-qq"],
+        capture_output=True,
+    )
+
+    print("✓ Tests passed")
+
+
+def build_application() -> None:
+    """Build the application using PyInstaller."""
+    _ = run(
         [
-     
-       sys.executable,
+            sys.executable,
             "-m",
             "PyInstaller",
             "--clean",
             "--noconfirm",
+            "--log-level=WARN",
             str(SPEC_FILE),
-        ]
+        ],
+        capture_output=True,
     )
+
     print("✓ Build application")
 
 
-def require_tool(name: str) -> None:
-    """Raise an error if a required tool is unavailable."""
-    if shutil.which(name) is None:
-        raise RuntimeError(f"Required tool '{name}' is not installed.")
-    
-def get_signing_identity() -> str:
+# macOS helpers
+def get_signing_identity() -> str | None:
     """Return the Developer ID Application signing identity."""
     global SIGNING_IDENTITY
 

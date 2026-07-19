@@ -7,9 +7,9 @@ from build_common import (
     BUILD_DIR,
     DIST_DIR,
     PACKAGE_DIR,
-    build_pyinstaller,
+    build_application,
     rm_tree,
-    run,
+    run_tests,
 )
 
 
@@ -24,16 +24,6 @@ def clean() -> None:
 def setup() -> None:
     """Prepare the build environment."""
     clean()
-
-
-def run_tests() -> None:
-    """Run automated tests."""
-    run([sys.executable, "-m", "pytest"])
-
-
-def build_application() -> None:
-    """Build the application."""
-    build_pyinstaller()
 
 
 def expected_output_file() -> Path:
@@ -51,28 +41,8 @@ def verify_application() -> None:
     print(f"✓ Verify build ({app.name})")
 
 
-def sign_application() -> None:
-    """Sign the application bundle."""
-    raise NotImplementedError
-
-
 def package() -> None:
     """Create the release package."""
-    raise NotImplementedError
-
-
-def sign_package() -> None:
-    """Sign the release package."""
-    raise NotImplementedError
-
-
-def notarize() -> None:
-    """Submit the release package for notarization."""
-    raise NotImplementedError
-
-
-def staple() -> None:
-    """Attach the notarization ticket."""
     raise NotImplementedError
 
 
@@ -86,16 +56,8 @@ def pipeline(sign: bool = False) -> None:
     setup()
     run_tests()
     build_application()
-
-    if sign:
-        sign_application()
-
+    # TODO: Add code signing once a signing solution is available.
     verify_application()
     package()
-
-    if sign:
-        sign_package()
-        notarize()
-        staple()
-
+    # TODO: Add code signing once a signing solution is available.
     verify_package()

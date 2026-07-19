@@ -4,10 +4,6 @@ on:
   workflow_call:
   workflow_dispatch:
 
-  push:
-    branches:
-      - refactor/build-architecture  
-
 jobs:
   docker-smoke:
     name: Docker smoke test
