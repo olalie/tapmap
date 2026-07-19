@@ -3,13 +3,25 @@
 ; Non-commercial use only
 
 #define MyAppName "TapMap"
-#define MyAppVersion "1.8.1"
+#ifndef MyAppVersion
+  #define MyAppVersion "0.0.0-dev"
+#endif
+#ifndef MyAppExePath
+  #define MyAppExePath "tapmap.exe"
+#endif
+#define MyAppDir ExtractFileDir(MyAppExePath)
+#ifndef MySetupIcon
+  #define MySetupIcon "tapmap.ico"
+#endif
+#ifndef MyOutputDir
+  #define MyOutputDir "..\..\dist"
+#endif
+#ifndef MyOutputBaseFilename
+  #define MyOutputBaseFilename "TapMap-0.0.0-dev-Setup"
+#endif
 #define MyAppPublisher "Tip Teknologi i Praksis AS"
 #define MyAppURL "https://tapmap.tip.no"
 #define MyAppExeName "tapmap.exe"
-#define MyAppAssocName MyAppName + " File"
-#define MyAppAssocExt ".myp"
-#define MyAppAssocKey StringChange(MyAppAssocName, " ", "") + MyAppAssocExt
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
@@ -32,14 +44,14 @@ ArchitecturesAllowed=x64compatible
 ; meaning it should use the native 64-bit Program Files directory and
 ; the 64-bit view of the registry.
 ArchitecturesInstallIn64BitMode=x64compatible
-ChangesAssociations=yes
 DisableProgramGroupPage=yes
 ; Uncomment the following line to run in non administrative install mode (install for current user only).
 ;PrivilegesRequired=lowest
-OutputBaseFilename=TapMap-1.8.1-Setup
+OutputDir={#MyOutputDir}
+OutputBaseFilename={#MyOutputBaseFilename}
 SolidCompression=yes
 WizardStyle=modern dynamic
-SetupIconFile=tapmap.ico
+SetupIconFile={#MySetupIcon}
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -49,14 +61,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "autostart"; Description: "Start TapMap automatically when I sign in (recommended to build your 30-day insights history)"; Flags: unchecked
 
 [Files]
-Source: "tapmap.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#MyAppExePath}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#MyAppDir}\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
-
-[Registry]
-Root: HKA; Subkey: "Software\Classes\{#MyAppAssocExt}\OpenWithProgids"; ValueType: string; ValueName: "{#MyAppAssocKey}"; ValueData: ""; Flags: uninsdeletevalue
-Root: HKA; Subkey: "Software\Classes\{#MyAppAssocKey}"; ValueType: string; ValueName: ""; ValueData: "{#MyAppAssocName}"; Flags: uninsdeletekey
-Root: HKA; Subkey: "Software\Classes\{#MyAppAssocKey}\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#MyAppExeName},0"
-Root: HKA; Subkey: "Software\Classes\{#MyAppAssocKey}\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

@@ -7,25 +7,19 @@ from datetime import datetime
 from email.utils import format_datetime
 from pathlib import Path
 
-import tomllib
 from build_common import (
     BUILD_DIR,
     DIST_DIR,
     PACKAGE_DIR,
     PROJECT_ROOT,
     build_application,
+    project_metadata,
     rm_tree,
     run,
     run_tests,
 )
 
 EXECUTABLE_NAME = "tapmap"
-
-
-def project_metadata() -> dict:
-    """Return project metadata from pyproject.toml."""
-    with (PROJECT_ROOT / "pyproject.toml").open("rb") as f:
-        return tomllib.load(f)["project"]
 
 
 def clean() -> None:
@@ -39,11 +33,6 @@ def clean() -> None:
 def setup() -> None:
     """Prepare the build environment."""
     clean()
-
-
-
-
-
 
 
 def expected_output_file() -> Path:

@@ -19,7 +19,6 @@ Implementation
   during packaging.
 """
 
-import sys
 from pathlib import Path
 
 from build_common import (
@@ -73,7 +72,8 @@ def sign_application() -> None:
             "--sign",
             get_signing_identity(),
             str(app),
-        ]
+        ],
+        capture_output=True,
     )
 
     print(f"✓ Signed application ({app.name})")

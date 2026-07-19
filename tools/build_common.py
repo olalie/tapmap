@@ -11,6 +11,8 @@ import sys
 import time
 from pathlib import Path
 
+import tomllib
+
 # Paths
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SPEC_FILE = PROJECT_ROOT / "tapmap.spec"
@@ -91,6 +93,13 @@ def rm_tree(path: Path, *, retries: int = 12, delay_s: float = 0.25) -> None:
 
     if last_exc:
         raise last_exc
+
+
+# Project helpers
+def project_metadata() -> dict:
+    """Return project metadata from pyproject.toml."""
+    with (PROJECT_ROOT / "pyproject.toml").open("rb") as f:
+        return tomllib.load(f)["project"]
 
 
 # Common build steps
