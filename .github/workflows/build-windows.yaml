@@ -2,10 +2,11 @@ name: Windows Build
 
 on:
   workflow_dispatch:
+  workflow_call:
 
   push:
     branches:
-      - refactor/build-architecture
+      - feat/windows-installer
 
 jobs:
   build:

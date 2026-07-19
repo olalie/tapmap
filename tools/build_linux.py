@@ -211,9 +211,10 @@ def package() -> None:
 
     # Install the application under /usr/lib and expose it via /usr/bin.
     # This follows the Debian filesystem hierarchy.
-    shutil.copy2(
+    shutil.copytree(
         DIST_DIR / EXECUTABLE_NAME,
-        PACKAGE_DIR / "usr" / "lib" / "tapmap" / EXECUTABLE_NAME,
+        PACKAGE_DIR / "usr" / "lib" / "tapmap",
+        dirs_exist_ok=True,
     )
 
     (PACKAGE_DIR / "usr" / "bin" / "tapmap").symlink_to("../lib/tapmap/tapmap")

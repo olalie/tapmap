@@ -1,8 +1,8 @@
 name: Docker Test
 
 on:
-  workflow_call:
   workflow_dispatch:
+  workflow_call:
 
 jobs:
   docker-smoke:

@@ -2,10 +2,12 @@ name: Linux Build
 
 on:
   workflow_dispatch:
+  workflow_call:
 
   push:
     branches:
-      - feat/macos-installer
+      - refactor/build-architecture
+  
 
 jobs:
   build:
