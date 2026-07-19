@@ -1,0 +1,65 @@
+name: Docker Test
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+  push:
+    branches:
+      - refactor/build-architecture  
+
+jobs:
+  docker-smoke:
+    name: Docker smoke test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Build Docker image
+        shell: bash
+        run: |
+          docker build -t tapmap:test .
+
+      - name: Run version check in container
+        shell: bash
+        run: |
+          docker run --rm tapmap:test -v | grep -q "tapmap"
+
+  docker-smoke-arm64:
+    name: Docker smoke test arm64
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Set up Docker
+        uses: docker/setup-docker-action@v4
+        with:
+          daemon-config: |
+            {
+              "features": {
+                "containerd-snapshotter": true
+              }
+            }
+
+      - name: Build arm64 Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/arm64
+          load: true
+          tags: tapmap:test-arm64
+
+      - name: Run version check in arm64 container
+        shell: bash
+        run: |
+          docker run --rm --platform linux/arm64 tapmap:test-arm64 -v | grep -q "tapmap"
