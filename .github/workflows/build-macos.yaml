@@ -4,10 +4,6 @@ on:
   workflow_dispatch:
   workflow_call:
 
-  push:
-    branches:
-      - feat/macos-installer
-
 jobs:
   build:
     runs-on: macos-latest

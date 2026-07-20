@@ -4,10 +4,6 @@ on:
   workflow_dispatch:
   workflow_call:
 
-  push:
-    branches:
-      - refactor/build-architecture
-
 jobs:
   build:
     runs-on: windows-latest
