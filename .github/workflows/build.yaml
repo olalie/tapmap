@@ -20,17 +20,25 @@ on:
 jobs:
   docker:
     name: Docker Tests
-    uses: ./.github/workflows/test-docker.yaml
+    uses: ./.github/workflows/pipeline-docker.yaml
+    with:
+      mode: build
 
   linux:
     name: Linux Build
-    uses: ./.github/workflows/build-linux.yaml
+    uses: ./.github/workflows/pipeline-linux.yaml
+    with:
+      mode: build
 
   windows:
     name: Windows Build
-    uses: ./.github/workflows/build-windows.yaml
+    uses: ./.github/workflows/pipeline-windows.yaml
+    with:
+      mode: build
 
   macos:
     name: macOS Build
-    uses: ./.github/workflows/build-macos.yaml
+    uses: ./.github/workflows/pipeline-macos.yaml
+    with:
+      mode: build
     secrets: inherit

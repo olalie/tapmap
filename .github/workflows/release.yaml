@@ -1,16 +1,8 @@
-name: Build and Release
+name: Release
 
 on:
   workflow_dispatch:
-    inputs:
-      dry_run:
-        description: "Build packages but do not upload a GitHub Release"
-        required: true
-        default: "true"
-        type: choice
-        options:
-          - "true"
-          - "false"
+
   push:
     tags:
       - "v*"
@@ -19,236 +11,27 @@ permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build on ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
+  docker:
+    name: Docker Tests
+    uses: ./.github/workflows/pipeline-docker.yaml
+    with:
+      mode: release
 
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            name: windows
-          - os: ubuntu-latest
-            name: linux
-          - os: macos-latest
-            name: macos-arm64
-            arch: arm64
-          - os: macos-latest
-            name: macos-x86_64
-            arch: x86_64
+  linux:
+    name: Linux Build
+    uses: ./.github/workflows/pipeline-linux.yaml
+    with:
+      mode: release
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
+  windows:
+    name: Windows Build
+    uses: ./.github/workflows/pipeline-windows.yaml
+    with:
+      mode: release
 
-      - name: Verify version matches tag
-        if: startsWith(github.ref, 'refs/tags/v')
-        shell: bash
-        run: |
-          python - << 'PY'
-          import os
-          import re
-          from pathlib import Path
-
-          tag = os.environ["GITHUB_REF"]
-          tag_version = tag.split("/")[-1][1:]
-
-          text = Path("pyproject.toml").read_text(encoding="utf-8")
-          match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
-          if not match:
-              raise SystemExit("Version not found in pyproject.toml")
-
-          project_version = match.group(1)
-          if project_version != tag_version:
-              raise SystemExit(
-                  f"Version mismatch: pyproject.toml={project_version}, tag={tag_version}"
-              )
-
-          print(f"Version OK: {project_version}")
-          PY
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        shell: bash
-        run: |
-          if [[ "$RUNNER_OS" == "macOS" && "${{ matrix.arch }}" == "x86_64" ]]; then
-            arch -x86_64 python -m pip install --upgrade pip
-            arch -x86_64 python -m pip install -r requirements-tests.txt
-            arch -x86_64 python -m pip install pyinstaller
-          else
-            python -m pip install --upgrade pip
-            pip install -r requirements-tests.txt
-            pip install pyinstaller
-          fi
-
-      - name: Run tests
-        shell: bash
-        run: |
-          if [[ "$RUNNER_OS" == "macOS" && "${{ matrix.arch }}" == "x86_64" ]]; then
-            arch -x86_64 python -m pytest -q
-          else
-            pytest -q
-          fi
-
-      - name: Build (same as local)
-        shell: bash
-        run: |
-          if [[ "$RUNNER_OS" == "macOS" && "${{ matrix.arch }}" == "x86_64" ]]; then
-            arch -x86_64 python tools/build.py
-          else
-            python tools/build.py
-          fi
-
-      - name: Package artifact
-        shell: bash
-        env:
-          MATRIX_NAME: ${{ matrix.name }}
-        run: |
-          python - << 'PY'
-          import os
-          import zipfile
-          from pathlib import Path
-
-          name = os.environ["MATRIX_NAME"]
-
-          dist = Path("dist")
-          exe = dist / ("tapmap.exe" if name == "windows" else "tapmap")
-          if not exe.exists():
-              raise FileNotFoundError(f"Expected build output not found: {exe}")
-
-          out = Path(f"tapmap-{name}.zip")
-
-          with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-              zf.write(exe, exe.name)
-
-          print(out)
-          PY
-
-      - name: Create SHA256
-        shell: bash
-        env:
-          MATRIX_NAME: ${{ matrix.name }}
-        run: |
-          python - << 'PY'
-          import hashlib
-          import os
-          from pathlib import Path
-
-          name = os.environ["MATRIX_NAME"]
-          file = Path(f"tapmap-{name}.zip")
-
-          if not file.exists():
-              raise FileNotFoundError(file)
-
-          digest = hashlib.sha256(file.read_bytes()).hexdigest()
-
-          sha = file.with_suffix(file.suffix + ".sha256")
-          sha.write_text(f"{digest}  {file.name}\n", encoding="ascii")
-
-          print(sha)
-          PY
-
-      - name: Upload workflow artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: tapmap-${{ matrix.name }}
-          path: |
-            tapmap-${{ matrix.name }}.zip
-            tapmap-${{ matrix.name }}.zip.sha256
-          if-no-files-found: error
-          retention-days: 7
-
-  release:
-    name: Publish GitHub Release
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v') && (github.event_name != 'workflow_dispatch' || inputs.dry_run != 'true')
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Download artifacts
-        uses: actions/download-artifact@v8
-        with:
-          path: release-assets
-
-      - name: List release files
-        run: |
-          find release-assets -type f | sort
-
-      # Draft release required for immutable releases
-      # Assets must be uploaded before publish
-      - name: Create draft GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release create "${{ github.ref_name }}" \
-            --draft \
-            --title "${{ github.ref_name }}" \
-            --notes ""
-
-      # Upload all assets before publish
-      # Immutable release cannot be modified after publish
-      - name: Upload assets to draft release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release upload "${{ github.ref_name }}" \
-            release-assets/tapmap-windows/tapmap-windows.zip \
-            release-assets/tapmap-windows/tapmap-windows.zip.sha256 \
-            release-assets/tapmap-linux/tapmap-linux.zip \
-            release-assets/tapmap-linux/tapmap-linux.zip.sha256 \
-            release-assets/tapmap-macos-arm64/tapmap-macos-arm64.zip \
-            release-assets/tapmap-macos-arm64/tapmap-macos-arm64.zip.sha256 \
-            release-assets/tapmap-macos-x86_64/tapmap-macos-x86_64.zip \
-            release-assets/tapmap-macos-x86_64/tapmap-macos-x86_64.zip.sha256
-
-      # Build and push Docker image before publishing release
-      # Ensures all distribution channels are ready at publish time
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Docker smoke test (release)
-        run: |
-          docker build -t tapmap:release .
-          docker run --rm tapmap:release -v | grep -q "tapmap"
-
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: olalie/tapmap
-          tags: |
-            type=raw,value=latest
-            type=ref,event=tag
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
-
-      # Finalize release
-      # After this step the release becomes immutable
-      - name: Publish GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release edit "${{ github.ref_name }}" --draft=false
+  macos:
+    name: macOS Build
+    uses: ./.github/workflows/pipeline-macos.yaml
+    with:
+      mode: release
+    secrets: inherit

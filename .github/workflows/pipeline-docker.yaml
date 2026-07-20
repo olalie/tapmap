@@ -1,8 +1,23 @@
-name: Docker Test
+name: Docker Pipeline
 
 on:
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Build or release
+        type: choice
+        options:
+          - build
+          - release
+        default: build
+
   workflow_call:
+    inputs:
+      mode:
+        description: Build or release
+        required: false
+        type: string
+        default: build
 
 jobs:
   docker-smoke:
