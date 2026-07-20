@@ -1,5 +1,6 @@
 ## Unreleased
 
+
 ### Features
 
 - Add graceful application shutdown
@@ -11,6 +12,11 @@
   - Replace **Show cache in terminal** with **Export Cache**
   - Export the current cache snapshot as a timestamped text file
 
+- Add professional application packaging
+  - Package Windows with application icon
+  - Add signed and notarized macOS distribution
+  - Prepare Linux packages for release
+
 ### Improvements
 
 - Improve application branding
@@ -20,14 +26,21 @@
 - Improve Daily Activity Report wording
   - Simplify activity summary text
 
-### Refactor
-
 - Improve application logging
   - Remove temporary diagnostics
-  - Refactor cache export formatting for reuse
+
+### Build & CI
+
+- Introduce reusable cross-platform build workflows
+- Consolidate build orchestration into a single workflow
+- Standardize packaging across Windows, macOS and Linux
+- Prepare automated release workflows
 
 ### Documentation
 
+- Publish Privacy Policy
+- Add Privacy Policy to the documentation site
+- Add **Featured in** section
 - Update README
 - Update Help
 

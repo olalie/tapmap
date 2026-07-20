@@ -25,27 +25,30 @@ It makes network activity visible and easy to explore.
 
 ## Quick start
 
-#### Download and run (Windows, Linux, macOS)
+#### Download
 
 Download the latest version from the [Releases page](https://github.com/olalie/tapmap/releases).
 
-Extract and start TapMap:
+Choose the package for your platform:
 
 **Windows**
 
-    tapmap.exe
+- Download and run the Windows installer
 
-**Linux and macOS**
+**macOS**
 
-    ./tapmap
+- Download and open the `.dmg` image
+- Drag **TapMap** to **Applications**
+
+**Linux**
+
+- Download and install the `.deb` package
 
 **Note**
 
-Windows and macOS may show a security warning the first time you run TapMap.
+Windows may show a SmartScreen warning the first time you open the TapMap installer.
 
-See:
-- [Windows SmartScreen](#windows-smartscreen)
-- [macOS security warning](#macos-security-warning)
+See [Windows SmartScreen](#windows-smartscreen).
 
 #### Docker (Linux host only)
 
@@ -169,6 +172,7 @@ Additional documentation:
 - [GeoIP Database Management](https://olalie.github.io/tapmap/geodb-management/)
 - [Environment Variables](https://olalie.github.io/tapmap/environment-variables/)
 - [Backend Testing](https://olalie.github.io/tapmap/backend-testing/)
+- [Privacy Policy](https://olalie.github.io/tapmap/privacy/)
 
 ---
 
@@ -235,10 +239,10 @@ For details, see [PRIVACY.md](PRIVACY.md).
 
 Download the latest version from the [Releases page](https://github.com/olalie/tapmap/releases).
 
-Available builds:
+Available downloads:
 
-- Windows
-- Linux
+- Windows installer
+- Linux (.deb)
 - macOS (Apple Silicon)
 - macOS (Intel)
 
@@ -261,58 +265,38 @@ Command-line options:
 
 ## Windows SmartScreen
 
-Windows may show a SmartScreen warning the first time you run TapMap.  
-This is normal for new applications that are not digitally signed.
+Windows may show a SmartScreen warning the first time you run the TapMap installer.
 
-To start the program:
+This can happen until Windows has built enough reputation for the installer.
+
+To continue:
 
 1. Click **More info**.
 2. Click **Run anyway**.
 
 ---
 
-## macOS security warning
-
-macOS may block the app the first time you run TapMap.
-This is normal for unsigned applications.
-
-To start the program:
-
-1. Try to open the app.
-2. Open **System Settings → Privacy & Security**.
-3. Click **Open anyway** for TapMap.
-
-You may be asked to confirm once more.
-
-Alternatively, you can remove the warning using Terminal:
-
-    xattr -d com.apple.quarantine tapmap
-
----
-
 ## Build from source
-
-TapMap must be installed before running from source.
 
 Requirements:
 
 - Python 3.10+
 
-Create virtual environment:
+Create a virtual environment:
 
     python -m venv .venv
 
-Activate:
+Activate it:
 
     source .venv/bin/activate   (Linux/macOS)
     .venv\Scripts\activate      (Windows)
 
-Install dependencies and package:
+Install dependencies:
 
-    pip install -r requirements.txt
+    pip install -r requirements-tests.txt
     pip install -e .
 
-Run (development mode):
+Run:
 
     python -m tapmap
 
@@ -322,25 +306,25 @@ Run tests:
 
 ---
 
-#### Build executable (optional)
+#### Build distribution packages (optional)
 
-Build a standalone executable using PyInstaller:
+Build the distribution package for the current platform:
 
     python tools/build.py
 
+The build pipeline automatically:
+
+- Runs the test suite.
+- Detects the current operating system.
+- Builds the corresponding distribution package.
+
 Output:
 
-- Linux/macOS: dist/tapmap
-- Windows: dist/tapmap.exe
+The generated package is created in the `dist` directory.
 
-Run:
-
-    ./dist/tapmap      (Linux/macOS)
-    dist\tapmap.exe    (Windows)
-
-Note:
-
-The executable must be built on the target operating system.
+- **Windows:** Installer (`.exe`)
+- **macOS:** Disk image (`.dmg`)
+- **Linux:** Debian package (`.deb`)
 
 ---
 
@@ -358,16 +342,18 @@ MIT License
 
 ## Acknowledgements
 
-Thanks to @faxotherapy for reporting macOS compatibility issues and testing Intel builds.  
-Thanks to @nafarinha for confirming architecture support and validating macOS behavior.
+Many thanks to the community members who reported bugs, tested pre-release builds, and suggested improvements.
 
-Thanks to @totti4ever for reporting Docker multi-arch issues and confirming the fix on arm64.  
-Thanks to @khadanja for suggesting a Docker-based workaround.
+- @faxotherapy for reporting macOS compatibility issues and testing Intel builds.  
+- @nafarinha for confirming architecture support and validating macOS behavior.
 
-Thanks to @TechnVision for raising the configurable port use case.  
-Thanks to @desrod for suggesting a solution for configurable port support.  
-Thanks to @hugalafutro for suggesting optional SYS_PTRACE support for process visibility on Linux.
+- @totti4ever for reporting Docker multi-arch issues and confirming the fix on arm64.  
+- @khadanja for suggesting a Docker-based workaround.
 
-Thanks to @mad-tunes for suggesting optional browser launch control when running TapMap as a service, and configurable cache retention to reduce map clutter on busy systems.
+- @TechnVision for raising the configurable port use case.  
+- @desrod for suggesting a solution for configurable port support.  
+- @hugalafutro for suggesting optional SYS_PTRACE support for process visibility on Linux.
 
-Thanks to @forthrin for detailed first-use feedback and suggestions that improved map navigation and overall usability.
+- @mad-tunes for suggesting optional browser launch control when running TapMap as a service, and configurable cache retention to reduce map clutter on busy systems.
+
+- @forthrin for detailed first-use feedback and suggestions that improved map navigation and overall usability.
