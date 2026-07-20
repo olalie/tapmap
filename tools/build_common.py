@@ -69,7 +69,9 @@ def require_tool(name: str) -> None:
 def _on_rm_error(func, path: str, _exc) -> None:
     """Retry removal of read-only files."""
     with contextlib.suppress(Exception):
-        os.chmod(path, stat.S_IWRITE)
+        mode = os.stat(path).st_mode
+        os.chmod(path, mode | stat.S_IWUSR)
+
     func(path)
 
 
@@ -131,7 +133,7 @@ def build_application() -> None:
     print("[OK] Build application")
 
 
-# macOS helpers
+# Shared helper used by tapmap.spec and build_macos.py.
 def get_signing_identity() -> str | None:
     """Return the Developer ID Application signing identity."""
     global SIGNING_IDENTITY

@@ -1,7 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
 import sys
 
-from tools.build_common import get_signing_identity
+from tools.build_common import get_signing_identity, project_metadata
+
+project = project_metadata()
+version = project["version"]
 
 a = Analysis(
     ["src/tapmap/__main__.py"],
@@ -61,5 +64,9 @@ if sys.platform == "darwin":
         coll,
         name=f"{app_name}.app",
         icon=app_icon,
-        bundle_identifier=None,
+        bundle_identifier="no.tip.tapmap",
+        version=version,
+        info_plist={
+            "CFBundleVersion": version,
+        },
     )

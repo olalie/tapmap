@@ -27,6 +27,7 @@ from build_common import (
     PACKAGE_DIR,
     build_application,
     get_signing_identity,
+    project_metadata,
     require_tool,
     rm_tree,
     run,
@@ -34,7 +35,6 @@ from build_common import (
 )
 
 APP_NAME = "TapMap.app"
-DMG_NAME = "TapMap.dmg"
 SIGNING_IDENTITY: str | None = None
 NOTARY_PROFILE = "tapmap-notary"
 
@@ -105,6 +105,9 @@ def package() -> None:
     """Create macOS release artifacts."""
     rm_tree(PACKAGE_DIR)
     PACKAGE_DIR.mkdir(exist_ok=True)
+    project = project_metadata()
+    version = project["version"]
+    dmg_name = f"TapMap-{version}.dmg"
 
     run(
         [
@@ -114,7 +117,7 @@ def package() -> None:
         ]
     )
 
-    dmg_file = DIST_DIR / DMG_NAME
+    dmg_file = DIST_DIR / dmg_name
 
     _ = run(
         [
@@ -142,7 +145,7 @@ def package() -> None:
             "--codesign",
             get_signing_identity(),
             "--notarize",
-            "tapmap-notary",
+            NOTARY_PROFILE,
             str(dmg_file),
             str(PACKAGE_DIR),
         ],
@@ -159,7 +162,8 @@ def package() -> None:
 
 def verify_package(sign: bool = False) -> None:
     """Verify the release package."""
-    package = DIST_DIR / "TapMap.dmg"
+    project = project_metadata()
+    package = DIST_DIR / f"TapMap-{project['version']}.dmg"
 
     if not package.exists():
         raise FileNotFoundError(f"Expected package not found: {package}")

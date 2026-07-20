@@ -1,4 +1,25 @@
-"""Linux build pipeline."""
+"""Build the Linux release package for TapMap.
+
+Pipeline
+--------
+1. Clean previous build artifacts.
+2. Run automated tests.
+3. Build the application with PyInstaller.
+4. Verify the application build.
+5. Package the application as a Debian package.
+6. Verify the packaged release.
+
+Implementation
+--------------
+- Entry point: python tools/build.py [--sign]
+- Application is built as a PyInstaller onedir distribution.
+- Packaging follows the Debian filesystem hierarchy.
+- Shared-library dependencies are determined automatically using
+  dpkg-shlibdeps.
+- The package includes desktop integration, AppStream metadata,
+  application icons and a compressed manual page.
+- Future packaging targets include AppImage and RPM.
+"""
 
 import gzip
 import shutil

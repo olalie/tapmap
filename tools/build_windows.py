@@ -1,4 +1,23 @@
-"""Windows build pipeline."""
+"""Build the Windows release package for TapMap.
+
+Pipeline
+--------
+1. Clean previous build artifacts.
+2. Verify required build tools.
+3. Run automated tests.
+4. Build the application with PyInstaller.
+5. Verify the application build.
+6. Package the application as an Inno Setup installer.
+7. Verify the packaged release.
+
+Implementation
+--------------
+- Entry point: python tools/build.py [--sign]
+- Application is built as a PyInstaller onedir distribution.
+- The installer is created with Inno Setup (TapMap.iss).
+- Code signing is not yet implemented and will be added when a
+  suitable signing solution is available.
+"""
 
 from pathlib import Path
 
