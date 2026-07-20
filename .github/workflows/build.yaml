@@ -1,0 +1,36 @@
+name: Build
+
+on:
+  workflow_dispatch:
+
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - "docs/**"
+      - "mkdocs.yaml"
+      - "README.md"
+      - "CHANGELOG.md"
+      - "CONTRIBUTING.md"
+      - "SECURITY.md"
+      - "PRIVACY.md"
+      - "ARCHITECTURE.md"
+      - ".github/workflows/docs.yaml"
+
+jobs:
+  docker:
+    name: Docker Tests
+    uses: ./.github/workflows/test-docker.yaml
+
+  linux:
+    name: Linux Build
+    uses: ./.github/workflows/build-linux.yaml
+
+  windows:
+    name: Windows Build
+    uses: ./.github/workflows/build-windows.yaml
+
+  macos:
+    name: macOS Build
+    uses: ./.github/workflows/build-macos.yaml
+    secrets: inherit
