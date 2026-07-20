@@ -6,7 +6,7 @@ on:
 
   push:
     branches:
-      - feat/windows-installer
+      - refactor/build-architecture
 
 jobs:
   build:
@@ -42,6 +42,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: tapmap-windows-setup
-          path: dist/TapMap-*-Setup.exe
+          path: dist/TapMap-*-windows-x64-Setup.exe
           if-no-files-found: error
           retention-days: 7

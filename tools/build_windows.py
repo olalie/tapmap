@@ -53,6 +53,7 @@ def expected_output_file() -> Path:
     """Return the expected PyInstaller output."""
     return DIST_DIR / "tapmap" / "tapmap.exe"
 
+
 def verify_application() -> None:
     """Verify the application build."""
     app = expected_output_file()
@@ -63,13 +64,18 @@ def verify_application() -> None:
     print(f"[OK] Verify build ({app.name})")
 
 
+def setup_name(version: str) -> str:
+    """Return the Windows installer filename."""
+    return f"TapMap-{version}-windows-x64-Setup"
+
+
 def package() -> None:
     """Create the release package."""
     project = project_metadata()
     version = project["version"]
+    output = setup_name(version)
     exe = expected_output_file()
     icon = PROJECT_ROOT / "src" / "tapmap" / "assets" / "tapmap.ico"
-    output = f"TapMap-{version}-Setup"
 
     run(
         [
@@ -88,12 +94,12 @@ def package() -> None:
 def verify_package(sign: bool = False) -> None:
     """Verify the release package."""
     project = project_metadata()
-    package = DIST_DIR / f"{project['name']}-{project['version']}-Setup.exe"
+    package = DIST_DIR / f"{setup_name(project['version'])}.exe"
 
     if not package.exists():
         raise FileNotFoundError(f"Expected package not found: {package}")
 
-    print(f"[OK] Verified package ({package.name.lower()})")
+    print(f"[OK] Verified package ({package.name})")
 
 
 def pipeline(sign: bool = False) -> None:
