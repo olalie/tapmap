@@ -203,6 +203,11 @@ Architecture: amd64
     raise RuntimeError(f"Unexpected dpkg-shlibdeps output:\n{output}")
 
 
+def deb_name(version: str) -> str:
+    """Return the Linux package filename."""
+    return f"TapMap-{version}-linux-amd64.deb"
+
+
 def package() -> None:
     """Create the release package.
 
@@ -213,6 +218,7 @@ def package() -> None:
     - Build RPM.
     """
     project = project_metadata()
+    package_name = deb_name(project["version"])
     print(f"Packaging {project['name']} {project['version']}")
 
     rm_tree(PACKAGE_DIR)
@@ -284,7 +290,7 @@ def package() -> None:
 
     executable.chmod(0o755)
 
-    deb_file = DIST_DIR / f"{project['name']}-{project['version']}-amd64.deb"
+    deb_file = DIST_DIR / package_name
 
     # Build the Debian package.
     # Record all files as owned by root inside the package archive.
@@ -309,7 +315,7 @@ def package() -> None:
 def verify_package(sign: bool = False) -> None:
     """Verify the release package."""
     project = project_metadata()
-    package = DIST_DIR / f"{project['name']}-{project['version']}-amd64.deb"
+    package = DIST_DIR / deb_name(project["version"])
 
     if not package.exists():
         raise FileNotFoundError(f"Expected package not found: {package}")

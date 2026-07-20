@@ -6,7 +6,7 @@ on:
 
   push:
     branches:
-      - refactor/build-architecture
+      - feat/macos-installer
 
 jobs:
   build:
@@ -68,7 +68,7 @@ jobs:
       - name: Show signing identities
         shell: bash
         run: |
-          security find-identity -v -p codesigning                  
+          security find-identity -v -p codesigning
 
       - name: Build (same as local)
         shell: bash

@@ -6,7 +6,7 @@ on:
 
   push:
     branches:
-      - feat/linux-installer  
+      - refactor/build-architecture
 
 jobs:
   build:
@@ -47,6 +47,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: tapmap-linux-deb
-          path: dist/tapmap-*.deb
+          path: dist/TapMap-*-linux-amd64.deb
           if-no-files-found: error
           retention-days: 7
