@@ -107,7 +107,7 @@ def package() -> None:
     PACKAGE_DIR.mkdir(exist_ok=True)
     project = project_metadata()
     version = project["version"]
-    dmg_name = f"TapMap-{version}.dmg"
+    dmg_name = f"TapMap-{version}-macos-arm64.dmg"
 
     run(
         [
