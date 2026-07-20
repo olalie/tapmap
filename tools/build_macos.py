@@ -101,13 +101,18 @@ def verify_application(sign: bool = False) -> None:
     print(f"[OK] Verified application ({app.name})")
 
 
+def dmg_name(version: str) -> str:
+    """Return the macOS package filename."""
+    return f"TapMap-{version}-macos-arm64.dmg"
+
+
 def package() -> None:
     """Create macOS release artifacts."""
     rm_tree(PACKAGE_DIR)
     PACKAGE_DIR.mkdir(exist_ok=True)
     project = project_metadata()
     version = project["version"]
-    dmg_name = f"TapMap-{version}-macos-arm64.dmg"
+    package_name = dmg_name(version)
 
     run(
         [
@@ -117,7 +122,7 @@ def package() -> None:
         ]
     )
 
-    dmg_file = DIST_DIR / dmg_name
+    dmg_file = DIST_DIR / package_name
 
     _ = run(
         [
@@ -163,7 +168,7 @@ def package() -> None:
 def verify_package(sign: bool = False) -> None:
     """Verify the release package."""
     project = project_metadata()
-    package = DIST_DIR / f"TapMap-{project['version']}.dmg"
+    package = DIST_DIR / dmg_name(project["version"])
 
     if not package.exists():
         raise FileNotFoundError(f"Expected package not found: {package}")
