@@ -15,44 +15,51 @@ jobs:
     name: Validate Docker
     uses: ./.github/workflows/validate-docker.yaml
 
-  # linux:
-  #   name: Linux Build
-  #   uses: ./.github/workflows/pipeline-linux.yaml
+  linux:
+    name: Linux Build
+    uses: ./.github/workflows/pipeline-linux.yaml
 
-  # windows:
-  #   name: Windows Build
-  #   uses: ./.github/workflows/pipeline-windows.yaml
+  windows:
+    name: Windows Build
+    uses: ./.github/workflows/pipeline-windows.yaml
 
-  # macos-arm64:
-  #   name: macOS (Apple Silicon)
-  #   uses: ./.github/workflows/pipeline-macos.yaml
-  #   with:
-  #     architecture: arm64
-  #   secrets: inherit
+  macos-arm64:
+    name: macOS (Apple Silicon)
+    uses: ./.github/workflows/pipeline-macos.yaml
+    with:
+      architecture: arm64
+    secrets: inherit
 
-  # macos-x86_64:
-  #   name: macOS (Intel)
-  #   uses: ./.github/workflows/pipeline-macos.yaml
-  #   with:
-  #     architecture: x86_64
-  #   secrets: inherit
+  macos-x86_64:
+    name: macOS (Intel)
+    uses: ./.github/workflows/pipeline-macos.yaml
+    with:
+      architecture: x86_64
+    secrets: inherit
 
-  # publish-test:
-  #   name: Test artifact download
-  #   needs:
-  #     - docker
-  #     # - linux
-  #     # - windows
-  #     # - macos-arm64
-  #     # - macos-x86_64
-  #   runs-on: ubuntu-latest
+  publish-test:
+    name: Test artifact download
+    needs:
+      - docker
+      - linux
+      - windows
+      - macos-arm64
+      - macos-x86_64
+    runs-on: ubuntu-latest
 
-  #   steps:
-  #     - name: Download all artifacts
-  #       uses: actions/download-artifact@v5
-  #       with:
-  #         path: artifacts
+    steps:
+      - name: Download release assets
+        uses: actions/download-artifact@v5
+        with:
+          path: release-assets
+          merge-multiple: true
 
-  #     - name: Show downloaded artifacts
-  #       run: |
-  #         find artifacts -type f
+      - name: Show downloaded assets
+        shell: bash
+        run: |
+          echo "Directory tree:"
+          ls -lR release-assets
+
+          echo
+          echo "Files:"
+          find release-assets -type f | sort
