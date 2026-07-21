@@ -11,15 +11,13 @@ permissions:
   contents: write
 
 jobs:
-  # docker:
-  #   name: Docker Tests
-  #   uses: ./.github/workflows/pipeline-docker.yaml
-  #   with:
-  #     mode: release
+  docker:
+    name: Validate Docker
+    uses: ./.github/workflows/validate-docker.yaml
 
-  linux:
-    name: Linux Build
-    uses: ./.github/workflows/pipeline-linux.yaml
+  # linux:
+  #   name: Linux Build
+  #   uses: ./.github/workflows/pipeline-linux.yaml
 
   # windows:
   #   name: Windows Build
@@ -39,21 +37,22 @@ jobs:
   #     architecture: x86_64
   #   secrets: inherit
 
-  publish-test:
-    name: Test artifact download
-    needs:
-      - linux
-      # - windows
-      # - macos-arm64
-      # - macos-x86_64
-    runs-on: ubuntu-latest
+  # publish-test:
+  #   name: Test artifact download
+  #   needs:
+  #     - docker
+  #     # - linux
+  #     # - windows
+  #     # - macos-arm64
+  #     # - macos-x86_64
+  #   runs-on: ubuntu-latest
 
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v5
-        with:
-          path: artifacts
+  #   steps:
+  #     - name: Download all artifacts
+  #       uses: actions/download-artifact@v5
+  #       with:
+  #         path: artifacts
 
-      - name: Show downloaded artifacts
-        run: |
-          find artifacts -type f
+  #     - name: Show downloaded artifacts
+  #       run: |
+  #         find artifacts -type f

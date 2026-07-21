@@ -1,23 +1,9 @@
-name: Docker Pipeline
+name: Validate Docker
 
 on:
   workflow_dispatch:
-    inputs:
-      mode:
-        description: Build or release
-        type: choice
-        options:
-          - build
-          - release
-        default: build
 
   workflow_call:
-    inputs:
-      mode:
-        description: Build or release
-        required: false
-        type: string
-        default: build
 
 jobs:
   docker-smoke:
@@ -39,7 +25,7 @@ jobs:
           docker run --rm tapmap:test -v | grep -q "tapmap"
 
   docker-smoke-arm64:
-    name: Docker smoke test arm64
+    name: Docker smoke test (arm64)
     runs-on: ubuntu-latest
 
     steps:
