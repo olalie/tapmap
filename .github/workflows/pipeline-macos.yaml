@@ -3,46 +3,26 @@ name: macOS Pipeline
 on:
   workflow_dispatch:
     inputs:
-      mode:
-        description: Build or release
+      architecture:
+        description: Target architecture
         type: choice
         options:
-          - build
-          - release
-        default: build
+          - arm64
+          - x86_64
+        default: arm64
 
   workflow_call:
     inputs:
-      mode:
-        description: Build or release
-        required: false
+      architecture:
+        description: Target architecture
+        required: true
         type: string
-        default: build
+
+env:
+  TARGET_ARCH: ${{ inputs.architecture }}
 
 jobs:
-  prepare:
-    runs-on: ubuntu-latest
-
-    outputs:
-      matrix: ${{ steps.matrix.outputs.matrix }}
-
-    steps:
-      - id: matrix
-        shell: bash
-        run: |
-          if [ "${{ inputs.mode }}" = "release" ]; then
-            echo 'matrix={"include":[{"arch":"arm64"},{"arch":"x86_64"}]}' >> "$GITHUB_OUTPUT"
-          else
-            echo 'matrix={"include":[{"arch":"arm64"}]}' >> "$GITHUB_OUTPUT"
-          fi
-
   build:
-    needs: prepare
-
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
-
     runs-on: macos-latest
 
     steps:
@@ -57,7 +37,7 @@ jobs:
       - name: Select Python interpreter
         shell: bash
         run: |
-          if [[ "${{ matrix.arch }}" == "x86_64" ]]; then
+          if [[ "$TARGET_ARCH" == "x86_64" ]]; then
             echo "PYTHON=arch -x86_64 python" >> "$GITHUB_ENV"
           else
             echo "PYTHON=python" >> "$GITHUB_ENV"
@@ -66,7 +46,9 @@ jobs:
       - name: Install dependencies
         shell: bash
         run: |
-          echo "Using: $PYTHON"
+          echo "Target architecture: $TARGET_ARCH"
+          echo "Using interpreter: $PYTHON"
+
           $PYTHON --version
 
           $PYTHON -m pip install --upgrade pip
@@ -119,7 +101,8 @@ jobs:
       - name: Build (same as local)
         shell: bash
         run: |
-          echo "Using: $PYTHON"
+          echo "Target architecture: $TARGET_ARCH"
+          echo "Using interpreter: $PYTHON"
 
           $PYTHON tools/build.py --sign
 
@@ -131,7 +114,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v7
         with:
-          name: tapmap-macos-${{ matrix.arch }}
-          path: dist/TapMap-*-macos-${{ matrix.arch }}.dmg
+          name: tapmap-macos-${{ env.TARGET_ARCH }}
+          path: dist/TapMap-*-macos-${{ env.TARGET_ARCH }}.dmg
           if-no-files-found: error
           retention-days: 7

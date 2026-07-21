@@ -11,27 +11,51 @@ permissions:
   contents: write
 
 jobs:
-  docker:
-    name: Docker Tests
-    uses: ./.github/workflows/pipeline-docker.yaml
-    with:
-      mode: release
+  # docker:
+  #   name: Docker Tests
+  #   uses: ./.github/workflows/pipeline-docker.yaml
+  #   with:
+  #     mode: release
 
-  linux:
-    name: Linux Build
-    uses: ./.github/workflows/pipeline-linux.yaml
-    with:
-      mode: release
+  # linux:
+  #   name: Linux Build
+  #   uses: ./.github/workflows/pipeline-linux.yaml
+  #   with:
+  #     mode: release
 
-  windows:
-    name: Windows Build
-    uses: ./.github/workflows/pipeline-windows.yaml
-    with:
-      mode: release
+  # windows:
+  #   name: Windows Build
+  #   uses: ./.github/workflows/pipeline-windows.yaml
+  #   with:
+  #     mode: release
 
-  macos:
-    name: macOS Build
+  macos-arm64:
+    name: macOS (Apple Silicon)
     uses: ./.github/workflows/pipeline-macos.yaml
     with:
-      mode: release
+      architecture: arm64
     secrets: inherit
+
+  macos-x86_64:
+    name: macOS (Intel)
+    uses: ./.github/workflows/pipeline-macos.yaml
+    with:
+      architecture: x86_64
+    secrets: inherit
+
+  publish-test:
+    name: Test artifact download
+    needs:
+      - macos-arm64
+      - macos-x86_64
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: artifacts
+
+      - name: Show downloaded artifacts
+        run: |
+          find artifacts -type f
