@@ -19,6 +19,7 @@ Implementation
   during packaging.
 """
 
+import platform
 from pathlib import Path
 
 from build_common import (
@@ -101,9 +102,21 @@ def verify_application(sign: bool = False) -> None:
     print(f"[OK] Verified application ({app.name})")
 
 
+def current_arch() -> str:
+    """Return normalized architecture name."""
+    arch = platform.machine().lower()
+
+    if arch == "amd64":
+        return "x86_64"
+    if arch == "aarch64":
+        return "arm64"
+
+    return arch
+
+
 def dmg_name(version: str) -> str:
     """Return the macOS package filename."""
-    return f"TapMap-{version}-macos-arm64.dmg"
+    return f"TapMap-{version}-macos-{current_arch()}.dmg"
 
 
 def package() -> None:
