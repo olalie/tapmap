@@ -1,8 +1,8 @@
 ## Unreleased
 
+## 1.9.0 (2026-07-21)
 
 ### Features
-
 - Add graceful application shutdown
   - Add **Exit** (`X`) keyboard shortcut
   - Add shutdown confirmation dialog
@@ -12,13 +12,7 @@
   - Replace **Show cache in terminal** with **Export Cache**
   - Export the current cache snapshot as a timestamped text file
 
-- Add professional application packaging
-  - Package Windows with application icon
-  - Add signed and notarized macOS distribution
-  - Prepare Linux packages for release
-
 ### Improvements
-
 - Improve application branding
   - Add application icon for packaged Windows executable
   - Add favicon
@@ -29,20 +23,27 @@
 - Improve application logging
   - Remove temporary diagnostics
 
-### Build & CI
+### Packaging
+- Add professional application packaging
+  - Package Windows with native installer
+  - Add signed and notarized macOS DMG distribution
+  - Add Linux DEB package
 
+### CI
 - Introduce reusable cross-platform build workflows
 - Consolidate build orchestration into a single workflow
 - Standardize packaging across Windows, macOS and Linux
-- Prepare automated release workflows
+- Automate GitHub Releases
+- Publish multi-architecture Docker images
+- Generate SHA256 checksums for release artifacts
 
 ### Documentation
-
 - Publish Privacy Policy
 - Add Privacy Policy to the documentation site
 - Add **Featured in** section
 - Update README
 - Update Help
+- Refresh installation and packaging documentation
 
 ## 1.8.1 (2026-06-29)
 
