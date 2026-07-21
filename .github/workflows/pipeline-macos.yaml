@@ -20,81 +20,44 @@ on:
         default: build
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+
+    steps:
+      - id: matrix
+        shell: bash
+        run: |
+          echo "Mode is: ${{ inputs.mode }}"
+
+          if [ "${{ inputs.mode }}" = "release" ]; then
+            echo 'matrix={"include":[{"arch":"arm64"},{"arch":"x86_64"}]}' >> "$GITHUB_OUTPUT"
+          else
+            echo 'matrix={"include":[{"arch":"arm64"}]}' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Show generated matrix
+        run: |
+          echo '${{ steps.matrix.outputs.matrix }}'
+
   build:
+    needs: prepare
+
+    strategy:
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
+
     runs-on: macos-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
-
-      - name: Install dependencies
+      - name: Show matrix values
         shell: bash
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-tests.txt
-          pip install pyinstaller
-          brew install create-dmg
+          echo "Mode : ${{ inputs.mode }}"
+          echo "Arch : ${{ matrix.arch }}"
+          echo "Runner architecture:"
+          uname -m
 
-      - name: Import signing certificate
-        shell: bash
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-        run: |
-          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
-
-          security create-keychain -p runner build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p runner build.keychain
-
-          security import certificate.p12 \
-            -k build.keychain \
-            -P "$APPLE_CERTIFICATE_PASSWORD" \
-            -T /usr/bin/codesign \
-            -T /usr/bin/security
-
-          security set-key-partition-list \
-            -S apple-tool:,apple: \
-            -s \
-            -k runner \
-            build.keychain
-
-      - name: Create notary profile
-        shell: bash
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-        run: |
-          xcrun notarytool store-credentials tapmap-notary \
-            --apple-id "$APPLE_ID" \
-            --team-id "$APPLE_TEAM_ID" \
-            --password "$APPLE_APP_SPECIFIC_PASSWORD"
-
-      - name: Show signing identities
-        shell: bash
-        run: |
-          security find-identity -v -p codesigning
-
-      - name: Build (same as local)
-        shell: bash
-        run: |
-          python tools/build.py --sign
-
-      - name: Show build output
-        shell: bash
-        run: |
-          ls -la dist
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: tapmap-macos-dmg
-          path: dist/TapMap-*-macos-arm64.dmg
-          if-no-files-found: error
-          retention-days: 7
+      - name: Done
+        run: echo "Dynamic matrix test completed."
