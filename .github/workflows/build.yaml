@@ -20,25 +20,26 @@ on:
 jobs:
   docker:
     name: Docker Tests
-    uses: ./.github/workflows/pipeline-docker.yaml
-    with:
-      mode: build
+    uses: ./.github/workflows/validate-docker.yaml
 
   linux:
     name: Linux Build
     uses: ./.github/workflows/pipeline-linux.yaml
-    with:
-      mode: build
 
   windows:
     name: Windows Build
     uses: ./.github/workflows/pipeline-windows.yaml
-    with:
-      mode: build
 
-  macos:
-    name: macOS Build
+  macos-arm64:
+    name: macOS (Apple Silicon)
     uses: ./.github/workflows/pipeline-macos.yaml
     with:
-      mode: build
+      architecture: arm64
+    secrets: inherit
+
+  macos-x86_64:
+    name: macOS (Intel)
+    uses: ./.github/workflows/pipeline-macos.yaml
+    with:
+      architecture: x86_64
     secrets: inherit

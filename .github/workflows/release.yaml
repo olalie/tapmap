@@ -37,19 +37,23 @@ jobs:
       architecture: x86_64
     secrets: inherit
 
-  publish-test:
-    name: Test artifact download
+  publish:
+    name: Publish Release
     needs:
       - docker
       - linux
       - windows
       - macos-arm64
       - macos-x86_64
+
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
       - name: Download release assets
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           pattern: tapmap-*
           path: release-assets
@@ -64,3 +68,48 @@ jobs:
           echo
           echo "Files:"
           find release-assets -type f | sort
+
+      - name: Generate SHA256 checksums
+        shell: bash
+        run: |
+          cd release-assets
+          sha256sum * > SHA256SUMS.txt
+
+          echo
+          echo "SHA256 checksums:"
+          cat SHA256SUMS.txt
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: olalie/tapmap
+          tags: |
+            type=raw,value=latest
+            type=ref,event=tag
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          generate_release_notes: true
+          files: release-assets/*
