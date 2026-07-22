@@ -15,14 +15,14 @@ def main() -> None:
     parser.add_argument(
         "--sign",
         action="store_true",
-        help="Sign build artifacts when supported.",
+        help="Enable local code signing (macOS only).",
     )
     args = parser.parse_args()
 
     if sys.platform.startswith("linux"):
-        build_linux.pipeline(sign=args.sign)
+        build_linux.pipeline()
     elif sys.platform == "win32":
-        build_windows.pipeline(sign=args.sign)
+        build_windows.pipeline()
     elif sys.platform == "darwin":
         build_macos.pipeline(sign=args.sign)
     else:

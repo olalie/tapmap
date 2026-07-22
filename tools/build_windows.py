@@ -12,11 +12,12 @@ Pipeline
 
 Implementation
 --------------
-- Entry point: python tools/build.py [--sign]
+- Entry point: python tools/build.py
 - Application is built as a PyInstaller onedir distribution.
 - The installer is created with Inno Setup (TapMap.iss).
-- Code signing is not yet implemented and will be added when a
-  suitable signing solution is available.
+- Official release signing is performed by the GitHub Actions
+  pipeline using SignPath.
+- Local builds are not code signed.
 """
 
 from pathlib import Path
@@ -102,13 +103,11 @@ def verify_package(sign: bool = False) -> None:
     print(f"[OK] Verified package ({package.name})")
 
 
-def pipeline(sign: bool = False) -> None:
-    """Build the release package."""
+def pipeline() -> None:
+    """Build the Windows application and installer."""
     setup()
     run_tests()
     build_application()
-    # TODO: Add code signing once a signing solution is available.
     verify_application()
     package()
-    # TODO: Add code signing once a signing solution is available.
     verify_package()

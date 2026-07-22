@@ -11,7 +11,7 @@ Pipeline
 
 Implementation
 --------------
-- Entry point: python tools/build.py [--sign]
+- Entry point: python tools/build.py
 - Application is built as a PyInstaller onedir distribution.
 - Packaging follows the Debian filesystem hierarchy.
 - Shared-library dependencies are determined automatically using
@@ -323,10 +323,8 @@ def verify_package(sign: bool = False) -> None:
     print(f"[OK] Verified package ({package.name})")
 
 
-def pipeline(sign: bool = False) -> None:
-    """Build the release package."""
-    _ = sign  # Reserved for future package signing.
-
+def pipeline() -> None:
+    """Build the Linux release package."""
     setup()
     run_tests()
     build_application()
