@@ -78,13 +78,19 @@ jobs:
           Write-Host "=== signed ==="
           Get-ChildItem -Recurse signed
 
+      - name: Prepare signed installer artifact
+        if: inputs.sign
+        shell: pwsh
+        run: |
+          $file = Get-ChildItem signed\*-Setup.exe
+          Copy-Item $file.FullName ($file.FullName -replace '\.exe$', '-signed.exe')
+
       - name: Upload signed installer
         if: inputs.sign
         uses: actions/upload-artifact@v7
         with:
           name: tapmap-windows-setup-signed
-          path: signed/TapMap-*-windows-x64-Setup.exe
+          path: signed/*-Setup-signed.exe
           archive: false
-          overwrite: true
           if-no-files-found: error
           retention-days: 7
