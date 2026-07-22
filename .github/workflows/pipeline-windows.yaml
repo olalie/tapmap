@@ -2,8 +2,17 @@ name: Windows Pipeline
 
 on:
   workflow_dispatch:
+    inputs:
+      sign:
+        description: "Submit installer to SignPath"
+        type: boolean
+        default: false
 
   workflow_call:
+    inputs:
+      sign:
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -35,10 +44,35 @@ jobs:
         run: |
           Get-ChildItem dist
 
-      - name: Upload artifact
+      - name: Upload unsigned artifact
+        id: upload-unsigned-artifact
         uses: actions/upload-artifact@v7
         with:
           name: tapmap-windows-setup
           path: dist/TapMap-*-windows-x64-Setup.exe
+          archive: false
           if-no-files-found: error
           retention-days: 7
+
+      - name: Submit signing request
+        if: inputs.sign
+        uses: signpath/github-action-submit-signing-request@v2
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: 95d3450c-5444-470c-a16f-9e990aacf813
+          project-slug: tapmap
+          signing-policy-slug: test-signing
+          github-artifact-id: ${{ steps.upload-unsigned-artifact.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed
+
+      - name: Show build and signed output
+        if: inputs.sign
+        shell: pwsh
+        run: |
+          Write-Host "=== dist ==="
+          Get-ChildItem -Recurse dist
+
+          Write-Host ""
+          Write-Host "=== signed ==="
+          Get-ChildItem -Recurse signed
