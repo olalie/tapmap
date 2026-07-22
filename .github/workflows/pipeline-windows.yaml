@@ -85,5 +85,6 @@ jobs:
           name: tapmap-windows-setup-signed
           path: signed/TapMap-*-windows-x64-Setup.exe
           archive: false
+          overwrite: true
           if-no-files-found: error
           retention-days: 7
