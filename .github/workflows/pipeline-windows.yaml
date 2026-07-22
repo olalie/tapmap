@@ -77,3 +77,13 @@ jobs:
           Write-Host ""
           Write-Host "=== signed ==="
           Get-ChildItem -Recurse signed
+
+      - name: Upload signed installer
+        if: inputs.sign
+        uses: actions/upload-artifact@v7
+        with:
+          name: tapmap-windows-setup-signed
+          path: signed/TapMap-*-windows-x64-Setup.exe
+          archive: false
+          if-no-files-found: error
+          retention-days: 7
