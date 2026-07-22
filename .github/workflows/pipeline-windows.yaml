@@ -65,6 +65,7 @@ jobs:
           github-artifact-id: ${{ steps.upload-unsigned-artifact.outputs.artifact-id }}
           wait-for-completion: true
           output-artifact-directory: signed
+          skip-decompress: true
 
       - name: Show build and signed output
         if: inputs.sign
