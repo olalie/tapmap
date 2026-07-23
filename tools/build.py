@@ -22,7 +22,7 @@ def main() -> None:
     if sys.platform == "win32":
         build_windows.pipeline(package=args.package)
     elif sys.platform == "darwin":
-        build_macos.pipeline(sign=args.package)
+        build_macos.pipeline(package=args.package)
     elif sys.platform.startswith("linux"):
         build_linux.pipeline(package=args.package)
     else:

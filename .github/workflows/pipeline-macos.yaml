@@ -10,6 +10,10 @@ on:
           - arm64
           - x86_64
         default: arm64
+      package:
+        description: Create release package
+        type: boolean
+        default: false
 
   workflow_call:
     inputs:
@@ -17,6 +21,11 @@ on:
         description: Target architecture
         required: true
         type: string
+      package:
+        description: Create release package
+        required: false
+        type: boolean
+        default: false
 
 env:
   TARGET_ARCH: ${{ inputs.architecture }}
@@ -104,14 +113,19 @@ jobs:
           echo "Target architecture: $TARGET_ARCH"
           echo "Using interpreter: $PYTHON"
 
-          $PYTHON tools/build.py --sign
+          if [ "${{ inputs.package }}" = "true" ]; then
+            $PYTHON tools/build.py --package
+          else
+            $PYTHON tools/build.py
+          fi
 
       - name: Show build output
         shell: bash
         run: |
-          ls -la dist
+          find dist -maxdepth 2
 
       - name: Upload artifact
+        if: inputs.package
         uses: actions/upload-artifact@v7
         with:
           name: tapmap-macos-${{ env.TARGET_ARCH }}

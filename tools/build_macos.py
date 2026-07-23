@@ -4,15 +4,15 @@ Pipeline
 --------
 1. Clean previous build artifacts.
 2. Run automated tests.
-3. Build and sign the application with PyInstaller.
-4. Verify the application signature.
-5. Package the application as a DMG.
-6. Sign, notarize and staple the DMG during packaging.
-7. Verify the packaged release.
+3. Build the application with PyInstaller.
+4. Verify the application.
+5. (Optional) Package the application as a DMG.
+6. (Optional) Sign, notarize and staple the DMG during packaging.
+7. (Optional) Verify the packaged release.
 
 Implementation
 --------------
-- Entry point: python tools/build.py [--sign]
+- Entry point: python tools/build.py [--package]
 - Application signing is performed by PyInstaller using the signing
   identity provided to tapmap.spec at build time.
 - DMG signing, notarization and stapling are performed by create-dmg
@@ -119,7 +119,7 @@ def dmg_name(version: str) -> str:
     return f"TapMap-{version}-macos-{current_arch()}.dmg"
 
 
-def package() -> None:
+def package_release() -> None:
     """Create macOS release artifacts."""
     rm_tree(PACKAGE_DIR)
     PACKAGE_DIR.mkdir(exist_ok=True)
@@ -178,7 +178,7 @@ def package() -> None:
     print(f"[OK] Package macOS release ({dmg_file.name})")
 
 
-def verify_package(sign: bool = False) -> None:
+def verify_package() -> None:
     """Verify the release package."""
     project = project_metadata()
     package = DIST_DIR / dmg_name(project["version"])
@@ -186,24 +186,25 @@ def verify_package(sign: bool = False) -> None:
     if not package.exists():
         raise FileNotFoundError(f"Expected package not found: {package}")
 
-    if sign:
-        run(
-            [
-                "xcrun",
-                "stapler",
-                "validate",
-                str(package),
-            ]
-        )
+    run(
+        [
+            "xcrun",
+            "stapler",
+            "validate",
+            str(package),
+        ]
+    )
 
     print(f"[OK] Verified package ({package.name})")
 
 
-def pipeline(sign: bool = False) -> None:
-    """Build the release package."""
+def pipeline(package: bool = False) -> None:
+    """Build the macOS application and optionally package it."""
     setup()
     run_tests()
     build_application()
-    verify_application(sign=sign)
-    package()
-    verify_package(sign=sign)
+    verify_application()
+
+    if package:
+        package_release()
+        verify_package()

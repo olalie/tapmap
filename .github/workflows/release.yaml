@@ -32,6 +32,7 @@ jobs:
     uses: ./.github/workflows/pipeline-macos.yaml
     with:
       architecture: arm64
+      package: true
     secrets: inherit
 
   macos-x86_64:
@@ -39,6 +40,7 @@ jobs:
     uses: ./.github/workflows/pipeline-macos.yaml
     with:
       architecture: x86_64
+      package: true
     secrets: inherit
 
   publish:
