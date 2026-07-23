@@ -2,8 +2,20 @@ name: Linux Pipeline
 
 on:
   workflow_dispatch:
+    inputs:
+      package:
+        description: Build Debian package
+        required: false
+        type: boolean
+        default: false
 
   workflow_call:
+    inputs:
+      package:
+        description: Build Debian package
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -33,14 +45,19 @@ jobs:
       - name: Build (same as local)
         shell: bash
         run: |
-          python tools/build.py
+          if [ "${{ inputs.package }}" = "true" ]; then
+            python tools/build.py --package
+          else
+            python tools/build.py
+          fi
 
       - name: Show build output
         shell: bash
         run: |
-          ls -la dist
+          find dist -maxdepth 2
 
-      - name: Upload artifact
+      - name: Upload Debian package
+        if: inputs.package
         uses: actions/upload-artifact@v7
         with:
           name: tapmap-linux-deb

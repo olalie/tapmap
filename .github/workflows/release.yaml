@@ -18,6 +18,8 @@ jobs:
   linux:
     name: Linux Build
     uses: ./.github/workflows/pipeline-linux.yaml
+    with:
+      package: true
 
   windows:
     name: Windows Build

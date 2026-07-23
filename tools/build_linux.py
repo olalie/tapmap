@@ -6,12 +6,12 @@ Pipeline
 2. Run automated tests.
 3. Build the application with PyInstaller.
 4. Verify the application build.
-5. Package the application as a Debian package.
-6. Verify the packaged release.
+5. (Optional) Package the application as a Debian package.
+6. (Optional) Verify the packaged release.
 
 Implementation
 --------------
-- Entry point: python tools/build.py
+- Entry point: python tools/build.py [--package]
 - Application is built as a PyInstaller onedir distribution.
 - Packaging follows the Debian filesystem hierarchy.
 - Shared-library dependencies are determined automatically using
@@ -208,7 +208,7 @@ def deb_name(version: str) -> str:
     return f"TapMap-{version}-linux-amd64.deb"
 
 
-def package() -> None:
+def package_release() -> None:
     """Create the release package.
 
     - Build DEB.
@@ -218,8 +218,9 @@ def package() -> None:
     - Build RPM.
     """
     project = project_metadata()
-    package_name = deb_name(project["version"])
-    print(f"Packaging {project['name']} {project['version']}")
+    version = project["version"]
+    package_name = deb_name(version)
+    print(f"Packaging {project['name']} {version}")
 
     rm_tree(PACKAGE_DIR)
     PACKAGE_DIR.mkdir(exist_ok=True)
@@ -230,11 +231,11 @@ def package() -> None:
     (PACKAGE_DIR / "usr" / "share" / "metainfo").mkdir(parents=True)
     (PACKAGE_DIR / "usr" / "share" / "doc" / project["name"]).mkdir(parents=True)
     (PACKAGE_DIR / "usr" / "share" / "icons" / "hicolor" / "256x256" / "apps").mkdir(parents=True)
-    ICONS_DIR = PROJECT_ROOT / "src" / "tapmap" / "assets" / "icons"
-    LINUX_ASSETS_DIR = PROJECT_ROOT / "src" / "tapmap" / "assets" / "linux"
-    DOC_DIR = PACKAGE_DIR / "usr" / "share" / "doc" / project["name"]
+    icons_dir = PROJECT_ROOT / "src" / "tapmap" / "assets" / "icons"
+    linux_assets_dir = PROJECT_ROOT / "src" / "tapmap" / "assets" / "linux"
+    doc_dir = PACKAGE_DIR / "usr" / "share" / "doc" / project["name"]
 
-    copy_linux_icons(PACKAGE_DIR, ICONS_DIR)
+    copy_linux_icons(PACKAGE_DIR, icons_dir)
 
     # Install the application under /usr/lib and expose it via /usr/bin.
     # This follows the Debian filesystem hierarchy.
@@ -248,21 +249,21 @@ def package() -> None:
 
     # Install AppStream metadata used by software centers.
     shutil.copy2(
-        LINUX_ASSETS_DIR / "no.tip.tapmap.metainfo.xml",
+        linux_assets_dir / "no.tip.tapmap.metainfo.xml",
         PACKAGE_DIR / "usr" / "share" / "metainfo" / "no.tip.tapmap.metainfo.xml",
     )
 
     # Install Debian package documentation required by policy.
-    write_debian_changelog(DOC_DIR, project)
+    write_debian_changelog(doc_dir, project)
 
     install_manual_page(
         PACKAGE_DIR,
-        LINUX_ASSETS_DIR,
+        linux_assets_dir,
     )
 
     shutil.copy2(
         PROJECT_ROOT / "LICENSE",
-        DOC_DIR / "copyright",
+        doc_dir / "copyright",
     )
 
     executable = PACKAGE_DIR / "usr" / "lib" / "tapmap" / EXECUTABLE_NAME
@@ -312,7 +313,7 @@ def package() -> None:
     print(f"[OK] Package Linux release ({deb_file.name})")
 
 
-def verify_package(sign: bool = False) -> None:
+def verify_package() -> None:
     """Verify the release package."""
     project = project_metadata()
     package = DIST_DIR / deb_name(project["version"])
@@ -323,11 +324,13 @@ def verify_package(sign: bool = False) -> None:
     print(f"[OK] Verified package ({package.name})")
 
 
-def pipeline() -> None:
-    """Build the Linux release package."""
+def pipeline(package: bool = False) -> None:
+    """Build the Linux application and package."""
     setup()
     run_tests()
     build_application()
     verify_application()
-    package()
-    verify_package()
+
+    if package:
+        package_release()
+        verify_package()

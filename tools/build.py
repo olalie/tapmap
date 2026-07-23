@@ -24,7 +24,7 @@ def main() -> None:
     elif sys.platform == "darwin":
         build_macos.pipeline(sign=args.package)
     elif sys.platform.startswith("linux"):
-        build_linux.pipeline()
+        build_linux.pipeline(package=args.package)
     else:
         raise RuntimeError(f"Unsupported platform: {sys.platform}")
 
