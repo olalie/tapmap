@@ -52,6 +52,8 @@ OutputBaseFilename={#MyOutputBaseFilename}
 SolidCompression=yes
 WizardStyle=modern dynamic
 SetupIconFile={#MySetupIcon}
+SignTool=signtool
+SignedUninstaller=yes
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"

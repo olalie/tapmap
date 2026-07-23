@@ -7,17 +7,16 @@ Pipeline
 3. Run automated tests.
 4. Build the application with PyInstaller.
 5. Verify the application build.
-6. Package the application as an Inno Setup installer.
-7. Verify the packaged release.
+6. (Optional) Package the application as an Inno Setup installer.
+7. (Optional) Verify the packaged release.
 
 Implementation
 --------------
-- Entry point: python tools/build.py
+- Entry point: python tools/build.py [--package]
 - Application is built as a PyInstaller onedir distribution.
 - The installer is created with Inno Setup (TapMap.iss).
-- Official release signing is performed by the GitHub Actions
-  pipeline using SignPath.
-- Local builds are not code signed.
+- Release packages are code signed using SignPath.
+- Packaging requires the SIGNPATH_API_TOKEN environment variable.
 """
 
 from pathlib import Path
@@ -28,6 +27,7 @@ from build_common import (
     PACKAGE_DIR,
     PROJECT_ROOT,
     build_application,
+    powershell,
     project_metadata,
     require_tool,
     rm_tree,
@@ -65,22 +65,51 @@ def verify_application() -> None:
     print(f"[OK] Verify build ({app.name})")
 
 
+def sign_application() -> None:
+    """Sign the application executable."""
+    ps = powershell()
+    require_tool(ps)
+
+    exe = expected_output_file()
+
+    run(
+        [
+            ps,
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(PROJECT_ROOT / "tools" / "signtool.ps1"),
+            "-File",
+            str(exe),
+        ],
+        capture_output=True,
+    )
+
+    print(f"[OK] Signed application ({exe.name})")
+
+
 def setup_name(version: str) -> str:
     """Return the Windows installer filename."""
     return f"TapMap-{version}-windows-x64-Setup"
 
 
-def package() -> None:
+def package_release() -> None:
     """Create the release package."""
     project = project_metadata()
     version = project["version"]
     output = setup_name(version)
     exe = expected_output_file()
     icon = PROJECT_ROOT / "src" / "tapmap" / "assets" / "tapmap.ico"
+    sign_script = PROJECT_ROOT / "tools" / "signtool.ps1"
+
+    ps = powershell()
+    require_tool(ps)
+    require_tool("iscc")
 
     run(
         [
             "iscc",
+            f"/Ssigntool={ps} -ExecutionPolicy Bypass -File $q{sign_script}$q $f",
             f"/DMyAppVersion={version}",
             f"/DMyAppExePath={exe}",
             f"/DMySetupIcon={icon}",
@@ -91,8 +120,10 @@ def package() -> None:
         capture_output=True,
     )
 
+    print(f"[OK] Package release ({output}.exe)")
 
-def verify_package(sign: bool = False) -> None:
+
+def verify_package() -> None:
     """Verify the release package."""
     project = project_metadata()
     package = DIST_DIR / f"{setup_name(project['version'])}.exe"
@@ -103,11 +134,13 @@ def verify_package(sign: bool = False) -> None:
     print(f"[OK] Verified package ({package.name})")
 
 
-def pipeline() -> None:
+def pipeline(package: bool = False) -> None:
     """Build the Windows application and installer."""
     setup()
     run_tests()
     build_application()
     verify_application()
-    package()
-    verify_package()
+    if package:
+        sign_application()
+        package_release()
+        verify_package()

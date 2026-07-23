@@ -65,6 +65,11 @@ def require_tool(name: str) -> None:
         raise RuntimeError(f"Required tool '{name}' is not installed.")
 
 
+def powershell() -> str:
+    """Return the preferred PowerShell executable."""
+    return shutil.which("pwsh") or shutil.which("powershell") or "powershell"
+
+
 # File helpers
 def _on_rm_error(func, path: str, _exc) -> None:
     """Retry removal of read-only files."""
