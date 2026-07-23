@@ -23,7 +23,7 @@ jobs:
     name: Windows Build
     uses: ./.github/workflows/pipeline-windows.yaml
     with:
-      sign: true
+      package: true
 
   macos-arm64:
     name: macOS (Apple Silicon)

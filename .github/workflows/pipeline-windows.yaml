@@ -3,14 +3,14 @@ name: Windows Pipeline
 on:
   workflow_dispatch:
     inputs:
-      sign:
-        description: "Submit installer to SignPath"
+      package:
+        description: "Create a release package"
         type: boolean
         default: false
 
   workflow_call:
     inputs:
-      sign:
+      package:
         type: boolean
         default: false
 
@@ -34,63 +34,29 @@ jobs:
           pip install -r requirements-tests.txt
           pip install pyinstaller
 
-      - name: Build (same as local)
+      - name: Build
         shell: pwsh
+        env:
+          SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
         run: |
-          python tools/build.py
+          if ("${{ inputs.package }}" -eq "true") {
+            python tools/build.py --package
+          }
+          else {
+            python tools/build.py
+          }
 
       - name: Show build output
         shell: pwsh
         run: |
-          Get-ChildItem dist
+          Get-ChildItem -Recurse dist
 
-      - name: Upload unsigned artifact
-        id: upload-unsigned-artifact
+      - name: Upload installer
+        if: inputs.package
         uses: actions/upload-artifact@v7
         with:
           name: tapmap-windows-setup
           path: dist/TapMap-*-windows-x64-Setup.exe
-          archive: false
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Submit signing request
-        if: inputs.sign
-        uses: signpath/github-action-submit-signing-request@v2
-        with:
-          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
-          organization-id: 95d3450c-5444-470c-a16f-9e990aacf813
-          project-slug: tapmap
-          signing-policy-slug: test-signing
-          github-artifact-id: ${{ steps.upload-unsigned-artifact.outputs.artifact-id }}
-          wait-for-completion: true
-          output-artifact-directory: signed
-          skip-decompress: true
-
-      - name: Show build and signed output
-        if: inputs.sign
-        shell: pwsh
-        run: |
-          Write-Host "=== dist ==="
-          Get-ChildItem -Recurse dist
-
-          Write-Host ""
-          Write-Host "=== signed ==="
-          Get-ChildItem -Recurse signed
-
-      - name: Prepare signed installer artifact
-        if: inputs.sign
-        shell: pwsh
-        run: |
-          $file = Get-ChildItem signed\*-Setup.exe
-          Copy-Item $file.FullName ($file.FullName -replace '\.exe$', '-signed.exe')
-
-      - name: Upload signed installer
-        if: inputs.sign
-        uses: actions/upload-artifact@v7
-        with:
-          name: tapmap-windows-setup-signed
-          path: signed/*-Setup-signed.exe
           archive: false
           if-no-files-found: error
           retention-days: 7
