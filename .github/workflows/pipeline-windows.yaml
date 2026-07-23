@@ -49,7 +49,7 @@ jobs:
       - name: Show build output
         shell: pwsh
         run: |
-          Get-ChildItem -Recurse dist
+          Get-ChildItem dist
 
       - name: Upload installer
         if: inputs.package
