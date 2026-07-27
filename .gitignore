@@ -12,6 +12,7 @@ venv/
 # Build output (PyInstaller)
 build/
 dist/
+tools/windows/file_version_info.txt
 
 # IDE / OS
 .vscode/*

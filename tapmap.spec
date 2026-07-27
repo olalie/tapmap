@@ -1,7 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
 import sys
+from pathlib import Path
 
 from tools.build_common import get_signing_identity, project_metadata
+
+VERSION_FILE = Path("tools") / "windows" / "file_version_info.txt"
 
 project = project_metadata()
 version = project["version"]
@@ -32,6 +35,9 @@ else:
     app_icon = "src/tapmap/assets/tapmap.ico"
 
 exe_kwargs = {}
+
+if sys.platform == "win32":
+    exe_kwargs["version"] = str(VERSION_FILE)
 
 if sys.platform == "darwin":
     if signing_identity := get_signing_identity():

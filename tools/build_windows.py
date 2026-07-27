@@ -19,6 +19,7 @@ Implementation
 - Packaging requires the SIGNPATH_API_TOKEN environment variable.
 """
 
+from datetime import date
 from pathlib import Path
 
 from build_common import (
@@ -35,6 +36,10 @@ from build_common import (
     run_tests,
 )
 
+WINDOWS_DIR = PROJECT_ROOT / "tools" / "windows"
+VERSION_TEMPLATE = WINDOWS_DIR / "file_version_info.template"
+VERSION_FILE = WINDOWS_DIR / "file_version_info.txt"
+
 
 def clean() -> None:
     """Remove previous build artifacts."""
@@ -48,6 +53,35 @@ def setup() -> None:
     """Prepare the build environment."""
     clean()
     require_tool("iscc")
+
+
+def update_version_info() -> None:
+    """Generate the PyInstaller VERSIONINFO file from the project metadata template."""
+    project = project_metadata()
+    version = project["version"]
+
+    parts = version.split(".")
+    parts.extend(["0"] * (4 - len(parts)))
+    version_tuple = ", ".join(parts[:4])
+
+    current_year = date.today().year
+    copyright_years = "2026" if current_year == 2026 else f"2026-{current_year}"
+
+    legal_copyright = f"© {copyright_years} TIP Teknologi i Praksis AS"
+
+    template = VERSION_TEMPLATE.read_text(encoding="utf-8")
+
+    content = template.format(
+        FILE_VERSION_TUPLE=version_tuple,
+        PRODUCT_VERSION_TUPLE=version_tuple,
+        FILE_VERSION=version,
+        PRODUCT_VERSION=version,
+        LEGAL_COPYRIGHT=legal_copyright,
+    )
+
+    VERSION_FILE.write_text(content, encoding="utf-8")
+
+    print(f"[OK] Generated {VERSION_FILE.name}")
 
 
 def expected_output_file() -> Path:
@@ -138,6 +172,7 @@ def pipeline(package: bool = False) -> None:
     """Build the Windows application and installer."""
     setup()
     run_tests()
+    update_version_info()
     build_application()
     verify_application()
     if package:
