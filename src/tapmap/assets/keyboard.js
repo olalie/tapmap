@@ -4,6 +4,7 @@
     const shortcuts = new Set([
         "d",
         "i",
+        "t",
         "u",
         "l",
         "o",

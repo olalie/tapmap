@@ -30,6 +30,7 @@ import platform
 import sys
 import threading
 import webbrowser
+from dataclasses import replace
 from datetime import datetime
 from typing import Any, ClassVar, Final, Literal, TypedDict
 
@@ -51,6 +52,7 @@ from tapmap.model.geoinfo import GeoInfo
 from tapmap.model.model import Model
 from tapmap.model.netinfo import NetInfo
 from tapmap.model.public_ip import iter_public_ip_candidates
+from tapmap.settings_persistence import Settings, load_settings, save_settings
 from tapmap.state.insights import process_insights
 from tapmap.state.insights_log import write_insights_log
 from tapmap.state.keyboard import build_key_action
@@ -185,6 +187,9 @@ class TapMap:
         self._load_insights()
         self._last_insights_save = 0.0
 
+        self.settings_path = self.runtime.app_data_dir / "settings.json"
+        self.settings: Settings = load_settings(self.settings_path)
+
         start_fig = self.ui.create_figure(([], self.my_location))
         self.app.layout = self._build_layout(start_fig)
         self._register_callbacks()
@@ -243,6 +248,8 @@ class TapMap:
             menu_overlay_class=self._menu_overlay_class(False),
             menu_panel_class=self._menu_panel_class(False),
             modal_overlay_class=self._modal_overlay_class(initial_modal_open),
+            initial_insights_on=self.settings.insights_panel,
+            initial_technical_details_on=self.settings.technical_details,
         )
 
     @staticmethod
@@ -702,10 +709,12 @@ class TapMap:
         @self.app.callback(
             Output("menu_open", "data"),
             Output("insights_on", "data"),
+            Output("technical_details_on", "data"),
             Input("btn_menu", "n_clicks"),
             Input("menu_overlay", "n_clicks"),
             Input("key_action", "data"),
             Input("menu_insights", "n_clicks"),
+            Input("menu_technical_details", "n_clicks"),
             Input("menu_daily_report", "n_clicks"),
             Input("menu_open_ports", "n_clicks"),
             Input("menu_unmapped", "n_clicks"),
@@ -718,6 +727,7 @@ class TapMap:
             Input("menu_exit", "n_clicks"),
             State("menu_open", "data"),
             State("insights_on", "data"),
+            State("technical_details_on", "data"),
             prevent_initial_call=True,
         )
         def menu_controller(
@@ -725,6 +735,7 @@ class TapMap:
             _overlay: int,
             key_action: Any,
             _insights: int,
+            _technical_details: int,
             _daily_report: int,
             _open_ports: int,
             _unmapped: int,
@@ -737,6 +748,7 @@ class TapMap:
             _exit: int,
             menu_open: Any,
             insights_on: Any,
+            technical_details_on: Any,
         ) -> Any:
             trigger = ctx.triggered_id
 
@@ -745,7 +757,20 @@ class TapMap:
                 and isinstance(key_action, dict)
                 and key_action.get("action") == "menu_insights"
             ):
-                return False, not bool(insights_on)
+                new_value = not bool(insights_on)
+                self.settings = replace(self.settings, insights_panel=new_value)
+                self._save_settings()
+                return False, new_value, no_update
+
+            if trigger == "menu_technical_details" or (
+                trigger == "key_action"
+                and isinstance(key_action, dict)
+                and key_action.get("action") == "menu_technical_details"
+            ):
+                new_value = not bool(technical_details_on)
+                self.settings = replace(self.settings, technical_details=new_value)
+                self._save_settings()
+                return False, no_update, new_value
 
             next_state = compute_menu_open_state(
                 trigger=trigger,
@@ -756,8 +781,8 @@ class TapMap:
             )
 
             if next_state is None:
-                return no_update, no_update
-            return next_state, no_update
+                return no_update, no_update, no_update
+            return next_state, no_update, no_update
 
         @self.app.callback(
             Output("menu_panel", "className"),
@@ -776,6 +801,24 @@ class TapMap:
             if bool(is_on):
                 return "insights-panel is-open"
             return "insights-panel"
+
+        @self.app.callback(
+            Output("menu_insights", "className"),
+            Input("insights_on", "data"),
+        )
+        def toggle_insights_check(is_on: Any) -> str:
+            if bool(is_on):
+                return "mx-btn mx-btn--menu mx-btn--toggle is-checked"
+            return "mx-btn mx-btn--menu mx-btn--toggle"
+
+        @self.app.callback(
+            Output("menu_technical_details", "className"),
+            Input("technical_details_on", "data"),
+        )
+        def toggle_technical_details_check(is_on: Any) -> str:
+            if bool(is_on):
+                return "mx-btn mx-btn--menu mx-btn--toggle is-checked"
+            return "mx-btn mx-btn--menu mx-btn--toggle"
 
         @self.app.callback(
             Output("map", "style"),
@@ -1208,6 +1251,16 @@ class TapMap:
         if now - self._last_insights_save >= 60:
             self._last_insights_save = now
             self._save_insights()
+
+    def _save_settings(self) -> None:
+        """Write settings data to disk atomically."""
+        try:
+            save_settings(self.settings_path, self.settings)
+        except Exception as exc:
+            self.logger.warning(
+                "Unable to save settings. Changes will not be preserved. Reason: %s",
+                exc,
+            )
 
     def _save_insights(self) -> None:
         """Write insights data to disk atomically (delegated)."""

@@ -25,13 +25,16 @@ def render_layout(
     menu_overlay_class: str,
     menu_panel_class: str,
     modal_overlay_class: str,
+    initial_insights_on: bool,
+    initial_technical_details_on: bool,
 ) -> html.Div:
     """Render the application layout."""
     return html.Div(
         className="app",
         children=[
             dcc.Store(id="menu_open", data=False),
-            dcc.Store(id="insights_on", data=True),
+            dcc.Store(id="insights_on", data=initial_insights_on),
+            dcc.Store(id="technical_details_on", data=initial_technical_details_on),
             dcc.Store(id="selected_country", data=None),
             dcc.Store(id="camera_mode", data=None),
             dcc.Store(id="key_action", data=None),
@@ -94,7 +97,11 @@ def render_layout(
                             html.Div(
                                 [
                                     _menu_button("Daily activity report (D)", "menu_daily_report"),
-                                    _menu_button("Insights panel (I)", "menu_insights"),
+                                    _menu_toggle_button(
+                                        "Insights panel (I)",
+                                        "menu_insights",
+                                        initial_insights_on,
+                                    ),
                                 ],
                                 className="mx-acc-body",
                             ),
@@ -110,6 +117,11 @@ def render_layout(
                                     _menu_button("Unmapped public services (U)", "menu_unmapped"),
                                     _menu_button("LAN/LOCAL services (L)", "menu_lan_local"),
                                     _menu_button("Open ports (O)", "menu_open_ports"),
+                                    _menu_toggle_button(
+                                        "Technical details (T)",
+                                        "menu_technical_details",
+                                        initial_technical_details_on,
+                                    ),
                                 ],
                                 className="mx-acc-body",
                             ),
@@ -204,5 +216,19 @@ def _menu_button(label: str, btn_id: str) -> html.Button:
         id=btn_id,
         n_clicks=0,
         className="mx-btn mx-btn--menu",
+        type="button",
+    )
+
+
+def _menu_toggle_button(label: str, btn_id: str, is_checked: bool) -> html.Button:
+    """Render a menu button that displays a checkbox toggle state."""
+    class_name = "mx-btn mx-btn--menu mx-btn--toggle"
+    if is_checked:
+        class_name += " is-checked"
+    return html.Button(
+        label,
+        id=btn_id,
+        n_clicks=0,
+        className=class_name,
         type="button",
     )

@@ -13,6 +13,7 @@ import psutil
 import pytest
 
 from tapmap.app import TapMap
+from tapmap.settings_persistence import Settings
 
 
 def test_failed_save_does_not_corrupt_state(tmp_path: Path) -> None:
@@ -39,6 +40,20 @@ def test_failed_save_does_not_corrupt_state(tmp_path: Path) -> None:
     }
 
 
+def test_failed_save_settings_does_not_corrupt_state(tmp_path: Path) -> None:
+    """A failed settings save does not corrupt or clear in-memory state."""
+    app = _bare_app(tmp_path)
+    app.settings = Settings(version=1, insights_panel=False, technical_details=True)
+    # Simulate save failure by patching Path.open to raise OSError
+    with (
+        unittest.mock.patch.object(Path, "open", side_effect=OSError("disk full")),
+        contextlib.suppress(OSError),
+    ):
+        app._save_settings()
+    # State should be unchanged
+    assert app.settings == Settings(version=1, insights_panel=False, technical_details=True)
+
+
 _EMPTY: dict = {"countries": {}, "providers": {}, "ports": {}, "applications": {}}
 
 
@@ -48,6 +63,8 @@ def _bare_app(tmp_path: Path) -> TapMap:
     app.logger = logging.getLogger("test")
     app.insights = {}
     app.insights_path = tmp_path / "insights.json"
+    app.settings = Settings()
+    app.settings_path = tmp_path / "settings.json"
     app._lock_path = tmp_path / "tapmap.lock"
     return app
 

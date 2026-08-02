@@ -146,6 +146,16 @@ body {
   font-size: 13px;
 }
 
+.mx-btn--toggle::before {
+  content: "\2610";
+  display: inline-block;
+  width: 1.2em;
+}
+
+.mx-btn--toggle.is-checked::before {
+  content: "\2611";
+}
+
 .mx-btn--primary {
   padding: 10px 16px;
   font-size: 14px;

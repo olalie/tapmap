@@ -85,6 +85,18 @@ def test_build_key_action_maps_geodb_management(monkeypatch) -> None:
     }
 
 
+def test_build_key_action_maps_technical_details(monkeypatch) -> None:
+    """Map T token to technical details toggle action."""
+    monkeypatch.setattr(keyboard, "datetime", DummyDatetime)
+
+    result = keyboard.build_key_action("__t__")
+
+    assert result == {
+        "action": "menu_technical_details",
+        "t": "2026-01-01T00:00:00",
+    }
+
+
 def test_build_key_action_no_longer_maps_legacy_geo_recheck(monkeypatch) -> None:
     """Return None for removed R token mapping."""
     monkeypatch.setattr(keyboard, "datetime", DummyDatetime)

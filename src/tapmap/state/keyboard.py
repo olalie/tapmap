@@ -12,6 +12,7 @@ from typing import Any
 KEY_MAP = {
     "__d__": "menu_daily_report",
     "__i__": "menu_insights",
+    "__t__": "menu_technical_details",
     "__u__": "menu_unmapped",
     "__l__": "menu_lan_local",
     "__o__": "menu_open_ports",
