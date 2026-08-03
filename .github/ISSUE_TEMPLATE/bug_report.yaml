@@ -1,0 +1,47 @@
+name: I found a bug
+description: Report a bug in TapMap.
+
+body:
+  - type: checkboxes
+    attributes:
+      label: Search existing issues
+      options:
+        - label: I searched the existing issues.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Describe the problem
+      description: Describe the problem and how to reproduce it.
+      placeholder: |
+        1. Start TapMap.
+        2. ...
+        3. ...
+        4. The problem occurs.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+        - Docker
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-information
+    attributes:
+      label: Additional information
+      description: |
+        Include screenshots, error messages, or log output if relevant.
+
+        The log file is named tapmap.log.
+
+        To locate it, press G in TapMap, then click Open data folder.

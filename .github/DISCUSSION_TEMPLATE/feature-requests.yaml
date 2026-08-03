@@ -1,0 +1,32 @@
+title: Feature request
+
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the problem or limitation.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Describe your idea
+      description: Explain how you think TapMap could solve the problem.
+    validations:
+      required: true
+
+  - type: textarea
+    id: benefit
+    attributes:
+      label: How would this improve TapMap?
+      description: Explain how the proposed feature would benefit users.
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-information
+    attributes:
+      label: Additional information
+      description: Include examples, screenshots, mockups, or anything else that may help explain the idea.
