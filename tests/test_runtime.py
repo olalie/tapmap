@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -11,6 +12,7 @@ from tapmap.runtime import (
     _get_cache_retention_min,
     _get_launch_browser,
     _get_location_override,
+    _get_security_extensions_dir,
 )
 
 
@@ -151,3 +153,19 @@ class TestGetCacheRetentionMin:
         """Invalid values fall back to config default."""
         with patch.dict(os.environ, {"TAPMAP_CACHE_RETENTION_MIN": value}, clear=True):
             assert _get_cache_retention_min() == 0
+
+
+class TestGetSecurityExtensionsDir:
+    """Test _get_security_extensions_dir() resolution for frozen and source runs."""
+
+    def test_frozen_resolves_relative_to_run_dir(self) -> None:
+        """Frozen builds resolve the DLL directory next to the executable."""
+        run_dir = Path("C:/Program Files/TapMap")
+        result = _get_security_extensions_dir(True, run_dir)
+        assert result == run_dir / "third_party" / "microsoft_security_extensions"
+
+    def test_source_run_resolves_relative_to_repo_root(self) -> None:
+        """Source runs resolve the DLL directory two levels above src/tapmap."""
+        run_dir = Path("C:/repo/src/tapmap")
+        result = _get_security_extensions_dir(False, run_dir)
+        assert result == Path("C:/repo/third_party/microsoft_security_extensions")

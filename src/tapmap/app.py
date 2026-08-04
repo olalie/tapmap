@@ -48,6 +48,7 @@ from tapmap.insights_persistence import (
     load_insights,
     save_insights,
 )
+from tapmap.model.appinfo import AppInfo
 from tapmap.model.geoinfo import GeoInfo
 from tapmap.model.model import Model
 from tapmap.model.netinfo import NetInfo
@@ -155,6 +156,7 @@ class TapMap:
         self.model = Model(
             netinfo=NetInfo(),
             geoinfo=GeoInfo(data_dir=self.runtime.geo_data_dir),
+            appinfo=AppInfo(security_extensions_dir=self.runtime.security_extensions_dir),
         )
 
         self._public_ip_cached: str | None = None

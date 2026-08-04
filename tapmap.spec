@@ -9,13 +9,23 @@ VERSION_FILE = Path("tools") / "windows" / "file_version_info.txt"
 project = project_metadata()
 version = project["version"]
 
+datas = [
+    ("src/tapmap/assets", "tapmap/assets"),
+]
+
+if sys.platform == "win32":
+    datas.append(
+        (
+            "third_party/microsoft_security_extensions",
+            "third_party/microsoft_security_extensions",
+        )
+    )
+
 a = Analysis(
     ["src/tapmap/__main__.py"],
     pathex=["src"],
     binaries=[],
-    datas=[
-        ("src/tapmap/assets", "tapmap/assets"),
-    ],
+    datas=datas,
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

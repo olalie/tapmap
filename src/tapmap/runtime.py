@@ -34,6 +34,8 @@ class RuntimeContext:
         is_frozen: True when running as a bundled executable (PyInstaller).
         net_backend: Network connection backend name.
         net_backend_version: Network backend version.
+        security_extensions_dir: Directory containing the Microsoft Security
+            Extensions wrapper DLLs (Windows only; may not exist on other OSes).
     """
 
     meta: AppMeta
@@ -48,6 +50,7 @@ class RuntimeContext:
     cache_retention_min: int
     is_docker: bool
     location_override: tuple[float, float] | None
+    security_extensions_dir: Path
 
     @property
     def geo_data_dir(self) -> Path:
@@ -63,6 +66,18 @@ def _get_app_data_dir(meta: AppMeta) -> Path:
         return app_dir
 
     return ensure_native_app_data_dir(meta.name)
+
+def _get_security_extensions_dir(is_frozen: bool, run_dir: Path) -> Path:
+    """Return the directory containing the Microsoft Security Extensions DLLs.
+
+    Frozen: bundled by tapmap.spec next to the executable. Source run:
+    resolved relative to the repository root, two levels above run_dir
+    (src/tapmap/).
+    """
+    if is_frozen:
+        return run_dir / "third_party" / "microsoft_security_extensions"
+
+    return run_dir.parent.parent / "third_party" / "microsoft_security_extensions"
 
 def _get_server_host(is_docker: bool) -> str:
     """Return server bind host for the current runtime."""
@@ -153,6 +168,7 @@ def build_runtime(meta: AppMeta) -> RuntimeContext:
     launch_browser = _get_launch_browser()
     cache_retention_min = _get_cache_retention_min()
     location_override = _get_location_override()
+    security_extensions_dir = _get_security_extensions_dir(is_frozen, run_dir)
 
     return RuntimeContext(
         meta=meta,
@@ -167,6 +183,7 @@ def build_runtime(meta: AppMeta) -> RuntimeContext:
         cache_retention_min=cache_retention_min,
         is_docker=is_docker,
         location_override=location_override,
+        security_extensions_dir=security_extensions_dir,
     )
 
 def _detect_network_backend() -> tuple[str, str]:

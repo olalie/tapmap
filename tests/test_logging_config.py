@@ -26,6 +26,7 @@ def _runtime_ctx(tmp_path: Path) -> RuntimeContext:
         cache_retention_min=0,
         is_docker=False,
         location_override=None,
+        security_extensions_dir=tmp_path,
     )
 
 

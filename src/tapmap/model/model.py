@@ -34,6 +34,11 @@ class CacheItem(TypedDict):
     country_code: str | None
     asn: int | None
     asn_org: str | None
+    app_name: str | None
+    app_creator: str | None
+    app_trust: str | None
+    app_signature_state: str | None
+    app_signature_state_reason: str | None
 
 
 class OpenPort(TypedDict):
@@ -63,21 +68,26 @@ class SnapshotPayload(TypedDict):
 class Model:
     """Build one live snapshot from current network data."""
 
-    def __init__(self, netinfo: Any, geoinfo: Any) -> None:
+    def __init__(self, netinfo: Any, geoinfo: Any, appinfo: Any) -> None:
         self.netinfo = netinfo
         self.geoinfo = geoinfo
+        self.appinfo = appinfo
         self.logger = logging.getLogger(__name__)
 
     def snapshot(self) -> SnapshotPayload:
         """Return a snapshot payload for the UI."""
         now = datetime.now()
         geo_enabled = self._geoinfo_enabled()
+        app_enabled = self._appinfo_enabled()
 
         try:
             connections = self.netinfo.get_data()
 
             if geo_enabled:
                 self.geoinfo.enrich(connections)
+
+            if app_enabled:
+                self.appinfo.enrich(connections)
 
             live_tcp_total = 0
             live_tcp_established = 0
@@ -147,6 +157,7 @@ class Model:
                     "updated": now.strftime("%H:%M:%S"),
                     "dropped_missing_remote": dropped_missing_remote,
                     "geoinfo_enabled": geo_enabled,
+                    "appinfo_enabled": app_enabled,
                 },
                 "cache_items": cache_items,
                 "map_candidates": map_candidates,
@@ -166,6 +177,7 @@ class Model:
                     "updated": now.strftime("%H:%M:%S"),
                     "dropped_missing_remote": 0,
                     "geoinfo_enabled": geo_enabled,
+                    "appinfo_enabled": app_enabled,
                 },
                 "cache_items": [],
                 "map_candidates": [],
@@ -174,6 +186,9 @@ class Model:
 
     def _geoinfo_enabled(self) -> bool:
         return bool(getattr(self.geoinfo, "enabled", False))
+
+    def _appinfo_enabled(self) -> bool:
+        return bool(getattr(self.appinfo, "enabled", False))
 
     @staticmethod
     def _is_map_candidate(item: CacheItem) -> bool:
@@ -318,4 +333,9 @@ class Model:
             "country_code": conn.get("country_code"),
             "asn": conn.get("asn"),
             "asn_org": conn.get("asn_org"),
+            "app_name": conn.get("app_name"),
+            "app_creator": conn.get("app_creator"),
+            "app_trust": conn.get("app_trust"),
+            "app_signature_state": conn.get("app_signature_state"),
+            "app_signature_state_reason": conn.get("app_signature_state_reason"),
         }
