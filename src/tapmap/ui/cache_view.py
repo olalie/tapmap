@@ -109,7 +109,20 @@ class CacheViewBuilder:
             self._merge_missing_attrs(
                 entry,
                 candidate,
-                attrs=("proto", "lon", "lat", "city", "country", "asn", "asn_org"),
+                attrs=(
+                    "proto",
+                    "lon",
+                    "lat",
+                    "city",
+                    "country",
+                    "asn",
+                    "asn_org",
+                    "app_name",
+                    "app_creator",
+                    "app_trust",
+                    "app_signature_state",
+                    "app_signature_state_reason",
+                ),
             )
 
         self._prune_cache(cache, now)
@@ -145,6 +158,11 @@ class CacheViewBuilder:
             "country": candidate.get("country"),
             "asn": candidate.get("asn"),
             "asn_org": candidate.get("asn_org"),
+            "app_name": candidate.get("app_name"),
+            "app_creator": candidate.get("app_creator"),
+            "app_trust": candidate.get("app_trust"),
+            "app_signature_state": candidate.get("app_signature_state"),
+            "app_signature_state_reason": candidate.get("app_signature_state_reason"),
             "f": self._now_text(),
             "l": self._now_text(),
             "m": 0,
