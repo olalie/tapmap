@@ -282,10 +282,10 @@ def test_startup_geodb_modal_should_close_when_recheck_enables_geoinfo(
             "t": "2026-06-04T00:00:00",
             "payload": {"startup_required": True},
         }
-        snapshot = {"app_info": {"geoinfo_enabled": True}}
+        snapshot = {"runtime_info": {"geoinfo_enabled": True}}
 
         assert app._startup_geodb_modal_should_close(modal_state, snapshot) is True
-        assert app._startup_geodb_modal_should_close(modal_state, {"app_info": {}}) is False
+        assert app._startup_geodb_modal_should_close(modal_state, {"runtime_info": {}}) is False
         assert app._startup_geodb_modal_should_close(None, snapshot) is False
     finally:
         app.close()

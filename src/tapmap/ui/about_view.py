@@ -23,29 +23,29 @@ def render_about(
 ) -> list[Any]:
     """Render About view content.
 
-    Read snapshot["app_info"] only and avoid network calls.
+    Read snapshot["runtime_info"] only and avoid network calls.
     """
-    app_info: dict[str, Any] = {}
+    runtime_info: dict[str, Any] = {}
     if isinstance(snapshot, dict):
-        info = snapshot.get("app_info")
+        info = snapshot.get("runtime_info")
         if isinstance(info, dict):
-            app_info = info
+            runtime_info = info
 
-    server_host_val = app_info.get("server_host")
+    server_host_val = runtime_info.get("server_host")
     server_host = server_host_val if isinstance(server_host_val, str) else "-"
-    server_port = app_info.get("server_port")
-    poll_ms = app_info.get("poll_interval_ms")
-    coord_precision = app_info.get("coord_precision")
-    near_km = app_info.get("zoom_near_km")
-    launch_browser = bool(app_info.get("launch_browser", True))
+    server_port = runtime_info.get("server_port")
+    poll_ms = runtime_info.get("poll_interval_ms")
+    coord_precision = runtime_info.get("coord_precision")
+    near_km = runtime_info.get("zoom_near_km")
+    launch_browser = bool(runtime_info.get("launch_browser", True))
 
-    cache_retention_min = app_info.get("cache_retention_min")
+    cache_retention_min = runtime_info.get("cache_retention_min")
     if not isinstance(cache_retention_min, int):
         cache_retention_min = 0
 
-    geoinfo_enabled = bool(app_info.get("geoinfo_enabled", False))
-    geo_provider = str(app_info.get("geo_provider") or "-")
-    geo_database_date = str(app_info.get("geo_database_date") or "-")
+    geoinfo_enabled = bool(runtime_info.get("geoinfo_enabled", False))
+    geo_provider = str(runtime_info.get("geo_provider") or "-")
+    geo_database_date = str(runtime_info.get("geo_database_date") or "-")
 
     provider_label = {
         "maxmind": "MaxMind GeoLite2",
@@ -53,24 +53,24 @@ def render_about(
         "none": "None",
     }.get(geo_provider, geo_provider)
 
-    myloc_mode_val = app_info.get("myloc_mode")
+    myloc_mode_val = runtime_info.get("myloc_mode")
     myloc_mode = myloc_mode_val if isinstance(myloc_mode_val, str) else "OFF"
-    my_location = app_info.get("my_location")
+    my_location = runtime_info.get("my_location")
 
-    public_ip_cached = app_info.get("public_ip_cached")
+    public_ip_cached = runtime_info.get("public_ip_cached")
     public_ip_cached = (
         public_ip_cached if isinstance(public_ip_cached, str) and public_ip_cached else None
     )
 
-    auto_geo_cached = app_info.get("auto_geo_cached")
+    auto_geo_cached = runtime_info.get("auto_geo_cached")
     auto_geo = auto_geo_cached if isinstance(auto_geo_cached, dict) else {}
 
-    os_text = app_info.get("os") if isinstance(app_info.get("os"), str) else "-"
-    py_text = app_info.get("python") if isinstance(app_info.get("python"), str) else "-"
+    os_text = runtime_info.get("os") if isinstance(runtime_info.get("os"), str) else "-"
+    py_text = runtime_info.get("python") if isinstance(runtime_info.get("python"), str) else "-"
 
-    net_backend_val = app_info.get("net_backend")
+    net_backend_val = runtime_info.get("net_backend")
     net_backend = net_backend_val if isinstance(net_backend_val, str) else "-"
-    net_backend_version_val = app_info.get("net_backend_version")
+    net_backend_version_val = runtime_info.get("net_backend_version")
     net_backend_version = (
         net_backend_version_val if isinstance(net_backend_version_val, str) else "-"
     )

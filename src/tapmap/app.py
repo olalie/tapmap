@@ -317,7 +317,7 @@ class TapMap:
 
         return []
 
-    def _build_app_info(self) -> dict[str, Any]:
+    def _build_runtime_info(self) -> dict[str, Any]:
         geo_status = self.geodb.local_status()
         return {
             "version": self.runtime.meta.version,
@@ -454,7 +454,7 @@ class TapMap:
     def _handle_clear_cache(self, status_cache: StatusCache) -> tuple[Any, Any, Any, Any, Any]:
         snap = self.model.snapshot()
         if isinstance(snap, dict):
-            snap["app_info"] = self._build_app_info()
+            snap["runtime_info"] = self._build_runtime_info()
 
         status_cache.clear()
         empty_cache: dict[str, Any] = {}
@@ -471,7 +471,7 @@ class TapMap:
             flash = self._flash("Model snapshot is invalid. See terminal.", self.MIN_FLASH_S)
             return {"error": True}, ui_cache, status_cache.to_store(), view, flash
 
-        snap["app_info"] = self._build_app_info()
+        snap["runtime_info"] = self._build_runtime_info()
 
         if snap.get("error"):
             view = self.view_builder.build_view_from_cache(ui_cache)
@@ -544,9 +544,9 @@ class TapMap:
             return False
 
         snapshot_data = snapshot if isinstance(snapshot, dict) else {}
-        snapshot_app_info = snapshot_data.get("app_info")
-        app_info = snapshot_app_info if isinstance(snapshot_app_info, dict) else {}
-        return bool(app_info.get("geoinfo_enabled", False))
+        snapshot_runtime_info = snapshot_data.get("runtime_info")
+        runtime_info = snapshot_runtime_info if isinstance(snapshot_runtime_info, dict) else {}
+        return bool(runtime_info.get("geoinfo_enabled", False))
 
     def _render_modal(
         self,
