@@ -6,7 +6,10 @@ values in the TapMap interface.
 
 from __future__ import annotations
 
+import re
 from typing import Any
+
+_CAMEL_CASE_BOUNDARY = re.compile(r"(?<!^)(?=[A-Z])")
 
 
 def safe_str(value: Any) -> str:
@@ -60,3 +63,38 @@ def pretty_bind_ip(ip: str) -> str:
     if ip == "::":
         return "ALL (IPv6)"
     return ip
+
+
+def country_flag(code: str | None) -> str:
+    """Return a flag emoji for a two-letter ISO country code, or a globe fallback."""
+    if not isinstance(code, str) or len(code) != 2:
+        return "🌐"
+    code = code.upper()
+    return chr(127397 + ord(code[0])) + chr(127397 + ord(code[1]))
+
+
+_TRUST_COLORS = {
+    "trusted": "#00ff66",
+    "not_trusted": "#ff4444",
+}
+
+
+def trust_glyph(trust: str | None) -> str:
+    """Return a colored bullet glyph for an app_trust value.
+
+    Accepts "trusted", "not_trusted", "unknown", or None; any other value
+    renders as unknown.
+    """
+    color = _TRUST_COLORS.get(trust, "#ffffff")
+    return f'<span style="color:{color}">●</span>'
+
+
+def humanize_camel_case(text: str) -> str:
+    """Convert PascalCase/camelCase text into normal, space-separated words.
+
+    Only the first word keeps its original casing; the rest are lowercased.
+    """
+    words = _CAMEL_CASE_BOUNDARY.sub(" ", text).split()
+    if not words:
+        return text
+    return " ".join([words[0], *(w.lower() for w in words[1:])])

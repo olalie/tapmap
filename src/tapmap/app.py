@@ -145,6 +145,8 @@ class TapMap:
             is_docker=self.runtime.is_docker,
             cache_retention_min=self.runtime.cache_retention_min,
         )
+        self._ui_cache: dict[str, Any] = {}
+        self._status_cache = StatusCache()
 
         self.modal_text = ModalTextBuilder(
             self.runtime.meta.name,
@@ -451,30 +453,36 @@ class TapMap:
             self.geodb.recheck()
         )
    
-    def _handle_clear_cache(self, status_cache: StatusCache) -> tuple[Any, Any, Any, Any, Any]:
+    def _handle_clear_cache(
+        self, status_cache: StatusCache, technical_details_enabled: bool
+    ) -> tuple[Any, Any, Any, Any, Any]:
         snap = self.model.snapshot()
         if isinstance(snap, dict):
             snap["runtime_info"] = self._build_runtime_info()
 
         status_cache.clear()
         empty_cache: dict[str, Any] = {}
-        view = self.view_builder.build_view_from_cache(empty_cache)
+        view = self.view_builder.build_view_from_cache(empty_cache, technical_details_enabled)
         flash = self._flash("Clearing cache...", self.MIN_FLASH_S)
         return snap, empty_cache, status_cache.to_store(), view, flash
 
     def _handle_normal_poll(
-        self, tick_n: int, status_cache: StatusCache, ui_cache: dict[str, Any]
+        self,
+        tick_n: int,
+        status_cache: StatusCache,
+        ui_cache: dict[str, Any],
+        technical_details_enabled: bool,
     ) -> tuple[Any, Any, Any, Any, Any]:
         snap = self.model.snapshot()
         if not isinstance(snap, dict):
-            view = self.view_builder.build_view_from_cache(ui_cache)
+            view = self.view_builder.build_view_from_cache(ui_cache, technical_details_enabled)
             flash = self._flash("Model snapshot is invalid. See terminal.", self.MIN_FLASH_S)
             return {"error": True}, ui_cache, status_cache.to_store(), view, flash
 
         snap["runtime_info"] = self._build_runtime_info()
 
         if snap.get("error"):
-            view = self.view_builder.build_view_from_cache(ui_cache)
+            view = self.view_builder.build_view_from_cache(ui_cache, technical_details_enabled)
             return snap, ui_cache, status_cache.to_store(), view, no_update
 
         candidates_any = snap.get("map_candidates")
@@ -484,7 +492,7 @@ class TapMap:
         items_any = snap.get("cache_items")
         items = items_any if isinstance(items_any, list) else []
         status_cache.update(items)
-        view = self.view_builder.build_view_from_cache(updated_cache)
+        view = self.view_builder.build_view_from_cache(updated_cache, technical_details_enabled)
         self._maybe_save_insights()
 
         return snap, updated_cache, status_cache.to_store(), view, no_update
@@ -660,28 +668,26 @@ class TapMap:
     def _register_poll_callbacks(self) -> None:
         @self.app.callback(
             Output("model_snapshot", "data"),
-            Output("ui_cache", "data"),
             Output("status_cache", "data"),
             Output("ui_view", "data"),
             Output("status_flash", "data"),
             Input("tick_model", "n_intervals"),
             Input("key_action", "data"),
             Input("menu_clear_cache", "n_clicks"),
-            State("ui_cache", "data"),
-            State("status_cache", "data"),
             State("status_flash", "data"),
+            State("technical_details_on", "data"),
             prevent_initial_call=True,
         )
         def poll_model(
             tick_n: int,
             key_action: Any,
             _clear_clicks: int,
-            ui_cache_data: Any,
-            status_cache_data: Any,
             status_flash_data: Any,
+            technical_details_data: Any,
         ):
-            status_cache = StatusCache.from_store(status_cache_data)
-            ui_cache = self._ensure_dict(ui_cache_data)
+            status_cache = self._status_cache
+            ui_cache = self._ui_cache
+            technical_details_enabled = bool(technical_details_data)
             trigger = ctx.triggered_id
             decision = decide_poll_action(
                 trigger=trigger,
@@ -689,23 +695,27 @@ class TapMap:
             )
 
             if decision.action == ACTION_CLEAR_CACHE:
-                snap, cache, sc_store, view, flash = self._handle_clear_cache(status_cache)
-                return snap, cache, sc_store, view, flash
+                snap, cache, sc_store, view, flash = self._handle_clear_cache(
+                    status_cache, technical_details_enabled
+                )
+                self._ui_cache = cache
+                return snap, sc_store, view, flash
 
             if decision.action == ACTION_NORMAL_POLL:
                 snap, cache, sc_store, view, _flash = self._handle_normal_poll(
-                    tick_n, status_cache, ui_cache
+                    tick_n, status_cache, ui_cache, technical_details_enabled
                 )
+                self._ui_cache = cache
 
                 now = datetime.now().timestamp()
                 if isinstance(status_flash_data, dict):
                     until = status_flash_data.get("until")
                     if isinstance(until, (int, float)) and now < until:
-                        return snap, cache, sc_store, view, no_update
+                        return snap, sc_store, view, no_update
 
-                return snap, cache, sc_store, view, None
+                return snap, sc_store, view, None
 
-            return no_update, no_update, no_update, no_update, no_update
+            return no_update, no_update, no_update, no_update
 
     def _register_menu_callbacks(self) -> None:
         @self.app.callback(
@@ -909,15 +919,11 @@ class TapMap:
             Output("cache_download", "data"),
             Input("menu_export_cache", "n_clicks"),
             Input("key_action", "data"),
-            State("ui_cache", "data"),
-            State("status_cache", "data"),
             prevent_initial_call=True,
         )
         def export_cache(
             n_clicks: int | None,
             key_action: Any,
-            ui_cache_data: Any,
-            status_cache_data: Any,
         ) -> Any:
             trigger = ctx.triggered_id
             if trigger == "key_action":
@@ -927,13 +933,11 @@ class TapMap:
                     raise PreventUpdate
             elif not n_clicks:
                 raise PreventUpdate
-            status_cache = StatusCache.from_store(status_cache_data)
-            ui_cache = self._ensure_dict(ui_cache_data)
             now = datetime.now()
             filename = f"tapmap-cache-{now.strftime('%Y-%m-%d_%H-%M-%S')}.txt"
             header = f"TapMap Cache Export\nGenerated: {now.strftime('%Y-%m-%d %H:%M:%S')}"
             return dcc.send_string(
-                status_cache.format_ui_cache_text(ui_cache, header=header), filename
+                self._status_cache.format_ui_cache_text(self._ui_cache, header=header), filename
             )
 
         @self.app.callback(

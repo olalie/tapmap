@@ -11,11 +11,15 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from typing import Any
 
-from .formatting import safe_int, safe_str
+from .formatting import country_flag, humanize_camel_case, safe_int, safe_str, trust_glyph
+
+_APP_TRUST_PRIORITY: dict[str | None, int] = {"not_trusted": 0, "unknown": 1, "trusted": 2}
 
 
 class CacheViewBuilder:
     """Build UI cache and map view data."""
+
+    _UNKNOWN_APP_KEY = "__unknown_application__"
 
     def __init__(
         self,
@@ -93,6 +97,7 @@ class CacheViewBuilder:
             proto = safe_str(candidate.get("proto")) or None
             process_name = safe_str(candidate.get("process_name"))
             pid = safe_int(candidate.get("pid"))
+            exe = safe_str(candidate.get("exe")) or None
 
             key = self._service_key(ip, port)
             entry = cache.get(key)
@@ -103,9 +108,6 @@ class CacheViewBuilder:
 
             entry["last_seen"] = now
 
-            if process_name:
-                self._merge_process(entry, process_name=process_name, pid=pid)
-            
             self._merge_missing_attrs(
                 entry,
                 candidate,
@@ -115,14 +117,14 @@ class CacheViewBuilder:
                     "lat",
                     "city",
                     "country",
+                    "country_code",
                     "asn",
                     "asn_org",
-                    "app_name",
-                    "app_creator",
-                    "app_trust",
-                    "app_signature_state",
-                    "app_signature_state_reason",
                 ),
+            )
+
+            self._merge_application(
+                entry, exe=exe, candidate=candidate, process_name=process_name, pid=pid
             )
 
         self._prune_cache(cache, now)
@@ -156,16 +158,23 @@ class CacheViewBuilder:
             "lat": candidate.get("lat"),
             "city": candidate.get("city"),
             "country": candidate.get("country"),
+            "country_code": candidate.get("country_code"),
             "asn": candidate.get("asn"),
             "asn_org": candidate.get("asn_org"),
-            "app_name": candidate.get("app_name"),
-            "app_creator": candidate.get("app_creator"),
-            "app_trust": candidate.get("app_trust"),
-            "app_signature_state": candidate.get("app_signature_state"),
-            "app_signature_state_reason": candidate.get("app_signature_state_reason"),
             "f": self._now_text(),
             "l": self._now_text(),
             "m": 0,
+            "applications": {},
+        }
+
+    @staticmethod
+    def _new_application() -> dict[str, Any]:
+        return {
+            "app_name": None,
+            "app_creator": None,
+            "app_trust": None,
+            "app_signature_state": None,
+            "app_signature_state_reason": None,
             "processes": [],
             "proc_pids": {},
         }
@@ -181,16 +190,55 @@ class CacheViewBuilder:
             if entry.get(attr) is None and candidate.get(attr) is not None:
                 entry[attr] = candidate.get(attr)
 
-    def _merge_process(self, entry: dict[str, Any], *, process_name: str, pid: int | None) -> None:
-        processes = entry.get("processes")
+    def _merge_application(
+        self,
+        entry: dict[str, Any],
+        *,
+        exe: str | None,
+        candidate: dict[str, Any],
+        process_name: str,
+        pid: int | None,
+    ) -> None:
+        """Merge one candidate's application metadata into its exe-keyed bucket.
+
+        Candidates with no resolvable exe path share _UNKNOWN_APP_KEY, since
+        no reliable identity exists to key them individually.
+        """
+        applications = entry.get("applications")
+        apps: dict[str, Any] = applications if isinstance(applications, dict) else {}
+        entry["applications"] = apps
+
+        app_key = exe or self._UNKNOWN_APP_KEY
+        app = apps.get(app_key)
+        if not isinstance(app, dict):
+            app = self._new_application()
+            apps[app_key] = app
+
+        self._merge_missing_attrs(
+            app,
+            candidate,
+            attrs=(
+                "app_name",
+                "app_creator",
+                "app_trust",
+                "app_signature_state",
+                "app_signature_state_reason",
+            ),
+        )
+
+        if process_name:
+            self._merge_process(app, process_name=process_name, pid=pid)
+
+    def _merge_process(self, record: dict[str, Any], *, process_name: str, pid: int | None) -> None:
+        processes = record.get("processes")
         proc_list = processes if isinstance(processes, list) else []
         proc_set = {p.strip() for p in proc_list if isinstance(p, str) and p.strip()}
         proc_set.add(process_name)
-        entry["processes"] = sorted(proc_set, key=str.lower)
+        record["processes"] = sorted(proc_set, key=str.lower)
 
-        proc_pids = entry.get("proc_pids")
+        proc_pids = record.get("proc_pids")
         proc_pids_map: dict[str, list[int]] = proc_pids if isinstance(proc_pids, dict) else {}
-        entry["proc_pids"] = proc_pids_map
+        record["proc_pids"] = proc_pids_map
 
         if pid is None:
             return
@@ -201,8 +249,18 @@ class CacheViewBuilder:
         pid_set.add(pid)
         proc_pids_map[process_name] = sorted(pid_set)
 
-    def build_view_from_cache(self, ui_cache: dict[str, Any]) -> dict[str, Any]:
-        """Group cached entries by rounded coordinates and build map view data."""
+    def build_view_from_cache(
+        self, ui_cache: dict[str, Any], technical_details_enabled: bool
+    ) -> dict[str, Any]:
+        """Group cached entries by rounded coordinates and build map view data.
+
+        Args:
+            ui_cache: Per-service cache from merge_map_candidates.
+            technical_details_enabled: When True, hover summaries use the
+                connection-oriented format. When False, hover summaries use
+                the application-oriented format. Click details are
+                unaffected either way.
+        """
         cache = ui_cache if isinstance(ui_cache, dict) else {}
         groups = self._group_by_coord(cache)
 
@@ -228,17 +286,30 @@ class CacheViewBuilder:
             service_count = len(entries)
 
             key_str = str(idx)
-            summaries[key_str] = self._build_hover_summary(
-                place=place,
-                service_count=service_count,
-                entries=entries,
-                unique_orgs=unique_orgs,
-            )
-            details[key_str] = self._build_click_details(
-                place=place,
-                entries=entries,
-                unique_orgs=unique_orgs,
-            )
+            if technical_details_enabled:
+                summaries[key_str] = self._build_hover_summary(
+                    place=place,
+                    service_count=service_count,
+                    entries=entries,
+                    unique_orgs=unique_orgs,
+                )
+                details[key_str] = self._build_click_details(
+                    place=place,
+                    entries=entries,
+                    unique_orgs=unique_orgs,
+                )
+            else:
+                country_code = self._pick_country_code(entries)
+                summaries[key_str] = self._build_app_summary(
+                    place=place,
+                    country_code=country_code,
+                    entries=entries,
+                )
+                details[key_str] = self._build_app_click_details(
+                    place=place,
+                    country_code=country_code,
+                    entries=entries,
+                )
 
         return {
             "points": points,
@@ -303,6 +374,164 @@ class CacheViewBuilder:
         line3 = f"Ports: {ports_txt} | Procs: {procs_txt}"
 
         return f"{line1}<br>{line2}<br>{line3}"
+
+    _SUMMARY_LABEL_WIDTH = len("Network operators:") + 1
+    _SUMMARY_ICON_SLOT = 2
+
+    @classmethod
+    def _format_summary_row(cls, label: str, icon: str, icon_width: int, value: str) -> str:
+        """Pad label and icon slot so value text aligns across summary rows.
+
+        icon_width is the icon's visible character width (not its markup
+        length), used to fill the reserved icon slot with matching padding.
+        """
+        icon_padding = " " * max(0, cls._SUMMARY_ICON_SLOT - icon_width)
+        return f"{label.ljust(cls._SUMMARY_LABEL_WIDTH)}{icon}{icon_padding} {value}"
+
+    @staticmethod
+    def _pick_country_code(entries: list[dict[str, Any]]) -> str | None:
+        codes = [e.get("country_code") for e in entries if e.get("country_code")]
+        return Counter(codes).most_common(1)[0][0] if codes else None
+
+    @staticmethod
+    def _pick_representative_app(
+        entries: list[dict[str, Any]],
+    ) -> tuple[str, str | None, list[dict[str, Any]], int]:
+        """Select the representative application for a ServicePoint.
+
+        Priority: not_trusted, then unknown, then trusted. Within a tier,
+        the application present at the most entries wins; ties break
+        alphabetically by display name. Applications with no app_name share
+        one "Unknown" group. Each entry's applications dict may contain more
+        than one application.
+
+        Returns:
+            (display name, trust, entries carrying that application, unique app count)
+        """
+        groups: dict[str | None, list[dict[str, Any]]] = defaultdict(list)
+        trust_by_key: dict[str | None, str | None] = {}
+
+        for e in entries:
+            applications = e.get("applications")
+            apps = applications if isinstance(applications, dict) else {}
+            seen_keys: set[str | None] = set()
+            for app in apps.values():
+                if not isinstance(app, dict):
+                    continue
+                name = app.get("app_name")
+                key = name if isinstance(name, str) and name.strip() else None
+                trust_by_key.setdefault(key, app.get("app_trust"))
+                if key in seen_keys:
+                    continue
+                seen_keys.add(key)
+                groups[key].append(e)
+
+        if not groups:
+            return "Unknown", None, [], 0
+
+        def rank(item: tuple[str | None, list[dict[str, Any]]]) -> tuple[int, int, str]:
+            key, group_entries = item
+            trust = trust_by_key.get(key)
+            display = key or "Unknown"
+            return (_APP_TRUST_PRIORITY.get(trust, 1), -len(group_entries), display.lower())
+
+        best_key, best_entries = min(groups.items(), key=rank)
+        display_name = best_key or "Unknown"
+        return display_name, trust_by_key.get(best_key), best_entries, len(groups)
+
+    def _build_app_summary(
+        self,
+        *,
+        place: str,
+        country_code: str | None,
+        entries: list[dict[str, Any]],
+    ) -> str:
+        app_name, app_trust, app_entries, unique_app_count = self._pick_representative_app(
+            entries
+        )
+        app_extra = unique_app_count - 1
+        apps_value = app_name if app_extra <= 0 else f"{app_name} +{app_extra}"
+
+        orgs = self._unique_network_orgs(app_entries)
+        org_extra = len(orgs) - 1
+        if orgs:
+            org_value = orgs[0] if org_extra <= 0 else f"{orgs[0]} +{org_extra}"
+        else:
+            org_value = "Unknown network"
+
+        location_row = self._format_summary_row(
+            "Location:", country_flag(country_code), 2, place
+        )
+        operators_row = self._format_summary_row("Network operators:", "", 0, org_value)
+        apps_row = self._format_summary_row("Apps:", trust_glyph(app_trust), 1, apps_value)
+
+        return f"{location_row}<br>{operators_row}<br>{apps_row}"
+
+    _TRUST_STATUS_NOTE = "Trust status is evaluated by the operating system, not by TapMap."
+
+    def _build_app_click_details(
+        self,
+        *,
+        place: str,
+        country_code: str | None,
+        entries: list[dict[str, Any]],
+    ) -> str:
+        """Build the Non-Technical click-details panel: applications grouped by operator."""
+        location_block = f"Location: {country_flag(country_code)} {place}"
+
+        by_org = self._group_by_org(entries)
+        org_blocks: list[str] = []
+        for org in sorted(by_org.keys(), key=str.lower):
+            apps = self._unique_applications(by_org[org])
+            if not apps:
+                continue
+            lines = [f"Network operator: {org}"]
+            for app in apps:
+                bullet = trust_glyph(app.get("app_trust"))
+                lines.append(f"    {bullet} {self._format_app_line(app)}")
+            org_blocks.append("\n".join(lines))
+
+        return "\n\n".join([location_block, *org_blocks, self._TRUST_STATUS_NOTE])
+
+    @staticmethod
+    def _unique_applications(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Return each distinct application observed in entries, once, trust-priority first."""
+        by_exe: dict[str, dict[str, Any]] = {}
+        for e in entries:
+            applications = e.get("applications")
+            apps = applications if isinstance(applications, dict) else {}
+            for exe_key, app in apps.items():
+                if isinstance(app, dict):
+                    by_exe.setdefault(exe_key, app)
+
+        def sort_key(app: dict[str, Any]) -> tuple[int, str]:
+            trust = app.get("app_trust")
+            name = app.get("app_name") or "Unknown application"
+            return (_APP_TRUST_PRIORITY.get(trust, 1), name.lower())
+
+        return sorted(by_exe.values(), key=sort_key)
+
+    def _format_app_line(self, app: dict[str, Any]) -> str:
+        name = app.get("app_name") or "Unknown application"
+        creator = app.get("app_creator") or "Unknown creator"
+        return f"{name} ({creator}, {self._trust_text(app)})"
+
+    @staticmethod
+    def _trust_text(app: dict[str, Any]) -> str:
+        """Return display text for an application's trust.
+
+        Uses the platform-specific signature state (humanized) and reason
+        when available. Falls back to the raw trust level otherwise.
+        """
+        state = app.get("app_signature_state")
+        if isinstance(state, str) and state.strip():
+            humanized = humanize_camel_case(state.strip())
+            reason = app.get("app_signature_state_reason")
+            if isinstance(reason, str) and reason.strip() and reason.strip().lower() != "none":
+                return f"{humanized}: {reason.strip()}"
+            return humanized
+
+        return safe_str(app.get("app_trust")) or "Unknown"
 
     def _build_click_details(
         self,
@@ -379,14 +608,19 @@ class CacheViewBuilder:
     def _unique_processes(entries: list[dict[str, Any]]) -> list[str]:
         out: set[str] = set()
         for e in entries:
-            procs = e.get("processes")
-            if not isinstance(procs, list):
-                continue
-            for p in procs:
-                if isinstance(p, str):
-                    s = p.strip()
-                    if s:
-                        out.add(s)
+            applications = e.get("applications")
+            apps = applications if isinstance(applications, dict) else {}
+            for app in apps.values():
+                if not isinstance(app, dict):
+                    continue
+                procs = app.get("processes")
+                if not isinstance(procs, list):
+                    continue
+                for p in procs:
+                    if isinstance(p, str):
+                        s = p.strip()
+                        if s:
+                            out.add(s)
         return sorted(out, key=str.lower)
     
     @staticmethod
@@ -397,7 +631,8 @@ class CacheViewBuilder:
             return True
         return set(cleaned) <= {"System"}
 
-    def _build_org_blocks(self, entries: list[dict[str, Any]]) -> list[str]:
+    @staticmethod
+    def _group_by_org(entries: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
         by_org: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for e in entries:
             org_val = e.get("asn_org")
@@ -407,6 +642,10 @@ class CacheViewBuilder:
                 else "Unknown network"
             )
             by_org[org].append(e)
+        return by_org
+
+    def _build_org_blocks(self, entries: list[dict[str, Any]]) -> list[str]:
+        by_org = self._group_by_org(entries)
 
         blocks: list[str] = []
         for org in sorted(by_org.keys(), key=str.lower):
@@ -436,8 +675,7 @@ class CacheViewBuilder:
             procs_txt = self._format_procs_with_pids(e)
 
             if self.is_docker:
-                processes = e.get("processes")
-                proc_names = processes if isinstance(processes, list) else []
+                proc_names = self._unique_processes([e])
                 if self._has_only_placeholder_processes(proc_names):
                     procs_txt = "unavailable"
 
@@ -448,21 +686,34 @@ class CacheViewBuilder:
         return "\n".join(lines)
 
     def _format_procs_with_pids(self, entry: dict[str, Any]) -> str:
-        processes = entry.get("processes")
-        procs = processes if isinstance(processes, list) else []
-        proc_names = [p.strip() for p in procs if isinstance(p, str) and p.strip()]
+        """Format every process/PID observed at this entry, across all applications."""
+        applications = entry.get("applications")
+        apps = applications if isinstance(applications, dict) else {}
 
-        proc_pids_raw = entry.get("proc_pids")
-        proc_pids: dict[str, list[int]] = proc_pids_raw if isinstance(proc_pids_raw, dict) else {}
+        combined: dict[str, set[int]] = {}
+        for app in apps.values():
+            if not isinstance(app, dict):
+                continue
+            processes = app.get("processes")
+            procs = processes if isinstance(processes, list) else []
+            proc_pids_raw = app.get("proc_pids")
+            proc_pids: dict[str, list[int]] = (
+                proc_pids_raw if isinstance(proc_pids_raw, dict) else {}
+            )
+            for name in procs:
+                if not isinstance(name, str):
+                    continue
+                name_s = name.strip()
+                if not name_s:
+                    continue
+                pid_set = combined.setdefault(name_s, set())
+                pids_raw = proc_pids.get(name_s)
+                if isinstance(pids_raw, list):
+                    pid_set.update(x for x in pids_raw if isinstance(x, int) and x > 0)
 
         parts: list[str] = []
-        for name in proc_names:
-            pids_raw = proc_pids.get(name)
-            pids = (
-                sorted({int(x) for x in pids_raw if isinstance(x, int) and x > 0})
-                if isinstance(pids_raw, list)
-                else []
-            )
+        for name in sorted(combined, key=str.lower):
+            pids = sorted(combined[name])
             if pids:
                 parts.append(f"{name} (pid {', '.join(str(x) for x in pids)})")
             else:

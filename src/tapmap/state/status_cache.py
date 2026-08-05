@@ -246,29 +246,35 @@ class StatusCache:
 
     @staticmethod
     def _format_procs_with_pids(entry: dict[str, Any]) -> str:
-        """Format process list with optional PID values."""
+        """Format every process/PID observed at this entry, across all applications."""
+        applications = entry.get("applications")
+        apps: dict[str, Any] = applications if isinstance(applications, dict) else {}
 
-        def to_name(v: Any) -> str:
-            s = StatusCache._safe_str(v).strip()
-            return s
+        combined: dict[str, set[int]] = {}
+        for app in apps.values():
+            if not isinstance(app, dict):
+                continue
+            processes = app.get("processes")
+            procs = processes if isinstance(processes, list) else []
+            proc_pids_raw = app.get("proc_pids")
+            proc_pids: dict[str, list[int]] = (
+                proc_pids_raw if isinstance(proc_pids_raw, dict) else {}
+            )
+            for name in procs:
+                name_s = StatusCache._safe_str(name).strip()
+                if not name_s:
+                    continue
+                pid_set = combined.setdefault(name_s, set())
+                pids_raw = proc_pids.get(name_s)
+                if isinstance(pids_raw, list):
+                    pid_set.update(x for x in pids_raw if isinstance(x, int) and x > 0)
 
-        processes = entry.get("processes")
-        names = [to_name(x) for x in processes] if isinstance(processes, list) else []
-        names = [n for n in names if n]
-        if not names:
+        if not combined:
             return "-"
 
-        proc_pids_raw = entry.get("proc_pids")
-        proc_pids: dict[str, list[int]] = proc_pids_raw if isinstance(proc_pids_raw, dict) else {}
-
         parts: list[str] = []
-        for name in sorted(set(names), key=str.lower):
-            pids_raw = proc_pids.get(name)
-            pids = (
-                sorted({int(x) for x in pids_raw if isinstance(x, int) and x > 0})
-                if isinstance(pids_raw, list)
-                else []
-            )
+        for name in sorted(combined, key=str.lower):
+            pids = sorted(combined[name])
             if pids:
                 parts.append(f"{name} (pid {', '.join(str(x) for x in pids)})")
             else:

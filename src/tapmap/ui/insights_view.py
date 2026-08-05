@@ -4,6 +4,8 @@ from typing import Any
 
 from dash import html
 
+from .formatting import country_flag
+
 
 def render_insights_panel(
     data: dict[str, Any] | None,
@@ -16,18 +18,12 @@ def render_insights_panel(
     new = data.get("new") or {}
     top = data.get("top") or {}
 
-    def _flag(code: str | None) -> str:
-        if not isinstance(code, str) or len(code) != 2:
-            return "🌐"
-        code = code.upper()
-        return chr(127397 + ord(code[0])) + chr(127397 + ord(code[1]))
-
     def build_row(item: dict[str, Any], category: str, section: str) -> Any:
         value = item.get("value")
         name = item.get("name") or value or ""
 
         is_country = category == "countries"
-        flag = _flag(value) if is_country else ""
+        flag = country_flag(value) if is_country else ""
 
         header = html.Div(
             [
