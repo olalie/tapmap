@@ -63,6 +63,7 @@ from tapmap.state.open_ports_prefs import set_show_system_pref
 from tapmap.state.poll import (
     ACTION_CLEAR_CACHE,
     ACTION_NORMAL_POLL,
+    ACTION_REBUILD_VIEW,
     ACTION_ZOOM_CONNECTIONS,
     decide_poll_action,
 )
@@ -456,15 +457,12 @@ class TapMap:
     def _handle_clear_cache(
         self, status_cache: StatusCache, technical_details_enabled: bool
     ) -> tuple[Any, Any, Any, Any, Any]:
-        snap = self.model.snapshot()
-        if isinstance(snap, dict):
-            snap["runtime_info"] = self._build_runtime_info()
-
+        """Reset the runtime cache without observing the monitored system."""
         status_cache.clear()
         empty_cache: dict[str, Any] = {}
         view = self.view_builder.build_view_from_cache(empty_cache, technical_details_enabled)
         flash = self._flash("Clearing cache...", self.MIN_FLASH_S)
-        return snap, empty_cache, status_cache.to_store(), view, flash
+        return no_update, empty_cache, status_cache.to_store(), view, flash
 
     def _handle_normal_poll(
         self,
@@ -714,6 +712,12 @@ class TapMap:
                         return snap, sc_store, view, no_update
 
                 return snap, sc_store, view, None
+
+            if decision.action == ACTION_REBUILD_VIEW:
+                view = self.view_builder.build_view_from_cache(
+                    self._ui_cache, technical_details_enabled
+                )
+                return no_update, no_update, view, no_update
 
             return no_update, no_update, no_update, no_update
 
