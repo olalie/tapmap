@@ -340,6 +340,11 @@ summary.mx-acc-header:hover {
   cursor: pointer;
 }
 
+.mx-exe-link {
+  cursor: pointer;
+  text-decoration: underline dotted;
+}
+
 .insights-row-header {
   display: flex;
   align-items: center;

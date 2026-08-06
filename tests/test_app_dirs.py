@@ -1,6 +1,7 @@
 """Test application data directory helpers."""
 
 from pathlib import Path
+from typing import Any
 
 from tapmap import app_dirs
 
@@ -169,3 +170,139 @@ def test_open_folder_returns_failure_message_when_xdg_open_fails(
 
     assert ok is False
     assert message == "xdg-open failed. permission denied"
+
+
+def test_reveal_in_file_manager_returns_error_when_file_is_missing(tmp_path: Path) -> None:
+    """Return an error when the target file does not exist."""
+    missing = tmp_path / "missing.exe"
+
+    ok, message = app_dirs.reveal_in_file_manager(missing)
+
+    assert ok is False
+    assert message == f"File not found: {missing}"
+
+
+def test_reveal_in_file_manager_selects_file_on_windows(monkeypatch, tmp_path: Path) -> None:
+    """Reveal with selection via 'explorer /select,' on Windows.
+
+    The command must be a single pre-built string, not an argv list - a list
+    would be quoted as one token by subprocess on a path containing spaces,
+    which Explorer's /select, parser does not accept.
+    """
+    target = tmp_path / "app.exe"
+    target.write_text("")
+
+    calls: list[Any] = []
+    monkeypatch.setattr(app_dirs.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(
+        app_dirs.subprocess, "Popen", lambda args, **kwargs: calls.append(args)
+    )
+
+    ok, message = app_dirs.reveal_in_file_manager(target)
+
+    assert ok is True
+    assert message == f"Revealed: {target}"
+    assert calls == [f'explorer /select,"{target}"']
+    assert isinstance(calls[0], str)
+
+
+def test_reveal_in_file_manager_selects_file_on_macos(monkeypatch, tmp_path: Path) -> None:
+    """Reveal with selection via 'open -R' on macOS."""
+    target = tmp_path / "app.exe"
+    target.write_text("")
+
+    calls: list[list[str]] = []
+    monkeypatch.setattr(app_dirs.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(
+        app_dirs.subprocess, "Popen", lambda args, **kwargs: calls.append(args)
+    )
+
+    ok, message = app_dirs.reveal_in_file_manager(target)
+
+    assert ok is True
+    assert message == f"Revealed: {target}"
+    assert calls == [["open", "-R", str(target)]]
+
+
+def test_reveal_in_file_manager_selects_file_on_linux_via_dbus(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Reveal with selection via the FileManager1 D-Bus interface on Linux."""
+
+    class CompletedProcess:
+        """Provide a minimal subprocess result."""
+
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    target = tmp_path / "app.exe"
+    target.write_text("")
+
+    calls: list[list[str]] = []
+    monkeypatch.setattr(app_dirs.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(app_dirs.shutil, "which", lambda name: "/usr/bin/dbus-send")
+
+    def fake_run(args: list[str], **kwargs: Any) -> CompletedProcess:
+        calls.append(args)
+        return CompletedProcess()
+
+    monkeypatch.setattr(app_dirs.subprocess, "run", fake_run)
+
+    ok, message = app_dirs.reveal_in_file_manager(target)
+
+    assert ok is True
+    assert message == f"Revealed: {target}"
+    assert calls[0][0] == "/usr/bin/dbus-send"
+    assert f"array:string:{target.as_uri()}" in calls[0]
+
+
+def test_reveal_in_file_manager_falls_back_to_open_folder_when_dbus_send_missing(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Fall back to opening the containing folder when dbus-send is unavailable."""
+    target = tmp_path / "app.exe"
+    target.write_text("")
+
+    calls: list[Path] = []
+    monkeypatch.setattr(app_dirs.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(app_dirs.shutil, "which", lambda name: None)
+    monkeypatch.setattr(
+        app_dirs, "open_folder", lambda p: calls.append(p) or (True, f"Opened: {p}")
+    )
+
+    ok, message = app_dirs.reveal_in_file_manager(target)
+
+    assert ok is True
+    assert message == f"Opened: {tmp_path}"
+    assert calls == [tmp_path]
+
+
+def test_reveal_in_file_manager_falls_back_to_open_folder_when_dbus_send_fails(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Fall back to opening the containing folder when the D-Bus call fails."""
+
+    class CompletedProcess:
+        """Provide a minimal subprocess result."""
+
+        returncode = 1
+        stdout = ""
+        stderr = "no file manager registered"
+
+    target = tmp_path / "app.exe"
+    target.write_text("")
+
+    calls: list[Path] = []
+    monkeypatch.setattr(app_dirs.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(app_dirs.shutil, "which", lambda name: "/usr/bin/dbus-send")
+    monkeypatch.setattr(app_dirs.subprocess, "run", lambda *a, **k: CompletedProcess())
+    monkeypatch.setattr(
+        app_dirs, "open_folder", lambda p: calls.append(p) or (True, f"Opened: {p}")
+    )
+
+    ok, message = app_dirs.reveal_in_file_manager(target)
+
+    assert ok is True
+    assert message == f"Opened: {tmp_path}"
+    assert calls == [tmp_path]

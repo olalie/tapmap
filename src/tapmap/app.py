@@ -32,6 +32,7 @@ import threading
 import webbrowser
 from dataclasses import replace
 from datetime import datetime
+from pathlib import Path
 from typing import Any, ClassVar, Final, Literal, TypedDict
 
 import psutil
@@ -77,7 +78,7 @@ from tapmap.ui.layout_view import render_layout
 from tapmap.ui.map_view import MapUI
 from tapmap.ui.modal_view import ModalTextBuilder
 
-from .app_dirs import open_folder
+from .app_dirs import open_folder, reveal_in_file_manager
 from .config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
 from .logging_config import configure_logging
 from .runtime import AppMeta, RuntimeContext, build_runtime
@@ -915,6 +916,27 @@ class TapMap:
                 return
 
             ok, message = open_folder(self.runtime.geo_data_dir)
+
+            if not ok:
+                self.logger.warning(message)
+
+        @self.app.callback(
+            Input({"type": "reveal-exe", "path": ALL, "idx": ALL}, "n_clicks"),
+            prevent_initial_call=True,
+        )
+        def reveal_executable(_clicks: list[int | None]) -> None:
+            trigger_id = ctx.triggered_id
+            if not isinstance(trigger_id, dict):
+                raise PreventUpdate
+
+            path = trigger_id.get("path")
+            if not isinstance(path, str) or not path:
+                raise PreventUpdate
+
+            if self.runtime.is_docker:
+                return
+
+            ok, message = reveal_in_file_manager(Path(path))
 
             if not ok:
                 self.logger.warning(message)

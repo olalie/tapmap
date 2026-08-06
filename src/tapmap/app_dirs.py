@@ -170,3 +170,67 @@ def open_file(path: Path) -> tuple[bool, str]:
 
     except Exception as exc:
         return False, f"Failed to open file: {path}. Error: {exc}"
+
+
+def reveal_in_file_manager(path: Path) -> tuple[bool, str]:
+    """Reveal a file in the system file manager, selecting it when supported.
+
+    Windows: File Explorer with the file selected. macOS: Finder with the
+    file selected. Linux: the file manager's own item-selection support via
+    the freedesktop.org FileManager1 D-Bus interface (Nautilus, Nemo, and
+    similar), when available; otherwise falls back to opening the containing
+    folder without a selection.
+
+    Returns:
+        ok: True on success.
+        message: Status message suitable for UI.
+    """
+    try:
+        path = path.expanduser()
+        if not path.is_file():
+            return False, f"File not found: {path}"
+
+        system = platform.system()
+
+        if system == "Windows":
+            # explorer's /select, switch must stay unquoted, immediately
+            # followed by the path in its own quotes: /select,"C:\a b\f.exe".
+            # Passing ["explorer", "/select,C:\\a b\\f.exe"] as a list makes
+            # subprocess quote that whole token together via list2cmdline
+            # (since it contains a space), producing "/select,C:\a b\f.exe"
+            # as one unit - a form Explorer fails to parse, silently falling
+            # back to a default folder instead of erroring. Passing a plain
+            # string bypasses list2cmdline entirely (CPython's
+            # subprocess.py: `if isinstance(args, str): pass`), so the
+            # command line reaches CreateProcess exactly as written here.
+            subprocess.Popen(f'explorer /select,"{path}"')
+            return True, f"Revealed: {path}"
+
+        if system == "Darwin":
+            subprocess.Popen(["open", "-R", str(path)])
+            return True, f"Revealed: {path}"
+
+        dbus_send = shutil.which("dbus-send")
+        if dbus_send:
+            cp = subprocess.run(
+                [
+                    dbus_send,
+                    "--session",
+                    "--dest=org.freedesktop.FileManager1",
+                    "--type=method_call",
+                    "/org/freedesktop/FileManager1",
+                    "org.freedesktop.FileManager1.ShowItems",
+                    f"array:string:{path.as_uri()}",
+                    "string:",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if cp.returncode == 0:
+                return True, f"Revealed: {path}"
+
+        return open_folder(path.parent)
+
+    except Exception as exc:
+        return False, f"Failed to reveal file: {path}. Error: {exc}"

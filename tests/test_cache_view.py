@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from tapmap.ui.cache_view import CacheViewBuilder
@@ -319,9 +320,9 @@ def test_pick_representative_app_returns_unknown_for_no_applications() -> None:
 
 def test_format_summary_row_aligns_value_regardless_of_icon_width() -> None:
     """Value text starts at the same column whether or not a row has an icon."""
-    row_with_wide_icon = CacheViewBuilder._format_summary_row("Location:", "XX", 2, "value")
-    row_without_icon = CacheViewBuilder._format_summary_row("Network operators:", "", 0, "value")
-    row_with_narrow_icon = CacheViewBuilder._format_summary_row("Apps:", "X", 1, "value")
+    row_with_wide_icon = CacheViewBuilder._format_summary_row("Location:", "XX", "value")
+    row_without_icon = CacheViewBuilder._format_summary_row("Network operator:", "  ", "value")
+    row_with_narrow_icon = CacheViewBuilder._format_summary_row("App:", "X ", "value")
 
     assert row_with_wide_icon.index("value") == row_without_icon.index("value")
     assert row_without_icon.index("value") == row_with_narrow_icon.index("value")
@@ -357,7 +358,8 @@ def test_build_app_summary_scopes_network_operator_to_selected_app() -> None:
 
     operators_line = summary.split("<br>")[1]
     assert "Org A" not in operators_line
-    assert "Org B1 +1" in operators_line
+    assert "Org B1" in operators_line
+    assert "+1" not in operators_line
 
 
 def test_build_app_summary_appends_count_for_additional_apps() -> None:
@@ -388,6 +390,54 @@ def test_build_app_summary_omits_count_for_single_app() -> None:
     apps_line = summary.split("<br>")[2]
     assert "Only App" in apps_line
     assert "+" not in apps_line
+
+
+def test_build_app_summary_uses_singular_labels() -> None:
+    """Location, network operator and app labels are all singular."""
+    entries = [_entry(app_name="Solo App", app_trust="trusted")]
+
+    summary = CacheViewBuilder()._build_app_summary(
+        place="Somewhere", country_code=None, entries=entries
+    )
+
+    assert "Network operator:" in summary
+    assert "Network operators:" not in summary
+    assert "App:" in summary
+    assert "Apps:" not in summary
+
+
+def test_build_app_summary_uses_colored_bullet_trust_indicator() -> None:
+    """The app row's trust indicator is a single colored bullet character."""
+    entries = [_entry(app_name="Solo App", app_trust="trusted")]
+
+    summary = CacheViewBuilder()._build_app_summary(
+        place="Somewhere", country_code=None, entries=entries
+    )
+
+    apps_line = summary.split("<br>")[2]
+    assert "■" in apps_line
+    assert "#00ff66" in apps_line
+
+
+def test_build_app_summary_aligns_app_value_with_other_rows() -> None:
+    """The app name starts at the same rendered column as the location and operator values.
+
+    HTML markup is stripped before comparing, since tags consume no visual
+    width when rendered but would otherwise skew a raw string index.
+    """
+    entries = [_entry(app_name="Spotify", app_trust="trusted", asn_org="Google LLC")]
+
+    summary = CacheViewBuilder()._build_app_summary(
+        place="United States", country_code="US", entries=entries
+    )
+
+    location_line, operators_line, apps_line = summary.split("<br>")
+    location_rendered = re.sub(r"<[^>]+>", "", location_line)
+    operators_rendered = re.sub(r"<[^>]+>", "", operators_line)
+    apps_rendered = re.sub(r"<[^>]+>", "", apps_line)
+
+    assert location_rendered.index("United States") == operators_rendered.index("Google LLC")
+    assert operators_rendered.index("Google LLC") == apps_rendered.index("Spotify")
 
 
 # --- _format_procs_with_pids: multi-application rendering ---
@@ -437,21 +487,29 @@ def test_build_view_from_cache_technical_details_off_uses_app_summary() -> None:
 
 
 def test_build_view_from_cache_technical_details_on_matches_existing_format() -> None:
-    """technical_details_enabled=True leaves the connection-oriented summary unchanged."""
+    """technical_details_enabled=True leaves the connection-oriented hover summary unchanged.
+
+    The click-details panel now shows the app name via its own App: field
+    (see _format_process_blocks), but never creator or trust wording.
+    """
     builder = CacheViewBuilder()
 
     cache = builder.merge_map_candidates(
-        {}, [_candidate(app_name="Firefox", app_trust="trusted")]
+        {},
+        [_candidate(app_name="Firefox", app_creator="Mozilla Corp", app_trust="trusted")],
     )
     view = builder.build_view_from_cache(cache, technical_details_enabled=True)
 
     summary = view["summaries"]["0"]
     detail = view["details"]["0"]
 
-    for text in (summary, detail):
-        assert "Firefox" not in text
-        assert "Mozilla" not in text
-        assert "trusted" not in text.lower()
+    assert "Firefox" not in summary
+    assert "Mozilla" not in summary
+    assert "trusted" not in summary.lower()
+
+    assert "Firefox" in detail
+    assert "Mozilla" not in detail
+    assert "trusted" not in detail.lower()
 
 
 def test_build_view_from_cache_shows_untrusted_app_sharing_endpoint_with_trusted_app() -> None:
@@ -498,6 +556,159 @@ def test_build_click_details_shows_processes_from_multiple_applications() -> Non
 
     assert "firefox.exe (pid 1000)" in detail
     assert "malware.exe (pid 2000)" in detail
+
+
+def test_format_process_blocks_elides_long_executable_path() -> None:
+    """The Executable: line shows a middle-elided path, not the full raw path."""
+    long_exe = (
+        r"C:\Program Files\WindowsApps\Microsoft.StartExperiencesApp_1.380.2.0_x64"
+        r"__8wekyb3d8bbwe\MicrosoftStartFeedProvider\MicrosoftStartFeedProvider.exe"
+    )
+    entry = {
+        "applications": {
+            long_exe: {
+                "app_name": "MicrosoftStartFeedProvider",
+                "processes": ["MicrosoftStartFeedProvider.exe"],
+                "proc_pids": {},
+            },
+        },
+    }
+
+    _, _, exe_line = CacheViewBuilder()._format_process_blocks(entry)
+    visible_text = re.sub(r"<[^>]+>", "", exe_line)
+
+    assert long_exe not in visible_text
+    assert r"C:\Program Files\WindowsApps\...\MicrosoftStartFeedProvider.exe" in visible_text
+
+
+# --- _format_org_block / _format_process_blocks: Process:/App:/Executable: layout ---
+
+
+def test_format_org_block_shows_process_app_and_executable_fields() -> None:
+    """Each process block shows Process:, App:, and Executable: for its application."""
+    entry = {
+        "ip": "8.8.8.8",
+        "port": 443,
+        "proto": "tcp",
+        "applications": {
+            "/opt/firefox/firefox.exe": {
+                "app_name": "Firefox",
+                "processes": ["firefox.exe"],
+                "proc_pids": {"firefox.exe": [1000]},
+            },
+        },
+    }
+
+    block = CacheViewBuilder()._format_org_block("Org A", [entry])
+
+    assert "Process:" in block
+    assert "firefox.exe (pid 1000)" in block
+    assert "App:" in block
+    assert "Firefox" in block
+    assert "Executable:" in block
+    assert "/opt/firefox/firefox.exe" in block
+
+
+def test_display_exe_wraps_resolved_path_with_full_path_attribute() -> None:
+    """A resolved executable is wrapped in an <exe full="..."> tag carrying the raw path."""
+    result = CacheViewBuilder()._display_exe(r"C:\opt\app.exe")
+
+    assert result == r'<exe full="C:\opt\app.exe">C:\opt\app.exe</exe>'
+
+
+def test_display_exe_does_not_wrap_unknown_executable() -> None:
+    """An unresolved executable shows plain 'Unknown', not wrapped in a tag."""
+    result = CacheViewBuilder()._display_exe(CacheViewBuilder._UNKNOWN_APP_KEY)
+
+    assert result == "Unknown"
+
+
+def test_format_org_block_shows_unknown_for_unresolved_executable() -> None:
+    """A process with no resolvable exe path shows 'Unknown' on the Executable: line."""
+    entry = {
+        "ip": "8.8.8.8",
+        "port": 443,
+        "proto": "tcp",
+        "applications": {
+            CacheViewBuilder._UNKNOWN_APP_KEY: {
+                "app_name": None,
+                "processes": ["svchost.exe"],
+                "proc_pids": {},
+            },
+        },
+    }
+
+    block = CacheViewBuilder()._format_org_block("Org A", [entry])
+
+    assert "Executable:" in block
+    assert "Unknown" in block
+    assert CacheViewBuilder._UNKNOWN_APP_KEY not in block
+
+
+def test_format_org_block_separates_multiple_process_blocks_with_one_blank_line() -> None:
+    """Multiple applications at one connection get exactly one blank line between blocks."""
+    entry = {
+        "ip": "8.8.8.8",
+        "port": 443,
+        "proto": "tcp",
+        "applications": {
+            "/opt/a.exe": {"app_name": "App A", "processes": ["a.exe"], "proc_pids": {}},
+            "/opt/b.exe": {"app_name": "App B", "processes": ["b.exe"], "proc_pids": {}},
+        },
+    }
+
+    block = CacheViewBuilder()._format_org_block("Org A", [entry])
+
+    assert block.split("\n").count("") == 1
+
+
+def test_format_org_block_has_no_blank_line_between_connections() -> None:
+    """Two connections in the same org are not separated by a blank line."""
+    entries = [
+        {
+            "ip": "8.8.8.8",
+            "port": 443,
+            "proto": "tcp",
+            "applications": {
+                "/opt/a.exe": {"app_name": "App A", "processes": ["a.exe"], "proc_pids": {}},
+            },
+        },
+        {
+            "ip": "1.1.1.1",
+            "port": 443,
+            "proto": "tcp",
+            "applications": {
+                "/opt/b.exe": {"app_name": "App B", "processes": ["b.exe"], "proc_pids": {}},
+            },
+        },
+    ]
+
+    block = CacheViewBuilder()._format_org_block("Org A", entries)
+
+    assert "" not in block.split("\n")
+
+
+def test_format_process_blocks_aligns_values_in_same_column() -> None:
+    """Process:, App:, and Executable: values start at the same rendered column.
+
+    HTML markup is stripped before comparing, since tags consume no visual
+    width when rendered but would otherwise skew a raw string index.
+    """
+    entry = {
+        "applications": {
+            "/opt/firefox/firefox.exe": {
+                "app_name": "Firefox",
+                "processes": ["firefox.exe"],
+                "proc_pids": {"firefox.exe": [1000]},
+            },
+        },
+    }
+
+    process_line, app_line, exe_line = CacheViewBuilder()._format_process_blocks(entry)
+    exe_visible = re.sub(r"<[^>]+>", "", exe_line)
+
+    assert process_line.index("firefox.exe") == app_line.index("Firefox")
+    assert app_line.index("Firefox") == exe_visible.index("/opt/firefox/firefox.exe")
 
 
 # --- _build_app_click_details: Non-Technical click-details panel ---
@@ -604,8 +815,9 @@ def test_build_app_click_details_uses_humanized_state_with_reason() -> None:
     details = CacheViewBuilder()._build_app_click_details(
         place="Somewhere", country_code=None, entries=entries
     )
+    visible = re.sub(r"<[^>]+>", "", details)
 
-    assert "Firefox (Mozilla Corporation, Trusted and signed: Verified publisher)" in details
+    assert "Firefox (Mozilla Corporation, Trusted and signed: Verified publisher)" in visible
 
 
 def test_build_app_click_details_uses_humanized_state_without_reason() -> None:
@@ -621,8 +833,9 @@ def test_build_app_click_details_uses_humanized_state_without_reason() -> None:
     details = CacheViewBuilder()._build_app_click_details(
         place="Somewhere", country_code=None, entries=entries
     )
+    visible = re.sub(r"<[^>]+>", "", details)
 
-    assert "Firefox (Mozilla Corporation, Signature invalid)" in details
+    assert "Firefox (Mozilla Corporation, Signature invalid)" in visible
 
 
 def test_build_app_click_details_ignores_literal_none_reason_string() -> None:
@@ -638,8 +851,9 @@ def test_build_app_click_details_ignores_literal_none_reason_string() -> None:
     details = CacheViewBuilder()._build_app_click_details(
         place="Somewhere", country_code=None, entries=entries
     )
+    visible = re.sub(r"<[^>]+>", "", details)
 
-    assert "Trusted and signed)" in details
+    assert "Trusted and signed)" in visible
 
 
 def test_build_app_click_details_falls_back_to_trust_level_without_state() -> None:
@@ -649,8 +863,42 @@ def test_build_app_click_details_falls_back_to_trust_level_without_state() -> No
     details = CacheViewBuilder()._build_app_click_details(
         place="Somewhere", country_code=None, entries=entries
     )
+    visible = re.sub(r"<[^>]+>", "", details)
 
-    assert "Some App (Unknown creator, unknown)" in details
+    assert "Some App (Unknown creator, unknown)" in visible
+
+
+def test_format_app_line_colorizes_only_the_trust_status_text() -> None:
+    """The trust status uses the trust color; app name and creator stay plain."""
+    app = {
+        "app_name": "Firefox",
+        "app_creator": "Mozilla Corporation",
+        "app_trust": "trusted",
+        "app_signature_state": "TrustedAndSigned",
+        "app_signature_state_reason": None,
+    }
+
+    line = CacheViewBuilder()._format_app_line(app)
+
+    assert line == (
+        'Firefox (Mozilla Corporation, '
+        '<span style="color:#00ff66">Trusted and signed</span>)'
+    )
+
+
+def test_format_app_line_uses_not_trusted_color_for_unsigned() -> None:
+    """A not_trusted application's status text uses the not_trusted color."""
+    app = {
+        "app_name": "Malware",
+        "app_creator": None,
+        "app_trust": "not_trusted",
+        "app_signature_state": "Unsigned",
+        "app_signature_state_reason": None,
+    }
+
+    line = CacheViewBuilder()._format_app_line(app)
+
+    assert '<span style="color:#ff4444">Unsigned</span>' in line
 
 
 def test_build_app_click_details_includes_trust_status_note() -> None:
@@ -715,7 +963,11 @@ def test_build_view_from_cache_technical_details_off_uses_app_click_details() ->
 
 
 def test_build_view_from_cache_technical_details_on_details_unchanged() -> None:
-    """technical_details_enabled=True still produces the Technical connection-oriented details."""
+    """technical_details_enabled=True still produces the Technical connection-oriented details.
+
+    The org header stays the bare organization name (no 'Network operator:'
+    label), matching the Non-Technical view's own, differently-labeled section.
+    """
     builder = CacheViewBuilder()
 
     cache = builder.merge_map_candidates(
@@ -726,4 +978,5 @@ def test_build_view_from_cache_technical_details_on_details_unchanged() -> None:
 
     assert "Services:" in detail
     assert "Network operator:" not in detail
-    assert "Firefox" not in detail
+    assert "App:" in detail
+    assert "Firefox" in detail

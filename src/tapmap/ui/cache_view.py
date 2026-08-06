@@ -11,7 +11,15 @@ from collections import Counter, defaultdict
 from datetime import datetime
 from typing import Any
 
-from .formatting import country_flag, humanize_camel_case, safe_int, safe_str, trust_glyph
+from .formatting import (
+    country_flag,
+    elide_path_middle,
+    humanize_camel_case,
+    safe_int,
+    safe_str,
+    trust_color,
+    trust_glyph,
+)
 
 _APP_TRUST_PRIORITY: dict[str | None, int] = {"not_trusted": 0, "unknown": 1, "trusted": 2}
 
@@ -294,6 +302,8 @@ class CacheViewBuilder:
                     unique_orgs=unique_orgs,
                 )
                 details[key_str] = self._build_click_details(
+                    lon=lon,
+                    lat=lat,
                     place=place,
                     entries=entries,
                     unique_orgs=unique_orgs,
@@ -375,18 +385,12 @@ class CacheViewBuilder:
 
         return f"{line1}<br>{line2}<br>{line3}"
 
-    _SUMMARY_LABEL_WIDTH = len("Network operators:") + 1
-    _SUMMARY_ICON_SLOT = 2
+    _SUMMARY_LABEL_WIDTH = len("Network operator:") + 1
 
     @classmethod
-    def _format_summary_row(cls, label: str, icon: str, icon_width: int, value: str) -> str:
-        """Pad label and icon slot so value text aligns across summary rows.
-
-        icon_width is the icon's visible character width (not its markup
-        length), used to fill the reserved icon slot with matching padding.
-        """
-        icon_padding = " " * max(0, cls._SUMMARY_ICON_SLOT - icon_width)
-        return f"{label.ljust(cls._SUMMARY_LABEL_WIDTH)}{icon}{icon_padding} {value}"
+    def _format_summary_row(cls, label: str, icon: str, value: str) -> str:
+        """Join a label, an already visually-padded icon, and a value into one row."""
+        return f"{label.ljust(cls._SUMMARY_LABEL_WIDTH)}{icon} {value}"
 
     @staticmethod
     def _pick_country_code(entries: list[dict[str, Any]]) -> str | None:
@@ -453,17 +457,11 @@ class CacheViewBuilder:
         apps_value = app_name if app_extra <= 0 else f"{app_name} +{app_extra}"
 
         orgs = self._unique_network_orgs(app_entries)
-        org_extra = len(orgs) - 1
-        if orgs:
-            org_value = orgs[0] if org_extra <= 0 else f"{orgs[0]} +{org_extra}"
-        else:
-            org_value = "Unknown network"
+        org_value = orgs[0] if orgs else "Unknown network"
 
-        location_row = self._format_summary_row(
-            "Location:", country_flag(country_code), 2, place
-        )
-        operators_row = self._format_summary_row("Network operators:", "", 0, org_value)
-        apps_row = self._format_summary_row("Apps:", trust_glyph(app_trust), 1, apps_value)
+        location_row = self._format_summary_row("Location:", country_flag(country_code), place)
+        operators_row = self._format_summary_row("Network operator:", "  ", org_value)
+        apps_row = self._format_summary_row("App:", f" {trust_glyph(app_trust)}", apps_value)
 
         return f"{location_row}<br>{operators_row}<br>{apps_row}"
 
@@ -514,7 +512,9 @@ class CacheViewBuilder:
     def _format_app_line(self, app: dict[str, Any]) -> str:
         name = app.get("app_name") or "Unknown application"
         creator = app.get("app_creator") or "Unknown creator"
-        return f"{name} ({creator}, {self._trust_text(app)})"
+        color = trust_color(app.get("app_trust"))
+        trust_text = f'<span style="color:{color}">{self._trust_text(app)}</span>'
+        return f"{name} ({creator}, {trust_text})"
 
     @staticmethod
     def _trust_text(app: dict[str, Any]) -> str:
@@ -533,9 +533,17 @@ class CacheViewBuilder:
 
         return safe_str(app.get("app_trust")) or "Unknown"
 
+    _HEADER_LABEL_WIDTH = len("Coordinates:") + 2
+
+    @classmethod
+    def _format_header_line(cls, label: str, value: str) -> str:
+        return f"{label.ljust(cls._HEADER_LABEL_WIDTH)}{value}"
+
     def _build_click_details(
         self,
         *,
+        lon: float,
+        lat: float,
         place: str,
         entries: list[dict[str, Any]],
         unique_orgs: list[str],
@@ -549,12 +557,20 @@ class CacheViewBuilder:
             else len(unique_procs)
         )
 
-        counts_line = (
-            f"Services: {len(entries)} | "
+        counts_value = (
+            f"{len(entries)} | "
             f"Networks: {len(unique_orgs)} | "
             f"IPs: {len(unique_ips)} | "
             f"Ports: {len(unique_ports)} | "
             f"Procs: {display_proc_count}"
+        )
+
+        header = "\n".join(
+            [
+                self._format_header_line("Coordinates:", f"lon={lon}  lat={lat}"),
+                self._format_header_line("Location:", place),
+                self._format_header_line("Services:", counts_value),
+            ]
         )
 
         process_note = ""
@@ -562,7 +578,7 @@ class CacheViewBuilder:
             process_note = "Process details unavailable in Docker mode.\n\n"
 
         org_blocks = self._build_org_blocks(entries)
-        return f"Location: {place}\n{counts_line}\n\n{process_note}" + "\n\n".join(org_blocks)
+        return f"{header}\n\n{process_note}" + "\n\n".join(org_blocks)
 
     @staticmethod
     def _pick_place(entries: list[dict[str, Any]]) -> str:
@@ -662,6 +678,8 @@ class CacheViewBuilder:
         port_i = port if isinstance(port, int) else 0
         return (ip_txt, port_i)
 
+    _PROC_LABEL_WIDTH = len("Executable:") + 2
+
     def _format_org_block(self, org: str, org_entries: list[dict[str, Any]]) -> str:
         lines: list[str] = [org]
 
@@ -672,18 +690,84 @@ class CacheViewBuilder:
 
             proto = self._safe_proto(e.get("proto"))
             addr = self._fmt_ip_port(ip, port)
-            procs_txt = self._format_procs_with_pids(e)
 
-            if self.is_docker:
-                proc_names = self._unique_processes([e])
-                if self._has_only_placeholder_processes(proc_names):
-                    procs_txt = "unavailable"
-
-            lines.append(f"  {addr} ({proto})")
-            lines.append(f"    Procs: {procs_txt}")
-            lines.append("")
+            lines.append(f"    {addr} ({proto})")
+            lines.extend(self._format_process_blocks(e))
 
         return "\n".join(lines)
+
+    @classmethod
+    def _format_label(cls, label: str, value: str) -> str:
+        return f"        {label.ljust(cls._PROC_LABEL_WIDTH)}{value}"
+
+    def _display_exe(self, exe_key: str) -> str:
+        """Return the Executable: line value: elided path, wrapped for click-to-reveal.
+
+        The full path is embedded as a "full" attribute for modal_view to turn
+        into a clickable, tooltip-bearing component. Safe unescaped, since
+        Windows paths (the only exe_key source today) cannot contain '"'.
+        """
+        if exe_key == self._UNKNOWN_APP_KEY:
+            return "Unknown"
+        return f'<exe full="{exe_key}">{elide_path_middle(exe_key)}</exe>'
+
+    def _format_process_blocks(self, entry: dict[str, Any]) -> list[str]:
+        """Build one Process:/App:/Executable: block per application at a connection."""
+        if self.is_docker:
+            proc_names = self._unique_processes([entry])
+            if self._has_only_placeholder_processes(proc_names):
+                return [self._format_label("Process:", "unavailable")]
+
+        applications = entry.get("applications")
+        apps = applications if isinstance(applications, dict) else {}
+
+        items = sorted(
+            ((k, v) for k, v in apps.items() if isinstance(v, dict)),
+            key=lambda kv: ((kv[1].get("app_name") or "").lower(), kv[0]),
+        )
+
+        lines: list[str] = []
+        for i, (exe_key, app) in enumerate(items):
+            if i > 0:
+                lines.append("")
+            lines.append(self._format_label("Process:", self._format_proc_names(app)))
+            lines.append(
+                self._format_label("App:", app.get("app_name") or "Unknown application")
+            )
+            lines.append(self._format_label("Executable:", self._display_exe(exe_key)))
+
+        return lines
+
+    @staticmethod
+    def _format_proc_names(app: dict[str, Any]) -> str:
+        """Format one application's process names and PIDs as 'name (pid X, Y), ...'."""
+        processes = app.get("processes")
+        procs = processes if isinstance(processes, list) else []
+        proc_pids_raw = app.get("proc_pids")
+        proc_pids: dict[str, list[int]] = (
+            proc_pids_raw if isinstance(proc_pids_raw, dict) else {}
+        )
+
+        names = sorted(
+            {p.strip() for p in procs if isinstance(p, str) and p.strip()}, key=str.lower
+        )
+        if not names:
+            return "-"
+
+        parts: list[str] = []
+        for name in names:
+            pids_raw = proc_pids.get(name)
+            pids = (
+                sorted({x for x in pids_raw if isinstance(x, int) and x > 0})
+                if isinstance(pids_raw, list)
+                else []
+            )
+            if pids:
+                parts.append(f"{name} (pid {', '.join(str(x) for x in pids)})")
+            else:
+                parts.append(name)
+
+        return ", ".join(parts)
 
     def _format_procs_with_pids(self, entry: dict[str, Any]) -> str:
         """Format every process/PID observed at this entry, across all applications."""

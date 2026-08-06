@@ -72,21 +72,54 @@ def country_flag(code: str | None) -> str:
     code = code.upper()
     return chr(127397 + ord(code[0])) + chr(127397 + ord(code[1]))
 
-
 _TRUST_COLORS = {
     "trusted": "#00ff66",
     "not_trusted": "#ff4444",
 }
+_UNKNOWN_TRUST_COLOR = "#ffff00"
+
+
+def trust_color(trust: str | None) -> str:
+    """Return the semantic color for an app_trust value.
+
+    Accepts "trusted", "not_trusted", "unknown", or None; any other value
+    maps to the unknown color (yellow).
+    """
+    return _TRUST_COLORS.get(trust, _UNKNOWN_TRUST_COLOR)
 
 
 def trust_glyph(trust: str | None) -> str:
-    """Return a colored bullet glyph for an app_trust value.
+    """Return a colored bullet glyph for an app_trust value."""
+    return f'<span style="color:{trust_color(trust)}">■</span>'
 
-    Accepts "trusted", "not_trusted", "unknown", or None; any other value
-    renders as unknown.
+
+def elide_path_middle(path: str, max_length: int = 60) -> str:
+    r"""Shorten a filesystem path for display by collapsing middle directory components.
+
+    Returns path unchanged if its length is already within max_length, or if
+    it has no directory components to drop (e.g. "C:\file.exe"). Otherwise
+    keeps the drive/root, the first one or two directory levels, and the
+    filename, replacing the rest with a single "..." component. Always
+    truncates on whole path-separator components, never mid-component.
     """
-    color = _TRUST_COLORS.get(trust, "#ffffff")
-    return f'<span style="color:{color}">●</span>'
+    if not path or len(path) <= max_length:
+        return path
+
+    sep = "\\" if "\\" in path else "/"
+    parts = [p for p in path.split(sep) if p]
+
+    if len(parts) < 3:
+        return path
+
+    root = parts[0]
+    filename = parts[-1]
+    middle = parts[1:-1]
+
+    keep = min(2, len(middle))
+    if keep >= len(middle):
+        return path
+
+    return sep.join([root, *middle[:keep], "...", filename])
 
 
 def humanize_camel_case(text: str) -> str:
