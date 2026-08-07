@@ -493,7 +493,7 @@ class CacheViewBuilder:
 
     @staticmethod
     def _unique_applications(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Return each distinct application observed in entries, once, trust-priority first."""
+        """Return each distinct-looking application in entries, once, trust-priority first."""
         by_exe: dict[str, dict[str, Any]] = {}
         for e in entries:
             applications = e.get("applications")
@@ -507,7 +507,26 @@ class CacheViewBuilder:
             name = app.get("app_name") or "Unknown application"
             return (_APP_TRUST_PRIORITY.get(trust, 1), name.lower())
 
-        return sorted(by_exe.values(), key=sort_key)
+        ordered = sorted(by_exe.values(), key=sort_key)
+
+        # Different exe paths (e.g. OneDrive's several binaries) can share
+        # every field _format_app_line displays.
+        seen_display: set[tuple[Any, ...]] = set()
+        unique: list[dict[str, Any]] = []
+        for app in ordered:
+            display_key = (
+                app.get("app_name"),
+                app.get("app_creator"),
+                app.get("app_trust"),
+                app.get("app_signature_state"),
+                app.get("app_signature_state_reason"),
+            )
+            if display_key in seen_display:
+                continue
+            seen_display.add(display_key)
+            unique.append(app)
+
+        return unique
 
     def _format_app_line(self, app: dict[str, Any]) -> str:
         name = app.get("app_name") or "Unknown application"

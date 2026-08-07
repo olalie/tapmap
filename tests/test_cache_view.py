@@ -763,6 +763,68 @@ def test_build_app_click_details_deduplicates_same_exe_within_operator() -> None
     assert details.count("App A") == 1
 
 
+def test_build_app_click_details_deduplicates_same_named_app_across_different_exes() -> None:
+    """Different exe paths that would render identically collapse to one line.
+
+    Mirrors OneDrive shipping several binaries (OneDrive.exe,
+    FileSyncHelper.exe, ...) that all report the same app_name, creator, and
+    trust - the compact view has no exe column, so repeats add noise, not
+    information.
+    """
+    entries = [
+        _app_entry(
+            port=443,
+            exe="/OneDrive.exe",
+            app_name="Microsoft OneDrive",
+            app_creator="Microsoft Corporation",
+            app_trust="trusted",
+            app_signature_state="TrustedAndSigned",
+        ),
+        _app_entry(
+            port=8080,
+            exe="/FileSyncHelper.exe",
+            app_name="Microsoft OneDrive",
+            app_creator="Microsoft Corporation",
+            app_trust="trusted",
+            app_signature_state="TrustedAndSigned",
+        ),
+    ]
+
+    details = CacheViewBuilder()._build_app_click_details(
+        place="Somewhere", country_code=None, entries=entries
+    )
+
+    assert details.count("Microsoft OneDrive") == 1
+
+
+def test_build_app_click_details_keeps_differently_trusted_same_named_apps_separate() -> None:
+    """Two exe paths sharing a display name but differing in trust are not collapsed."""
+    entries = [
+        _app_entry(
+            port=443,
+            exe="/a.exe",
+            app_name="Widget",
+            app_creator="Vendor",
+            app_trust="trusted",
+            app_signature_state="TrustedAndSigned",
+        ),
+        _app_entry(
+            port=8080,
+            exe="/b.exe",
+            app_name="Widget",
+            app_creator="Vendor",
+            app_trust="not_trusted",
+            app_signature_state="Unsigned",
+        ),
+    ]
+
+    details = CacheViewBuilder()._build_app_click_details(
+        place="Somewhere", country_code=None, entries=entries
+    )
+
+    assert details.count("Widget") == 2
+
+
 def test_build_app_click_details_lists_different_exe_paths_separately() -> None:
     """Two different applications sharing an operator both get their own line."""
     entries = [
