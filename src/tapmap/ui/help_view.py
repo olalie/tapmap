@@ -31,8 +31,10 @@ def render_help() -> list[Any]:
         html.Ul(
             [
                 html.Li("Start TapMap."),
-                html.Li("Hover map markers for a summary."),
-                html.Li("Click map markers for detailed information."),
+                html.Li("Hover map markers for a connection summary."),
+                html.Li(
+                    "Click map markers for connection details and application information."
+                ),
                 html.Li(
                     "The Insights panel highlights new and frequent activity."
                 ),
@@ -98,6 +100,8 @@ def render_help() -> list[Any]:
                                         html.Br(),
                                         "One marker can represent multiple services "
                                         "if they share the same rounded coordinates.",
+                                        html.Br(),
+                                        "Hover for a summary or click for connection and application information.",
                                     ]
                                 ),
                             ]
@@ -197,7 +201,7 @@ def render_help() -> list[Any]:
                             [
                                 html.Td("NETWORK"),
                                 html.Td(
-                                    "Unmapped services, LAN/LOCAL services, and open ports."
+                                    "Unmapped public services, LAN/LOCAL services, open ports, and the Technical details option."
                                 ),
                             ]
                         ),
@@ -280,6 +284,13 @@ def render_help() -> list[Any]:
                         ),
                         html.Tr(
                             [
+                                html.Td("T"),
+                                html.Td("Toggle Technical details"),
+                                html.Td("Option"),
+                            ]
+                        ),
+                        html.Tr(
+                            [
                                 html.Td("G"),
                                 html.Td("Open GeoIP Database Management"),
                                 html.Td("Window"),
@@ -297,11 +308,69 @@ def render_help() -> list[Any]:
                 ),
             ],
         ),
+        html.H2("Application information"),
+        html.P(
+            [
+                "Hover over a map marker to see a summary of the applications using "
+                "the selected network operator.",
+                html.Br(),
+                "Click a map marker for more details.",
+            ]
+        ),
+        html.P(
+            [
+                "Enable ",
+                html.B("Technical details"),
+                " in the NETWORK section of the menu to display executable paths, "
+                "processes, PIDs, signatures, and other technical information.",
+            ]
+        ),
+        html.H3("Application trust"),
+        html.Table(
+            className="mx-table mx-kv",
+            children=[
+                html.Tbody(
+                    [
+                        html.Tr(
+                            [
+                                html.Td(
+                                    html.Span("■", style={"color": "#00ff66"})
+                                ),
+                                html.Td("Trusted"),
+                            ]
+                        ),
+                        html.Tr(
+                            [
+                                html.Td(
+                                    html.Span("■", style={"color": "#ff4444"})
+                                ),
+                                html.Td("Not trusted"),
+                            ]
+                        ),
+                        html.Tr(
+                            [
+                                html.Td(
+                                    html.Span("■", style={"color": "#ffff00"})
+                                ),
+                                html.Td("Unknown or unavailable"),
+                            ]
+                        ),
+                    ]
+                ),
+            ],
+        ),
         html.H2("Map navigation"),
         html.P(
-            "Use the Fit Connections button in the Plotly toolbar (top right), or press "
-            "Z, to fit all mapped connections. Click a country in the Insights panel to "
-            "zoom to that country."
+            [
+                "Hover a map marker for a connection summary.",
+                html.Br(),
+                "Click a map marker for connection details and application information.",
+                html.Br(),
+                "Use the Fit Connections button in the Plotly toolbar (top right), or "
+                "press Z, to fit all mapped connections.",
+                html.Br(),
+                "Click a country in the Insights panel to zoom to that country.",
+            ]
         ),
         html.H2("Insights"),
         html.P("The Insights panel highlights activity observed during the last 30 days."),
