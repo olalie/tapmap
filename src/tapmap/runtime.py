@@ -70,12 +70,13 @@ def _get_app_data_dir(meta: AppMeta) -> Path:
 def _get_security_extensions_dir(is_frozen: bool, run_dir: Path) -> Path:
     """Return the directory containing the Microsoft Security Extensions DLLs.
 
-    Frozen: bundled by tapmap.spec next to the executable. Source run:
-    resolved relative to the repository root, two levels above run_dir
-    (src/tapmap/).
+    Frozen: resolved relative to the PyInstaller bundle directory.
+    Source run: resolved relative to the repository root, two levels above
+    run_dir (src/tapmap/).
     """
     if is_frozen:
-        return run_dir / "third_party" / "microsoft_security_extensions"
+        bundle_dir = Path(sys._MEIPASS)
+        return bundle_dir / "third_party" / "microsoft_security_extensions"
 
     return run_dir.parent.parent / "third_party" / "microsoft_security_extensions"
 
