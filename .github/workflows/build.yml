@@ -8,38 +8,38 @@ on:
       - main
     paths-ignore:
       - "docs/**"
-      - "mkdocs.yaml"
+      - "mkdocs.yml"
       - "README.md"
       - "CHANGELOG.md"
       - "CONTRIBUTING.md"
       - "SECURITY.md"
       - "PRIVACY.md"
       - "ARCHITECTURE.md"
-      - ".github/workflows/docs.yaml"
+      - ".github/workflows/docs.yml"
 
 jobs:
   docker:
     name: Docker Tests
-    uses: ./.github/workflows/validate-docker.yaml
+    uses: ./.github/workflows/validate-docker.yml
 
   linux:
     name: Linux Build
-    uses: ./.github/workflows/pipeline-linux.yaml
+    uses: ./.github/workflows/pipeline-linux.yml
 
   windows:
     name: Windows Build
-    uses: ./.github/workflows/pipeline-windows.yaml
+    uses: ./.github/workflows/pipeline-windows.yml
 
   macos-arm64:
     name: macOS (Apple Silicon)
-    uses: ./.github/workflows/pipeline-macos.yaml
+    uses: ./.github/workflows/pipeline-macos.yml
     with:
       architecture: arm64
     secrets: inherit
 
   macos-x86_64:
     name: macOS (Intel)
-    uses: ./.github/workflows/pipeline-macos.yaml
+    uses: ./.github/workflows/pipeline-macos.yml
     with:
       architecture: x86_64
     secrets: inherit

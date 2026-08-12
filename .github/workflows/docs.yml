@@ -24,7 +24,7 @@ jobs:
       - name: Install documentation dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install mkdocs mkdocs-material mkdocstrings[python] mkdocs-gen-files mkdocs-literate-nav
+          pip install -r requirements-docs.txt
 
       - name: Build documentation
         run: mkdocs build
