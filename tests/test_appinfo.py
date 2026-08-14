@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import platform
 from pathlib import Path
+
+import pytest
 
 from tapmap.model.appinfo import AppInfo, TrustVerdict
 from tapmap.model.appinfo.app_info import _get_creator
@@ -48,8 +51,10 @@ def test_select_backend_returns_none_on_unsupported_os(monkeypatch, tmp_path: Pa
 # --- AppInfo: disabled mode (no backend available) ---
 
 
-def test_disabled_when_dll_missing(tmp_path: Path) -> None:
+def test_disabled_when_dll_missing(monkeypatch, tmp_path: Path) -> None:
     """AppInfo reports disabled when the Windows backend cannot be constructed."""
+    monkeypatch.setattr("platform.system", lambda: "Windows")
+
     app_info = AppInfo(tmp_path / "does_not_exist")
     assert app_info.enabled is False
 
@@ -58,15 +63,19 @@ def test_lookup_disabled_falls_back_to_filename_metadata(tmp_path: Path) -> None
     """Disabled AppInfo still resolves a usable name/creator/trust from the path."""
     app_info = AppInfo(tmp_path / "does_not_exist")
 
-    metadata = app_info.lookup(r"C:\apps\foo.exe")
+    metadata = app_info.lookup("/apps/foo.exe")
 
     assert metadata.name == "foo"
     assert metadata.creator == "Unknown"
     assert metadata.trust == TrustVerdict.UNKNOWN
     assert metadata.signature_state is None
-    assert metadata.signature_state_reason is None
+    assert metadata.signature_state_details is None
 
 
+@pytest.mark.skipif(
+    platform.system() != "Windows",
+    reason="exercises os.path.normcase's case-insensitive behavior, which is Windows-specific",
+)
 def test_lookup_caches_by_normalized_path(tmp_path: Path) -> None:
     """Repeated lookups for the same path (any case) return the cached object."""
     app_info = AppInfo(tmp_path / "does_not_exist")
@@ -125,7 +134,7 @@ def test_enrich_flattens_metadata_into_connections(tmp_path: Path) -> None:
     """enrich() flattens ApplicationMetadata onto each connection dict as plain strings."""
     app_info = AppInfo(tmp_path / "does_not_exist")
 
-    conns = [{"exe": r"C:\Apps\Foo.exe"}]
+    conns = [{"exe": "/Apps/Foo.exe"}]
     app_info.enrich(conns)
 
     conn = conns[0]
@@ -134,4 +143,4 @@ def test_enrich_flattens_metadata_into_connections(tmp_path: Path) -> None:
     assert conn["app_trust"] == "unknown"
     assert isinstance(conn["app_trust"], str)
     assert conn["app_signature_state"] is None
-    assert conn["app_signature_state_reason"] is None
+    assert conn["app_signature_state_details"] is None

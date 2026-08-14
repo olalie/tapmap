@@ -101,7 +101,8 @@ def render_help() -> list[Any]:
                                         "One marker can represent multiple services "
                                         "if they share the same rounded coordinates.",
                                         html.Br(),
-                                        "Hover for a summary or click for connection and application information.",
+                                        "Hover for a summary or click for connection and "
+                                        "application information.",
                                     ]
                                 ),
                             ]
@@ -201,7 +202,8 @@ def render_help() -> list[Any]:
                             [
                                 html.Td("NETWORK"),
                                 html.Td(
-                                    "Unmapped public services, LAN/LOCAL services, open ports, and the Technical details option."
+                                    "Unmapped public services, LAN/LOCAL services, open ports, "
+                                    "and the Technical details option."
                                 ),
                             ]
                         ),

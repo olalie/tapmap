@@ -11,9 +11,10 @@ from __future__ import annotations
 
 import ctypes
 from ctypes import wintypes
+from typing import Any
 
-_wintrust = ctypes.WinDLL("wintrust.dll")
-_crypt32 = ctypes.WinDLL("crypt32.dll")
+_wintrust: Any = None
+_crypt32: Any = None
 
 
 class _GUID(ctypes.Structure):
@@ -75,36 +76,53 @@ _WTD_STATEACTION_VERIFY = 1
 _WTD_STATEACTION_CLOSE = 2
 _CERT_NAME_SIMPLE_DISPLAY_TYPE = 4
 
-_wintrust.WinVerifyTrust.restype = ctypes.c_long
-_wintrust.WinVerifyTrust.argtypes = [
-    wintypes.HWND,
-    ctypes.POINTER(_GUID),
-    ctypes.POINTER(_WINTRUST_DATA),
-]
 
-_wintrust.WTHelperProvDataFromStateData.restype = ctypes.c_void_p
-_wintrust.WTHelperProvDataFromStateData.argtypes = [wintypes.HANDLE]
+def _load() -> None:
+    """Load wintrust.dll/crypt32.dll and configure their function signatures.
 
-_wintrust.WTHelperGetProvSignerFromChain.restype = ctypes.c_void_p
-_wintrust.WTHelperGetProvSignerFromChain.argtypes = [
-    ctypes.c_void_p,
-    wintypes.DWORD,
-    wintypes.BOOL,
-    wintypes.DWORD,
-]
+    Safe to call more than once; only the first call has any effect.
+    """
+    global _wintrust, _crypt32
 
-_wintrust.WTHelperGetProvCertFromChain.restype = ctypes.c_void_p
-_wintrust.WTHelperGetProvCertFromChain.argtypes = [ctypes.c_void_p, wintypes.DWORD]
+    if _wintrust is not None:
+        return
 
-_crypt32.CertGetNameStringW.restype = wintypes.DWORD
-_crypt32.CertGetNameStringW.argtypes = [
-    ctypes.c_void_p,
-    wintypes.DWORD,
-    wintypes.DWORD,
-    ctypes.c_void_p,
-    wintypes.LPWSTR,
-    wintypes.DWORD,
-]
+    wintrust = ctypes.WinDLL("wintrust.dll")
+    crypt32 = ctypes.WinDLL("crypt32.dll")
+
+    wintrust.WinVerifyTrust.restype = ctypes.c_long
+    wintrust.WinVerifyTrust.argtypes = [
+        wintypes.HWND,
+        ctypes.POINTER(_GUID),
+        ctypes.POINTER(_WINTRUST_DATA),
+    ]
+
+    wintrust.WTHelperProvDataFromStateData.restype = ctypes.c_void_p
+    wintrust.WTHelperProvDataFromStateData.argtypes = [wintypes.HANDLE]
+
+    wintrust.WTHelperGetProvSignerFromChain.restype = ctypes.c_void_p
+    wintrust.WTHelperGetProvSignerFromChain.argtypes = [
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        wintypes.BOOL,
+        wintypes.DWORD,
+    ]
+
+    wintrust.WTHelperGetProvCertFromChain.restype = ctypes.c_void_p
+    wintrust.WTHelperGetProvCertFromChain.argtypes = [ctypes.c_void_p, wintypes.DWORD]
+
+    crypt32.CertGetNameStringW.restype = wintypes.DWORD
+    crypt32.CertGetNameStringW.argtypes = [
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.c_void_p,
+        wintypes.LPWSTR,
+        wintypes.DWORD,
+    ]
+
+    _wintrust = wintrust
+    _crypt32 = crypt32
 
 
 def _get_signer_name(cert_ptr: int) -> str | None:
@@ -125,6 +143,8 @@ def check_trust_override(path: str) -> tuple[bool, str | None]:
 
     Intended only as a fallback when FileSignatureInfo reports Unsigned.
     """
+    _load()
+
     file_info = _WINTRUST_FILE_INFO(
         cbStruct=ctypes.sizeof(_WINTRUST_FILE_INFO), pcwszFilePath=path
     )

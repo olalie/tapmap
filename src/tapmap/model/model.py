@@ -38,7 +38,7 @@ class CacheItem(TypedDict):
     app_creator: str | None
     app_trust: str | None
     app_signature_state: str | None
-    app_signature_state_reason: str | None
+    app_signature_state_details: str | None
 
 
 class OpenPort(TypedDict):
@@ -337,5 +337,5 @@ class Model:
             "app_creator": conn.get("app_creator"),
             "app_trust": conn.get("app_trust"),
             "app_signature_state": conn.get("app_signature_state"),
-            "app_signature_state_reason": conn.get("app_signature_state_reason"),
+            "app_signature_state_details": conn.get("app_signature_state_details"),
         }

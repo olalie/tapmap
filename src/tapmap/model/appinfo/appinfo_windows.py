@@ -87,11 +87,11 @@ class WindowsAppInfoBackend:
             version_info = {}
 
         try:
-            signature_state, signature_state_reason, publisher = (
+            signature_state, signature_state_details, publisher = (
                 windows_signature_info.check_signature(exe_path)
             )
         except Exception:
-            signature_state = signature_state_reason = publisher = None
+            signature_state = signature_state_details = publisher = None
 
         if signature_state == "Unsigned":
             try:
@@ -103,7 +103,7 @@ class WindowsAppInfoBackend:
 
             if is_trusted:
                 signature_state = "SignedAndTrusted"
-                signature_state_reason = "WinVerifyTrustOverride"
+                signature_state_details = "WinVerifyTrustOverride"
                 publisher = override_publisher
 
         company_name = version_info.get("CompanyName")
@@ -113,5 +113,5 @@ class WindowsAppInfoBackend:
             creator=_get_creator(company_name, publisher),
             trust=_resolve_trust(signature_state),
             signature_state=signature_state,
-            signature_state_reason=signature_state_reason,
+            signature_state_details=signature_state_details,
         )

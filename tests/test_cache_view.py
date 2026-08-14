@@ -13,7 +13,7 @@ _APP_FIELDS = (
     "app_creator",
     "app_trust",
     "app_signature_state",
-    "app_signature_state_reason",
+    "app_signature_state_details",
 )
 
 _DEFAULT_EXE = "/opt/app/app.exe"
@@ -39,7 +39,7 @@ def _candidate(**overrides: Any) -> dict[str, Any]:
         "app_creator": None,
         "app_trust": None,
         "app_signature_state": None,
-        "app_signature_state_reason": None,
+        "app_signature_state_details": None,
     }
     candidate.update(overrides)
     return candidate
@@ -84,7 +84,7 @@ def _app_entry(
         "app_creator": None,
         "app_trust": None,
         "app_signature_state": None,
-        "app_signature_state_reason": None,
+        "app_signature_state_details": None,
     }
     app.update(app_overrides)
     return {
@@ -107,7 +107,7 @@ def test_merge_map_candidates_propagates_app_fields_into_new_application() -> No
         app_creator="Mozilla Corporation",
         app_trust="trusted",
         app_signature_state="SignedAndTrusted",
-        app_signature_state_reason="None",
+        app_signature_state_details="None",
     )
 
     cache = builder.merge_map_candidates({}, [candidate])
@@ -118,7 +118,7 @@ def test_merge_map_candidates_propagates_app_fields_into_new_application() -> No
         "app_creator": "Mozilla Corporation",
         "app_trust": "trusted",
         "app_signature_state": "SignedAndTrusted",
-        "app_signature_state_reason": "None",
+        "app_signature_state_details": "None",
     }
 
 
@@ -145,7 +145,7 @@ def test_merge_map_candidates_backfills_app_fields_on_existing_application() -> 
                 app_creator="Mozilla Corporation",
                 app_trust="trusted",
                 app_signature_state="SignedAndTrusted",
-                app_signature_state_reason="None",
+                app_signature_state_details="None",
             )
         ],
     )
@@ -862,15 +862,15 @@ def test_build_app_click_details_sorts_not_trusted_first() -> None:
     assert details.index("Bad App") < details.index("Trusted App")
 
 
-def test_build_app_click_details_uses_humanized_state_with_reason() -> None:
-    """Windows-style signature state and reason render as 'State: reason'."""
+def test_build_app_click_details_uses_humanized_state_with_details() -> None:
+    """Windows-style signature state and details render as 'State: details'."""
     entries = [
         _app_entry(
             app_name="Firefox",
             app_creator="Mozilla Corporation",
             app_trust="trusted",
             app_signature_state="TrustedAndSigned",
-            app_signature_state_reason="Verified publisher",
+            app_signature_state_details="Verified publisher",
         )
     ]
 
@@ -882,8 +882,8 @@ def test_build_app_click_details_uses_humanized_state_with_reason() -> None:
     assert "Firefox (Mozilla Corporation, Trusted and signed: Verified publisher)" in visible
 
 
-def test_build_app_click_details_uses_humanized_state_without_reason() -> None:
-    """Signature state with no reason renders as just the humanized state."""
+def test_build_app_click_details_uses_humanized_state_without_details() -> None:
+    """Signature state with no details renders as just the humanized state."""
     entries = [
         _app_entry(
             app_name="Firefox",
@@ -900,13 +900,33 @@ def test_build_app_click_details_uses_humanized_state_without_reason() -> None:
     assert "Firefox (Mozilla Corporation, Signature invalid)" in visible
 
 
-def test_build_app_click_details_ignores_literal_none_reason_string() -> None:
-    """A reason of the literal string 'None' is treated as no reason."""
+def test_build_app_click_details_renders_macos_developer_signed_with_notarized_details() -> None:
+    """MacOS's DeveloperSigned/Notarized state renders through the same generic pipeline."""
+    entries = [
+        _app_entry(
+            app_name="TapMap",
+            app_creator="Tip Teknologi i Praksis AS",
+            app_trust="trusted",
+            app_signature_state="DeveloperSigned",
+            app_signature_state_details="Notarized",
+        )
+    ]
+
+    details = CacheViewBuilder()._build_app_click_details(
+        place="Somewhere", country_code=None, entries=entries
+    )
+    visible = re.sub(r"<[^>]+>", "", details)
+
+    assert "TapMap (Tip Teknologi i Praksis AS, Developer signed: Notarized)" in visible
+
+
+def test_build_app_click_details_ignores_literal_none_details_string() -> None:
+    """A details value of the literal string 'None' is treated as no details."""
     entries = [
         _app_entry(
             app_name="Firefox",
             app_signature_state="TrustedAndSigned",
-            app_signature_state_reason="None",
+            app_signature_state_details="None",
         )
     ]
 
@@ -937,7 +957,7 @@ def test_format_app_line_colorizes_only_the_trust_status_text() -> None:
         "app_creator": "Mozilla Corporation",
         "app_trust": "trusted",
         "app_signature_state": "TrustedAndSigned",
-        "app_signature_state_reason": None,
+        "app_signature_state_details": None,
     }
 
     line = CacheViewBuilder()._format_app_line(app)
@@ -955,7 +975,7 @@ def test_format_app_line_uses_not_trusted_color_for_unsigned() -> None:
         "app_creator": None,
         "app_trust": "not_trusted",
         "app_signature_state": "Unsigned",
-        "app_signature_state_reason": None,
+        "app_signature_state_details": None,
     }
 
     line = CacheViewBuilder()._format_app_line(app)

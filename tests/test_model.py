@@ -9,7 +9,7 @@ _APP_CACHE_ITEM_FIELDS = {
     "app_creator",
     "app_trust",
     "app_signature_state",
-    "app_signature_state_reason",
+    "app_signature_state_details",
 }
 
 
@@ -155,7 +155,7 @@ def _set_app_fields(connections: list[dict[str, Any]]) -> None:
         conn["app_creator"] = "Mozilla Corporation"
         conn["app_trust"] = "trusted"
         conn["app_signature_state"] = "SignedAndTrusted"
-        conn["app_signature_state_reason"] = "None"
+        conn["app_signature_state_details"] = "None"
 
 
 def test_cache_item_key_set_matches_contract() -> None:
@@ -200,7 +200,7 @@ def test_snapshot_copies_app_fields_into_cache_item() -> None:
     assert item["app_creator"] == "Mozilla Corporation"
     assert item["app_trust"] == "trusted"
     assert item["app_signature_state"] == "SignedAndTrusted"
-    assert item["app_signature_state_reason"] == "None"
+    assert item["app_signature_state_details"] == "None"
 
 
 def test_snapshot_stats_reflects_appinfo_enabled() -> None:

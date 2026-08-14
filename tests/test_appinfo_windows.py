@@ -117,7 +117,7 @@ def test_get_best_app_name_falls_back_to_file_description() -> None:
 
 def test_get_best_app_name_falls_back_to_filename() -> None:
     """The executable's filename is used when VERSIONINFO has nothing usable."""
-    name = _get_best_app_name(r"C:\apps\foo.exe", {})
+    name = _get_best_app_name("/apps/foo.exe", {})
     assert name == "foo"
 
 
@@ -183,7 +183,7 @@ def test_resolve_falls_back_to_trust_override_when_unsigned(monkeypatch) -> None
     metadata = backend.resolve(r"C:\Apps\Foo.exe")
 
     assert metadata.signature_state == "SignedAndTrusted"
-    assert metadata.signature_state_reason == "WinVerifyTrustOverride"
+    assert metadata.signature_state_details == "WinVerifyTrustOverride"
     assert metadata.creator == "Override Publisher"
     assert metadata.trust == TrustVerdict.TRUSTED
 

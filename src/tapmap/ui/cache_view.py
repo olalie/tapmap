@@ -182,7 +182,7 @@ class CacheViewBuilder:
             "app_creator": None,
             "app_trust": None,
             "app_signature_state": None,
-            "app_signature_state_reason": None,
+            "app_signature_state_details": None,
             "processes": [],
             "proc_pids": {},
         }
@@ -230,7 +230,7 @@ class CacheViewBuilder:
                 "app_creator",
                 "app_trust",
                 "app_signature_state",
-                "app_signature_state_reason",
+                "app_signature_state_details",
             ),
         )
 
@@ -519,7 +519,7 @@ class CacheViewBuilder:
                 app.get("app_creator"),
                 app.get("app_trust"),
                 app.get("app_signature_state"),
-                app.get("app_signature_state_reason"),
+                app.get("app_signature_state_details"),
             )
             if display_key in seen_display:
                 continue
@@ -539,15 +539,15 @@ class CacheViewBuilder:
     def _trust_text(app: dict[str, Any]) -> str:
         """Return display text for an application's trust.
 
-        Uses the platform-specific signature state (humanized) and reason
+        Uses the platform-specific signature state (humanized) and details
         when available. Falls back to the raw trust level otherwise.
         """
         state = app.get("app_signature_state")
         if isinstance(state, str) and state.strip():
             humanized = humanize_camel_case(state.strip())
-            reason = app.get("app_signature_state_reason")
-            if isinstance(reason, str) and reason.strip() and reason.strip().lower() != "none":
-                return f"{humanized}: {reason.strip()}"
+            details = app.get("app_signature_state_details")
+            if isinstance(details, str) and details.strip() and details.strip().lower() != "none":
+                return f"{humanized}: {details.strip()}"
             return humanized
 
         return safe_str(app.get("app_trust")) or "Unknown"

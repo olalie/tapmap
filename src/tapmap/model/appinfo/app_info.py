@@ -6,12 +6,12 @@ AppInfo answers three questions about an application, regardless of platform:
     2. Who created it?
     3. Can it be trusted?
 
-It selects a platform-specific backend (see appinfo_windows.py; other
-platforms not yet implemented) that resolves an ApplicationMetadata for one
-executable path, and caches results per executable path for the life of the
-session. Run in best-effort mode when no backend is available for the
-current OS, or backend construction fails, and return filename-derived,
-untrusted-looking results instead of raising.
+It selects a platform-specific backend (see appinfo_windows.py,
+appinfo_macos.py; other platforms not yet implemented) that resolves an
+ApplicationMetadata for one executable path, and caches results per
+executable path for the life of the session. Run in best-effort mode when
+no backend is available for the current OS, or backend construction fails,
+and return filename-derived, untrusted-looking results instead of raising.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ class ApplicationMetadata:
 
     name, creator and trust are always populated - UNKNOWN/"Unknown" are
     themselves valid answers, never absent. signature_state and
-    signature_state_reason are technical detail and may be None.
+    signature_state_details are technical detail and may be None.
 
     company_name and publisher are backend-internal inputs used only to
     compute creator; they are deliberately not part of this public contract
@@ -55,7 +55,7 @@ class ApplicationMetadata:
     creator: str
     trust: TrustVerdict
     signature_state: str | None
-    signature_state_reason: str | None
+    signature_state_details: str | None
 
 
 class AppInfoBackend(Protocol):
@@ -128,6 +128,11 @@ class AppInfo:
                 from .appinfo_windows import WindowsAppInfoBackend
 
                 return WindowsAppInfoBackend(security_extensions_dir)
+
+            if system == "Darwin":
+                from .appinfo_macos import MacOSAppInfoBackend
+
+                return MacOSAppInfoBackend()
         except Exception:
             if not self._silent:
                 raise
@@ -159,7 +164,7 @@ class AppInfo:
             conn["app_creator"] = metadata.creator
             conn["app_trust"] = metadata.trust.value
             conn["app_signature_state"] = metadata.signature_state
-            conn["app_signature_state_reason"] = metadata.signature_state_reason
+            conn["app_signature_state_details"] = metadata.signature_state_details
 
         return connections
 
@@ -191,7 +196,7 @@ class AppInfo:
             creator=_get_creator(None, None),
             trust=TrustVerdict.UNKNOWN,
             signature_state=None,
-            signature_state_reason=None,
+            signature_state_details=None,
         )
 
     def _cache_get(self, key: str) -> ApplicationMetadata | None:
