@@ -7,11 +7,11 @@ AppInfo answers three questions about an application, regardless of platform:
     3. Can it be trusted?
 
 It selects a platform-specific backend (see appinfo_windows.py,
-appinfo_macos.py; other platforms not yet implemented) that resolves an
-ApplicationMetadata for one executable path, and caches results per
-executable path for the life of the session. Run in best-effort mode when
-no backend is available for the current OS, or backend construction fails,
-and return filename-derived, untrusted-looking results instead of raising.
+appinfo_macos.py, appinfo_linux.py) that resolves an ApplicationMetadata for
+one executable path, and caches results per executable path for the life of
+the session. Run in best-effort mode when no backend is available for the
+current OS, or backend construction fails, and return filename-derived,
+untrusted-looking results instead of raising.
 """
 
 from __future__ import annotations
@@ -133,6 +133,11 @@ class AppInfo:
                 from .appinfo_macos import MacOSAppInfoBackend
 
                 return MacOSAppInfoBackend()
+
+            if system == "Linux":
+                from .appinfo_linux import LinuxAppInfoBackend
+
+                return LinuxAppInfoBackend()
         except Exception:
             if not self._silent:
                 raise

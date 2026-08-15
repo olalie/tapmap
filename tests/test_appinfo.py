@@ -40,7 +40,7 @@ def test_get_creator_falls_back_to_unknown() -> None:
 
 def test_select_backend_returns_none_on_unsupported_os(monkeypatch, tmp_path: Path) -> None:
     """No backend is selected on an OS with no implementation."""
-    monkeypatch.setattr("platform.system", lambda: "Linux")
+    monkeypatch.setattr("platform.system", lambda: "FreeBSD")
 
     app_info = AppInfo(tmp_path)
 
@@ -59,8 +59,9 @@ def test_disabled_when_dll_missing(monkeypatch, tmp_path: Path) -> None:
     assert app_info.enabled is False
 
 
-def test_lookup_disabled_falls_back_to_filename_metadata(tmp_path: Path) -> None:
+def test_lookup_disabled_falls_back_to_filename_metadata(monkeypatch, tmp_path: Path) -> None:
     """Disabled AppInfo still resolves a usable name/creator/trust from the path."""
+    monkeypatch.setattr("platform.system", lambda: "FreeBSD")
     app_info = AppInfo(tmp_path / "does_not_exist")
 
     metadata = app_info.lookup("/apps/foo.exe")
@@ -130,8 +131,9 @@ def test_enrich_skips_connections_without_exe(tmp_path: Path) -> None:
         assert "app_name" not in conn
 
 
-def test_enrich_flattens_metadata_into_connections(tmp_path: Path) -> None:
+def test_enrich_flattens_metadata_into_connections(monkeypatch, tmp_path: Path) -> None:
     """enrich() flattens ApplicationMetadata onto each connection dict as plain strings."""
+    monkeypatch.setattr("platform.system", lambda: "FreeBSD")
     app_info = AppInfo(tmp_path / "does_not_exist")
 
     conns = [{"exe": "/Apps/Foo.exe"}]
