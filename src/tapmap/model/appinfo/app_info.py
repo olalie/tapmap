@@ -1,17 +1,17 @@
-"""Best-effort application identity and trust data for connection records.
+"""Best-effort application identity and verification data for connection records.
 
 AppInfo answers three questions about an application, regardless of platform:
 
     1. What is the name of the program behind this process?
     2. Who created it?
-    3. Can it be trusted?
+    3. Can it be verified?
 
 It selects a platform-specific backend (see appinfo_windows.py,
 appinfo_macos.py, appinfo_linux.py) that resolves an ApplicationMetadata for
 one executable path, and caches results per executable path for the life of
 the session. Run in best-effort mode when no backend is available for the
 current OS, or backend construction fails, and return filename-derived,
-untrusted-looking results instead of raising.
+unverified-looking results instead of raising.
 """
 
 from __future__ import annotations
@@ -25,25 +25,24 @@ from pathlib import Path
 from typing import Any, Protocol
 
 
-class TrustVerdict(str, Enum):
-    """Coarse, UI-stable trust verdict for an executable.
+class VerificationStatus(str, Enum):
+    """Platform-independent verification result used internally by AppInfo.
 
-    Unsigned is treated as NOT_TRUSTED (a definitive answer from the signature
-    check); UNKNOWN is reserved for cases where the check itself could not
-    run at all (disabled, or an unexpected failure).
+    Windows and macOS derive the result from platform code-signing and
+    verification information. Linux maps package integrity and APT repository
+    information to the same internal result.
     """
 
-    TRUSTED = "trusted"
-    NOT_TRUSTED = "not_trusted"
+    VERIFIED = "verified"
+    FAILED = "failed"
     UNKNOWN = "unknown"
-
 
 @dataclass(frozen=True)
 class ApplicationMetadata:
-    """Application identity and trust metadata resolved for one executable path.
+    """Application identity and verification metadata resolved for one executable path.
 
-    name, creator and trust are always populated - UNKNOWN/"Unknown" are
-    themselves valid answers, never absent. signature_state and
+    name, creator and verification_status are always populated - UNKNOWN/"Unknown"
+    are themselves valid answers, never absent. signature_state and
     signature_state_details are technical detail and may be None.
 
     company_name and publisher are backend-internal inputs used only to
@@ -53,7 +52,7 @@ class ApplicationMetadata:
 
     name: str
     creator: str
-    trust: TrustVerdict
+    verification_status: VerificationStatus
     signature_state: str | None
     signature_state_details: str | None
 
@@ -82,7 +81,7 @@ def _get_creator(company_name: str | None, publisher: str | None) -> str:
 
 
 class AppInfo:
-    """Enrich connection dictionaries with best-effort application identity and trust data.
+    """Enrich connection dictionaries with best-effort application identity and verification data.
 
     Run without a backend selected (unsupported OS, or backend construction
     fails) in disabled mode, and cache lookups per executable path for the
@@ -167,7 +166,7 @@ class AppInfo:
             metadata = self.lookup(exe)
             conn["app_name"] = metadata.name
             conn["app_creator"] = metadata.creator
-            conn["app_trust"] = metadata.trust.value
+            conn["app_verification_status"] = metadata.verification_status.value
             conn["app_signature_state"] = metadata.signature_state
             conn["app_signature_state_details"] = metadata.signature_state_details
 
@@ -177,8 +176,8 @@ class AppInfo:
         """Look up application metadata for an executable path.
 
         Returns:
-            ApplicationMetadata; name/creator/trust are never absent, even
-            when disabled or on lookup failure.
+            ApplicationMetadata; name/creator/verification_status are never
+            absent, even when disabled or on lookup failure.
         """
         key = os.path.normcase(exe_path)
 
@@ -199,7 +198,7 @@ class AppInfo:
         return ApplicationMetadata(
             name=name,
             creator=_get_creator(None, None),
-            trust=TrustVerdict.UNKNOWN,
+            verification_status=VerificationStatus.UNKNOWN,
             signature_state=None,
             signature_state_details=None,
         )

@@ -17,11 +17,15 @@ from .formatting import (
     humanize_camel_case,
     safe_int,
     safe_str,
-    trust_color,
-    trust_glyph,
+    verification_status_color,
+    verification_status_glyph,
 )
 
-_APP_TRUST_PRIORITY: dict[str | None, int] = {"not_trusted": 0, "unknown": 1, "trusted": 2}
+_APP_VERIFICATION_STATUS_PRIORITY: dict[str | None, int] = {
+    "failed": 0,
+    "unknown": 1,
+    "verified": 2,
+}
 
 
 class CacheViewBuilder:
@@ -180,7 +184,7 @@ class CacheViewBuilder:
         return {
             "app_name": None,
             "app_creator": None,
-            "app_trust": None,
+            "app_verification_status": None,
             "app_signature_state": None,
             "app_signature_state_details": None,
             "processes": [],
@@ -228,7 +232,7 @@ class CacheViewBuilder:
             attrs=(
                 "app_name",
                 "app_creator",
-                "app_trust",
+                "app_verification_status",
                 "app_signature_state",
                 "app_signature_state_details",
             ),
@@ -403,17 +407,17 @@ class CacheViewBuilder:
     ) -> tuple[str, str | None, list[dict[str, Any]], int]:
         """Select the representative application for a ServicePoint.
 
-        Priority: not_trusted, then unknown, then trusted. Within a tier,
+        Priority: failed, then unknown, then verified. Within a tier,
         the application present at the most entries wins; ties break
         alphabetically by display name. Applications with no app_name share
         one "Unknown" group. Each entry's applications dict may contain more
         than one application.
 
         Returns:
-            (display name, trust, entries carrying that application, unique app count)
+            (display name, verification_status, entries carrying that application, unique app count)
         """
         groups: dict[str | None, list[dict[str, Any]]] = defaultdict(list)
-        trust_by_key: dict[str | None, str | None] = {}
+        verification_status_by_key: dict[str | None, str | None] = {}
 
         for e in entries:
             applications = e.get("applications")
@@ -424,7 +428,7 @@ class CacheViewBuilder:
                     continue
                 name = app.get("app_name")
                 key = name if isinstance(name, str) and name.strip() else None
-                trust_by_key.setdefault(key, app.get("app_trust"))
+                verification_status_by_key.setdefault(key, app.get("app_verification_status"))
                 if key in seen_keys:
                     continue
                 seen_keys.add(key)
@@ -435,13 +439,17 @@ class CacheViewBuilder:
 
         def rank(item: tuple[str | None, list[dict[str, Any]]]) -> tuple[int, int, str]:
             key, group_entries = item
-            trust = trust_by_key.get(key)
+            verification_status = verification_status_by_key.get(key)
             display = key or "Unknown"
-            return (_APP_TRUST_PRIORITY.get(trust, 1), -len(group_entries), display.lower())
+            return (
+                _APP_VERIFICATION_STATUS_PRIORITY.get(verification_status, 1),
+                -len(group_entries),
+                display.lower(),
+            )
 
         best_key, best_entries = min(groups.items(), key=rank)
         display_name = best_key or "Unknown"
-        return display_name, trust_by_key.get(best_key), best_entries, len(groups)
+        return display_name, verification_status_by_key.get(best_key), best_entries, len(groups)
 
     def _build_app_summary(
         self,
@@ -450,8 +458,8 @@ class CacheViewBuilder:
         country_code: str | None,
         entries: list[dict[str, Any]],
     ) -> str:
-        app_name, app_trust, app_entries, unique_app_count = self._pick_representative_app(
-            entries
+        app_name, app_verification_status, app_entries, unique_app_count = (
+            self._pick_representative_app(entries)
         )
         app_extra = unique_app_count - 1
         apps_value = app_name if app_extra <= 0 else f"{app_name} +{app_extra}"
@@ -461,11 +469,13 @@ class CacheViewBuilder:
 
         location_row = self._format_summary_row("Location:", country_flag(country_code), place)
         operators_row = self._format_summary_row("Network operator:", "  ", org_value)
-        apps_row = self._format_summary_row("App:", f" {trust_glyph(app_trust)}", apps_value)
+        apps_row = self._format_summary_row(
+            "App:", f" {verification_status_glyph(app_verification_status)}", apps_value
+        )
 
         return f"{location_row}<br>{operators_row}<br>{apps_row}"
 
-    _TRUST_STATUS_NOTE = "Trust status is evaluated by the operating system, not by TapMap."
+    _VERIFICATION_STATUS_NOTE = "Verification status is evaluated by the operating system, not by TapMap."  # noqa: E501
 
     def _build_app_click_details(
         self,
@@ -485,15 +495,15 @@ class CacheViewBuilder:
                 continue
             lines = [f"Network operator: {org}"]
             for app in apps:
-                bullet = trust_glyph(app.get("app_trust"))
+                bullet = verification_status_glyph(app.get("app_verification_status"))
                 lines.append(f"    {bullet} {self._format_app_line(app)}")
             org_blocks.append("\n".join(lines))
 
-        return "\n\n".join([location_block, *org_blocks, self._TRUST_STATUS_NOTE])
+        return "\n\n".join([location_block, *org_blocks, self._VERIFICATION_STATUS_NOTE])
 
     @staticmethod
     def _unique_applications(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Return each distinct-looking application in entries, once, trust-priority first."""
+        """Return each distinct-looking application in entries, once, verification-status-priority first."""  # noqa: E501
         by_exe: dict[str, dict[str, Any]] = {}
         for e in entries:
             applications = e.get("applications")
@@ -503,9 +513,9 @@ class CacheViewBuilder:
                     by_exe.setdefault(exe_key, app)
 
         def sort_key(app: dict[str, Any]) -> tuple[int, str]:
-            trust = app.get("app_trust")
+            verification_status = app.get("app_verification_status")
             name = app.get("app_name") or "Unknown application"
-            return (_APP_TRUST_PRIORITY.get(trust, 1), name.lower())
+            return (_APP_VERIFICATION_STATUS_PRIORITY.get(verification_status, 1), name.lower())
 
         ordered = sorted(by_exe.values(), key=sort_key)
 
@@ -517,7 +527,7 @@ class CacheViewBuilder:
             display_key = (
                 app.get("app_name"),
                 app.get("app_creator"),
-                app.get("app_trust"),
+                app.get("app_verification_status"),
                 app.get("app_signature_state"),
                 app.get("app_signature_state_details"),
             )
@@ -531,16 +541,18 @@ class CacheViewBuilder:
     def _format_app_line(self, app: dict[str, Any]) -> str:
         name = app.get("app_name") or "Unknown application"
         creator = app.get("app_creator") or "Unknown creator"
-        color = trust_color(app.get("app_trust"))
-        trust_text = f'<span style="color:{color}">{self._trust_text(app)}</span>'
-        return f"{name} ({creator}, {trust_text})"
+        color = verification_status_color(app.get("app_verification_status"))
+        verification_status_text = (
+            f'<span style="color:{color}">{self._verification_status_text(app)}</span>'
+        )
+        return f"{name} ({creator}, {verification_status_text})"
 
     @staticmethod
-    def _trust_text(app: dict[str, Any]) -> str:
-        """Return display text for an application's trust.
+    def _verification_status_text(app: dict[str, Any]) -> str:
+        """Return display text for an application's verification status.
 
         Uses the platform-specific signature state (humanized) and details
-        when available. Falls back to the raw trust level otherwise.
+        when available. Falls back to the raw verification status otherwise.
         """
         state = app.get("app_signature_state")
         if isinstance(state, str) and state.strip():
@@ -550,7 +562,7 @@ class CacheViewBuilder:
                 return f"{humanized}: {details.strip()}"
             return humanized
 
-        return safe_str(app.get("app_trust")) or "Unknown"
+        return safe_str(app.get("app_verification_status")) or "Unknown"
 
     _HEADER_LABEL_WIDTH = len("Coordinates:") + 2
 

@@ -42,6 +42,7 @@ nav:
   - Home: index.md
 
   - User Guide:
+      - Application Information: application-information.md
       - GeoDB Management: geodb-management.md
       - Environment Variables: environment-variables.md
       - Docker: docker.md

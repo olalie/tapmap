@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from tapmap.model.appinfo import AppInfo, TrustVerdict
+from tapmap.model.appinfo import AppInfo, VerificationStatus
 from tapmap.model.appinfo.app_info import _get_creator
 
 # --- _get_creator: platform-independent creator resolution ---
@@ -60,7 +60,7 @@ def test_disabled_when_dll_missing(monkeypatch, tmp_path: Path) -> None:
 
 
 def test_lookup_disabled_falls_back_to_filename_metadata(monkeypatch, tmp_path: Path) -> None:
-    """Disabled AppInfo still resolves a usable name/creator/trust from the path."""
+    """Disabled AppInfo still resolves a usable name/creator/verification_status from the path."""
     monkeypatch.setattr("platform.system", lambda: "FreeBSD")
     app_info = AppInfo(tmp_path / "does_not_exist")
 
@@ -68,7 +68,7 @@ def test_lookup_disabled_falls_back_to_filename_metadata(monkeypatch, tmp_path: 
 
     assert metadata.name == "foo"
     assert metadata.creator == "Unknown"
-    assert metadata.trust == TrustVerdict.UNKNOWN
+    assert metadata.verification_status == VerificationStatus.UNKNOWN
     assert metadata.signature_state is None
     assert metadata.signature_state_details is None
 
@@ -142,7 +142,7 @@ def test_enrich_flattens_metadata_into_connections(monkeypatch, tmp_path: Path) 
     conn = conns[0]
     assert conn["app_name"] == "Foo"
     assert conn["app_creator"] == "Unknown"
-    assert conn["app_trust"] == "unknown"
-    assert isinstance(conn["app_trust"], str)
+    assert conn["app_verification_status"] == "unknown"
+    assert isinstance(conn["app_verification_status"], str)
     assert conn["app_signature_state"] is None
     assert conn["app_signature_state_details"] is None

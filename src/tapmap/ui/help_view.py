@@ -327,7 +327,7 @@ def render_help() -> list[Any]:
                 "processes, PIDs, signatures, and other technical information.",
             ]
         ),
-        html.H3("Application trust"),
+        html.H3("Application verification"),
         html.Table(
             className="mx-table mx-kv",
             children=[
@@ -338,7 +338,7 @@ def render_help() -> list[Any]:
                                 html.Td(
                                     html.Span("■", style={"color": "#00ff66"})
                                 ),
-                                html.Td("Trusted"),
+                                html.Td("Verified: Verification succeeded."),
                             ]
                         ),
                         html.Tr(
@@ -346,7 +346,7 @@ def render_help() -> list[Any]:
                                 html.Td(
                                     html.Span("■", style={"color": "#ff4444"})
                                 ),
-                                html.Td("Not trusted"),
+                                html.Td("Failed: Verification failed."),
                             ]
                         ),
                         html.Tr(
@@ -354,7 +354,9 @@ def render_help() -> list[Any]:
                                 html.Td(
                                     html.Span("■", style={"color": "#ffff00"})
                                 ),
-                                html.Td("Unknown or unavailable"),
+                                html.Td(
+                                    "Unknown or unavailable: Verification could not be completed."
+                                ),
                             ]
                         ),
                     ]

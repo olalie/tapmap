@@ -1,10 +1,10 @@
-"""Test the Windows AppInfo backend: name/trust heuristics and resolution orchestration."""
+"""Test the Windows AppInfo backend: name/verification-status heuristics and resolution orchestration."""  # noqa: E501
 
 from __future__ import annotations
 
 import pytest
 
-from tapmap.model.appinfo import TrustVerdict
+from tapmap.model.appinfo import VerificationStatus
 from tapmap.model.appinfo import windows_signature_info as signature_info
 from tapmap.model.appinfo import windows_trust_override as trust_override
 from tapmap.model.appinfo import windows_version_info as version_info
@@ -12,10 +12,10 @@ from tapmap.model.appinfo.appinfo_windows import (
     WindowsAppInfoBackend,
     _get_best_app_name,
     _is_generic_windows_product_name,
-    _resolve_trust,
+    _resolve_verification_status,
 )
 
-# --- pure helpers: name/trust resolution ---
+# --- pure helpers: name/verification-status resolution ---
 
 
 def test_get_best_app_name_prefers_product_name() -> None:
@@ -121,20 +121,20 @@ def test_get_best_app_name_falls_back_to_filename() -> None:
     assert name == "foo"
 
 
-def test_resolve_trust_signed_and_trusted() -> None:
-    """SignedAndTrusted maps to TRUSTED."""
-    assert _resolve_trust("SignedAndTrusted") == TrustVerdict.TRUSTED
+def test_resolve_verification_status_signed_and_trusted() -> None:
+    """SignedAndTrusted maps to VERIFIED."""
+    assert _resolve_verification_status("SignedAndTrusted") == VerificationStatus.VERIFIED
 
 
 @pytest.mark.parametrize("state", ["SignedAndNotTrusted", "Invalid", "Unsigned"])
-def test_resolve_trust_known_bad_states_are_not_trusted(state: str) -> None:
-    """Any definitively-known non-trusted state maps to NOT_TRUSTED."""
-    assert _resolve_trust(state) == TrustVerdict.NOT_TRUSTED
+def test_resolve_verification_status_known_bad_states_fail(state: str) -> None:
+    """Any definitively failing signature state maps to FAILED."""
+    assert _resolve_verification_status(state) == VerificationStatus.FAILED
 
 
-def test_resolve_trust_none_is_unknown() -> None:
-    """A missing/failed signature check maps to UNKNOWN, not NOT_TRUSTED."""
-    assert _resolve_trust(None) == TrustVerdict.UNKNOWN
+def test_resolve_verification_status_none_is_unknown() -> None:
+    """A missing/failed signature check maps to UNKNOWN, not FAILED."""
+    assert _resolve_verification_status(None) == VerificationStatus.UNKNOWN
 
 
 # --- WindowsAppInfoBackend.resolve(): orchestration (data sources mocked) ---
@@ -164,7 +164,7 @@ def test_resolve_combines_version_info_and_signature(monkeypatch) -> None:
 
     assert metadata.name == "Contoso Suite"
     assert metadata.creator == "Contoso Ltd"
-    assert metadata.trust == TrustVerdict.TRUSTED
+    assert metadata.verification_status == VerificationStatus.VERIFIED
     assert metadata.signature_state == "SignedAndTrusted"
 
 
@@ -185,7 +185,7 @@ def test_resolve_falls_back_to_trust_override_when_unsigned(monkeypatch) -> None
     assert metadata.signature_state == "SignedAndTrusted"
     assert metadata.signature_state_details == "WinVerifyTrustOverride"
     assert metadata.creator == "Override Publisher"
-    assert metadata.trust == TrustVerdict.TRUSTED
+    assert metadata.verification_status == VerificationStatus.VERIFIED
 
 
 def test_resolve_does_not_consult_trust_override_when_already_signed(monkeypatch) -> None:
@@ -209,5 +209,5 @@ def test_resolve_does_not_consult_trust_override_when_already_signed(monkeypatch
     metadata = backend.resolve(r"C:\Apps\Foo.exe")
 
     assert calls == []
-    assert metadata.trust == TrustVerdict.NOT_TRUSTED
+    assert metadata.verification_status == VerificationStatus.FAILED
     assert metadata.creator == "Suspicious Publisher"

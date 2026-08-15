@@ -72,25 +72,25 @@ def country_flag(code: str | None) -> str:
     code = code.upper()
     return chr(127397 + ord(code[0])) + chr(127397 + ord(code[1]))
 
-_TRUST_COLORS = {
-    "trusted": "#00ff66",
-    "not_trusted": "#ff4444",
+_VERIFICATION_STATUS_COLORS = {
+    "verified": "#00ff66",
+    "failed": "#ff4444",
 }
-_UNKNOWN_TRUST_COLOR = "#ffff00"
+_UNKNOWN_VERIFICATION_STATUS_COLOR = "#ffff00"
 
 
-def trust_color(trust: str | None) -> str:
-    """Return the semantic color for an app_trust value.
+def verification_status_color(verification_status: str | None) -> str:
+    """Return the semantic color for an app_verification_status value.
 
-    Accepts "trusted", "not_trusted", "unknown", or None; any other value
-    maps to the unknown color (yellow).
+    Accepts "verified", "failed", "unknown", or None; any other value maps
+    to the unknown color (yellow).
     """
-    return _TRUST_COLORS.get(trust, _UNKNOWN_TRUST_COLOR)
+    return _VERIFICATION_STATUS_COLORS.get(verification_status, _UNKNOWN_VERIFICATION_STATUS_COLOR)
 
 
-def trust_glyph(trust: str | None) -> str:
-    """Return a colored bullet glyph for an app_trust value."""
-    return f'<span style="color:{trust_color(trust)}">■</span>'
+def verification_status_glyph(verification_status: str | None) -> str:
+    """Return a colored bullet glyph for an app_verification_status value."""
+    return f'<span style="color:{verification_status_color(verification_status)}">■</span>'
 
 
 def elide_path_middle(path: str, max_length: int = 60) -> str:

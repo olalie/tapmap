@@ -48,7 +48,7 @@ def test_for_click_renders_color_span_as_html_span() -> None:
 
 
 def test_for_click_renders_multi_character_color_span_as_html_span() -> None:
-    """A multi-character colored span (e.g. trust status text) renders as one html.Span."""
+    """A multi-character colored span (e.g. verification status text) renders as one html.Span."""
     detail = (
         'Firefox (Mozilla Corporation, '
         '<span style="color:#00ff66">Trusted and signed</span>)'

@@ -7,7 +7,7 @@ from tapmap.model.model import CacheItem, Model
 _APP_CACHE_ITEM_FIELDS = {
     "app_name",
     "app_creator",
-    "app_trust",
+    "app_verification_status",
     "app_signature_state",
     "app_signature_state_details",
 }
@@ -153,7 +153,7 @@ def _set_app_fields(connections: list[dict[str, Any]]) -> None:
     for conn in connections:
         conn["app_name"] = "Firefox"
         conn["app_creator"] = "Mozilla Corporation"
-        conn["app_trust"] = "trusted"
+        conn["app_verification_status"] = "verified"
         conn["app_signature_state"] = "SignedAndTrusted"
         conn["app_signature_state_details"] = "None"
 
@@ -198,7 +198,7 @@ def test_snapshot_copies_app_fields_into_cache_item() -> None:
     item = snap["cache_items"][0]
     assert item["app_name"] == "Firefox"
     assert item["app_creator"] == "Mozilla Corporation"
-    assert item["app_trust"] == "trusted"
+    assert item["app_verification_status"] == "verified"
     assert item["app_signature_state"] == "SignedAndTrusted"
     assert item["app_signature_state_details"] == "None"
 

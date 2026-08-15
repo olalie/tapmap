@@ -36,7 +36,7 @@ class CacheItem(TypedDict):
     asn_org: str | None
     app_name: str | None
     app_creator: str | None
-    app_trust: str | None
+    app_verification_status: str | None
     app_signature_state: str | None
     app_signature_state_details: str | None
 
@@ -335,7 +335,7 @@ class Model:
             "asn_org": conn.get("asn_org"),
             "app_name": conn.get("app_name"),
             "app_creator": conn.get("app_creator"),
-            "app_trust": conn.get("app_trust"),
+            "app_verification_status": conn.get("app_verification_status"),
             "app_signature_state": conn.get("app_signature_state"),
             "app_signature_state_details": conn.get("app_signature_state_details"),
         }

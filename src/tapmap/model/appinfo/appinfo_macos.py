@@ -5,21 +5,21 @@ from __future__ import annotations
 import os
 
 from . import macos_bundle_info, macos_signature_info
-from .app_info import ApplicationMetadata, TrustVerdict, _get_creator
+from .app_info import ApplicationMetadata, VerificationStatus, _get_creator
 
-_TRUST_BY_STATE: dict[str | None, TrustVerdict] = {
-    "AppleSystem": TrustVerdict.TRUSTED,
-    "DeveloperSigned": TrustVerdict.TRUSTED,
-    "AppStoreSigned": TrustVerdict.TRUSTED,
-    "AdHoc": TrustVerdict.NOT_TRUSTED,
-    "Invalid": TrustVerdict.NOT_TRUSTED,
-    "Unsigned": TrustVerdict.NOT_TRUSTED,
+_VERIFICATION_STATUS_BY_STATE: dict[str | None, VerificationStatus] = {
+    "AppleSystem": VerificationStatus.VERIFIED,
+    "DeveloperSigned": VerificationStatus.VERIFIED,
+    "AppStoreSigned": VerificationStatus.VERIFIED,
+    "AdHoc": VerificationStatus.FAILED,
+    "Invalid": VerificationStatus.FAILED,
+    "Unsigned": VerificationStatus.FAILED,
 }
 
 
-def _resolve_trust(signature_state: str | None) -> TrustVerdict:
-    """Map a raw signature state to a coarse trust verdict."""
-    return _TRUST_BY_STATE.get(signature_state, TrustVerdict.UNKNOWN)
+def _resolve_verification_status(signature_state: str | None) -> VerificationStatus:
+    """Map a raw signature state to a coarse verification status."""
+    return _VERIFICATION_STATUS_BY_STATE.get(signature_state, VerificationStatus.UNKNOWN)
 
 
 def _get_best_app_name(exe_path: str, bundle_info: dict[str, str | None]) -> str:
@@ -49,7 +49,7 @@ class MacOSAppInfoBackend:
             return ApplicationMetadata(
                 name=name,
                 creator=_get_creator(None, None),
-                trust=TrustVerdict.UNKNOWN,
+                verification_status=VerificationStatus.UNKNOWN,
                 signature_state=None,
                 signature_state_details=None,
             )
@@ -58,7 +58,7 @@ class MacOSAppInfoBackend:
             return ApplicationMetadata(
                 name=name,
                 creator=_get_creator(None, None),
-                trust=TrustVerdict.UNKNOWN,
+                verification_status=VerificationStatus.UNKNOWN,
                 signature_state="NotApplicable",
                 signature_state_details="Not a Mach-O executable",
             )
@@ -75,7 +75,7 @@ class MacOSAppInfoBackend:
         return ApplicationMetadata(
             name=name,
             creator=_get_creator(None, publisher),
-            trust=_resolve_trust(signature_state),
+            verification_status=_resolve_verification_status(signature_state),
             signature_state=signature_state,
             signature_state_details=signature_state_details,
         )

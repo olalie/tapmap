@@ -137,7 +137,7 @@ class ModalTextBuilder:
 
         Detail strings from the cache view carry inline color markup
         ('<span style="color:...">text</span>'), used for both the
-        trust-color bullet and the trust status text, and, in the Technical
+        verification-status-color bullet and the verification status text, and, in the Technical
         Details view, click-to-reveal executable paths
         ('<exe full="...">display</exe>'). html.Pre renders string children as
         plain text, so this markup is rendered as real components - carrying a

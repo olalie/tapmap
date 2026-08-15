@@ -1,7 +1,7 @@
 """Windows AppInfo backend: VERSIONINFO, FileSignatureInfo and WinVerifyTrust.
 
 No single Windows API answers all three of AppInfo's questions (name,
-creator, trust) reliably, so this backend combines:
+creator, verification status) reliably, so this backend combines:
   - VERSIONINFO (windows_version_info.py) for ProductName, CompanyName and
     FileDescription.
   - Microsoft.Security.Extensions.FileSignatureInfo (windows_signature_info.py),
@@ -20,7 +20,7 @@ import os
 from pathlib import Path
 
 from . import windows_signature_info, windows_trust_override, windows_version_info
-from .app_info import ApplicationMetadata, TrustVerdict, _get_creator
+from .app_info import ApplicationMetadata, VerificationStatus, _get_creator
 
 _TRADEMARK_CHARS = str.maketrans("", "", "®™")
 
@@ -58,13 +58,13 @@ def _get_best_app_name(exe_path: str, version_info: dict[str, str | None]) -> st
     return product or description or os.path.splitext(os.path.basename(exe_path))[0]
 
 
-def _resolve_trust(signature_state: str | None) -> TrustVerdict:
-    """Map a raw signature state to a coarse trust verdict."""
+def _resolve_verification_status(signature_state: str | None) -> VerificationStatus:
+    """Map a raw signature state to a coarse verification status."""
     if signature_state == "SignedAndTrusted":
-        return TrustVerdict.TRUSTED
+        return VerificationStatus.VERIFIED
     if signature_state is None:
-        return TrustVerdict.UNKNOWN
-    return TrustVerdict.NOT_TRUSTED
+        return VerificationStatus.UNKNOWN
+    return VerificationStatus.FAILED
 
 
 class WindowsAppInfoBackend:
@@ -111,7 +111,7 @@ class WindowsAppInfoBackend:
         return ApplicationMetadata(
             name=_get_best_app_name(exe_path, version_info),
             creator=_get_creator(company_name, publisher),
-            trust=_resolve_trust(signature_state),
+            verification_status=_resolve_verification_status(signature_state),
             signature_state=signature_state,
             signature_state_details=signature_state_details,
         )

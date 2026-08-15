@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 
 from . import linux_package_info
-from .app_info import ApplicationMetadata, TrustVerdict, _get_creator
+from .app_info import ApplicationMetadata, VerificationStatus, _get_creator
 
 
 def _get_best_app_name(exe_path: str, package: str) -> str:
@@ -32,7 +32,7 @@ class LinuxAppInfoBackend:
             return ApplicationMetadata(
                 name=os.path.splitext(os.path.basename(exe_path))[0],
                 creator=_get_creator(None, None),
-                trust=TrustVerdict.UNKNOWN,
+                verification_status=VerificationStatus.UNKNOWN,
                 signature_state="Unpackaged",
                 signature_state_details=None,
             )
@@ -44,7 +44,7 @@ class LinuxAppInfoBackend:
             return ApplicationMetadata(
                 name=name,
                 creator=creator,
-                trust=TrustVerdict.NOT_TRUSTED,
+                verification_status=VerificationStatus.FAILED,
                 signature_state="PackageModified",
                 signature_state_details=None,
             )
@@ -53,7 +53,7 @@ class LinuxAppInfoBackend:
             return ApplicationMetadata(
                 name=name,
                 creator=creator,
-                trust=TrustVerdict.UNKNOWN,
+                verification_status=VerificationStatus.UNKNOWN,
                 signature_state="PackageSourceUnverified",
                 signature_state_details=None,
             )
@@ -61,7 +61,7 @@ class LinuxAppInfoBackend:
         return ApplicationMetadata(
             name=name,
             creator=creator,
-            trust=TrustVerdict.TRUSTED,
+            verification_status=VerificationStatus.VERIFIED,
             signature_state="PackageVerified",
             signature_state_details=None,
         )

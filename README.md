@@ -81,7 +81,7 @@ TapMap makes this visible so you can:
 - Services your computer connects to
 - Their approximate locations on a world map
 - Application information for each network operator
-- Operating system trust status for applications
+- Operating system verification status for applications
 - Nearby locations highlighted when multiple connections overlap
 - Insights panel showing new and frequent activity over time
 - Daily Activity Report with application patterns, provider analysis, and activity timelines
@@ -171,9 +171,10 @@ Installation, updates, provider selection, and manual installation are documente
 
 Additional documentation:
 
-- [Docker](https://olalie.github.io/tapmap/docker/)
+- [Application Information](https://olalie.github.io/tapmap/application-information/)
 - [GeoIP Database Management](https://olalie.github.io/tapmap/geodb-management/)
 - [Environment Variables](https://olalie.github.io/tapmap/environment-variables/)
+- [Docker](https://olalie.github.io/tapmap/docker/)
 - [Backend Testing](https://olalie.github.io/tapmap/backend-testing/)
 - [Privacy Policy](https://olalie.github.io/tapmap/privacy/)
 
@@ -185,7 +186,7 @@ Additional documentation:
 
 #### Main view
 
-Interactive world map with live connections, application information, operating system trust status, Insights, and quick access to major features.
+Interactive world map with live connections, application information, operating system verification status, Insights, and quick access to major features.
 
 ![Main view](docs/images/menu_and_insights.png)
 
