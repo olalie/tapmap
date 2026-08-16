@@ -79,13 +79,34 @@ class WindowsAppInfoBackend:
         """
         windows_signature_info.load(security_extensions_dir)
 
-    def resolve(self, exe_path: str) -> ApplicationMetadata:
-        """Resolve application metadata for one executable path (uncached)."""
+    def resolve_identity(self, exe_path: str) -> ApplicationMetadata:
+        """Resolve name/creator for one executable path (uncached).
+
+        Always defers verification_status to resolve_verification().
+        """
         try:
             version_info = windows_version_info.get_version_info(exe_path)
         except OSError:
             version_info = {}
 
+        company_name = version_info.get("CompanyName")
+
+        return ApplicationMetadata(
+            name=_get_best_app_name(exe_path, version_info),
+            creator=company_name,
+            verification_status=None,
+            signature_state=None,
+            signature_state_details=None,
+        )
+
+    def resolve_verification(
+        self, exe_path: str, identity: ApplicationMetadata
+    ) -> ApplicationMetadata:
+        """Resolve code-signing verification for one executable path.
+
+        Finalizes creator from the signing certificate's publisher when
+        identity.creator (CompanyName) wasn't available.
+        """
         try:
             signature_state, signature_state_details, publisher = (
                 windows_signature_info.check_signature(exe_path)
@@ -106,11 +127,11 @@ class WindowsAppInfoBackend:
                 signature_state_details = "WinVerifyTrustOverride"
                 publisher = override_publisher
 
-        company_name = version_info.get("CompanyName")
+        creator = _get_creator(identity.creator, publisher)
 
         return ApplicationMetadata(
-            name=_get_best_app_name(exe_path, version_info),
-            creator=_get_creator(company_name, publisher),
+            name=identity.name,
+            creator=creator,
             verification_status=_resolve_verification_status(signature_state),
             signature_state=signature_state,
             signature_state_details=signature_state_details,

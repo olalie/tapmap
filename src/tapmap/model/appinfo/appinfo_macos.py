@@ -38,8 +38,13 @@ def _get_best_app_name(exe_path: str, bundle_info: dict[str, str | None]) -> str
 class MacOSAppInfoBackend:
     """Resolve ApplicationMetadata using Info.plist, codesign and spctl."""
 
-    def resolve(self, exe_path: str) -> ApplicationMetadata:
-        """Resolve application metadata for one executable path (uncached)."""
+    def resolve_identity(self, exe_path: str) -> ApplicationMetadata:
+        """Resolve name for one executable path (uncached).
+
+        Terminal for a file that isn't a Mach-O executable, or couldn't be
+        read at all. Otherwise defers both verification_status and creator
+        to resolve_verification().
+        """
         bundle_info = macos_bundle_info.get_bundle_info(exe_path)
         name = _get_best_app_name(exe_path, bundle_info)
 
@@ -63,6 +68,21 @@ class MacOSAppInfoBackend:
                 signature_state_details="Not a Mach-O executable",
             )
 
+        return ApplicationMetadata(
+            name=name,
+            creator=None,
+            verification_status=None,
+            signature_state=None,
+            signature_state_details=None,
+        )
+
+    def resolve_verification(
+        self, exe_path: str, identity: ApplicationMetadata
+    ) -> ApplicationMetadata:
+        """Resolve code-signing verification for one Mach-O executable path.
+
+        Only called when resolve_identity() found a readable Mach-O file.
+        """
         signature_state, signature_state_details, publisher = (
             macos_signature_info.check_signature(exe_path)
         )
@@ -73,7 +93,7 @@ class MacOSAppInfoBackend:
             signature_state_details = "Notarized"
 
         return ApplicationMetadata(
-            name=name,
+            name=identity.name,
             creator=_get_creator(None, publisher),
             verification_status=_resolve_verification_status(signature_state),
             signature_state=signature_state,

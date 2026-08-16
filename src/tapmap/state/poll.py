@@ -34,18 +34,19 @@ def _extract_key_action(key_action: Any) -> str | None:
     return action if isinstance(action, str) and action else None
 
 
-def decide_poll_action(*, trigger: Any, key_action: Any) -> PollDecision:
+def decide_poll_action(*, trigger: Any, key_action: Any, has_polled: bool) -> PollDecision:
     """Decide which high level poll action to execute.
 
-    Only the model timer observes and merges into the runtime model.
-    Clear actions reset the cache without observing. The technical-details
-    toggle rebuilds the map view from the existing cache without observing.
-    Every other trigger leaves the runtime model untouched.
+    Only the model timer, and any trigger before the first poll has ever
+    completed, observe and merge into the runtime model. Clear actions reset
+    the cache without observing. The technical-details toggle rebuilds the
+    map view from the existing cache without observing. Every other trigger
+    leaves the runtime model untouched.
     """
     if trigger == "menu_clear_cache":
         return PollDecision(action=ACTION_CLEAR_CACHE)
 
-    if trigger == "tick_model":
+    if trigger == "tick_model" or not has_polled:
         return PollDecision(action=ACTION_NORMAL_POLL)
 
     if trigger == "key_action":

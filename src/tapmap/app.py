@@ -487,6 +487,7 @@ class TapMap:
         candidates_any = snap.get("map_candidates")
         candidates = candidates_any if isinstance(candidates_any, list) else []
         updated_cache = self.view_builder.merge_map_candidates(ui_cache, candidates)
+        self._refresh_pending_app_verifications(updated_cache)
 
         items_any = snap.get("cache_items")
         items = items_any if isinstance(items_any, list) else []
@@ -495,6 +496,35 @@ class TapMap:
         self._maybe_save_insights()
 
         return snap, updated_cache, status_cache.to_store(), view, no_update
+
+    def _refresh_pending_app_verifications(self, ui_cache: dict[str, Any]) -> None:
+        """Backfill AppInfo verification results that completed since the last poll.
+
+        Covers ui_cache entries whose connection has left the current
+        snapshot but are still retained. Never triggers new AppInfo work.
+        """
+        pending = self.view_builder.pending_exe_paths(ui_cache)
+        if not pending:
+            return
+
+        resolved = self.model.appinfo.resolved_for(pending)
+        if not resolved:
+            return
+
+        fields = {
+            exe: {
+                "app_creator": metadata.creator,
+                "app_verification_status": (
+                    metadata.verification_status.value
+                    if metadata.verification_status is not None
+                    else None
+                ),
+                "app_signature_state": metadata.signature_state,
+                "app_signature_state_details": metadata.signature_state_details,
+            }
+            for exe, metadata in resolved.items()
+        }
+        self.view_builder.refresh_resolved_applications(ui_cache, fields)
 
     def _open_browser(self, url: str, delay_s: float = 0.8) -> None:
         try:
@@ -675,7 +705,8 @@ class TapMap:
             Input("menu_clear_cache", "n_clicks"),
             State("status_flash", "data"),
             State("technical_details_on", "data"),
-            prevent_initial_call=True,
+            State("model_snapshot", "data"),
+            prevent_initial_call=False,
         )
         def poll_model(
             tick_n: int,
@@ -683,6 +714,7 @@ class TapMap:
             _clear_clicks: int,
             status_flash_data: Any,
             technical_details_data: Any,
+            model_snapshot_data: Any,
         ):
             status_cache = self._status_cache
             ui_cache = self._ui_cache
@@ -691,6 +723,7 @@ class TapMap:
             decision = decide_poll_action(
                 trigger=trigger,
                 key_action=key_action,
+                has_polled=model_snapshot_data is not None,
             )
 
             if decision.action == ACTION_CLEAR_CACHE:
@@ -1361,6 +1394,9 @@ class TapMap:
         close_fn = getattr(self.model.geoinfo, "close", None)
         if callable(close_fn):
             close_fn()
+        appinfo_close_fn = getattr(self.model.appinfo, "close", None)
+        if callable(appinfo_close_fn):
+            appinfo_close_fn()
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:

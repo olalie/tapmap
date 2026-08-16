@@ -7,6 +7,7 @@ def test_clear_cache_from_menu() -> None:
     decision = poll.decide_poll_action(
         trigger="menu_clear_cache",
         key_action=None,
+        has_polled=True,
     )
 
     assert decision.action == poll.ACTION_CLEAR_CACHE
@@ -17,16 +18,29 @@ def test_clear_cache_from_keyboard_action() -> None:
     decision = poll.decide_poll_action(
         trigger="key_action",
         key_action={"action": "menu_clear_cache"},
+        has_polled=True,
     )
 
     assert decision.action == poll.ACTION_CLEAR_CACHE
 
 
 def test_normal_poll_on_tick_model_trigger() -> None:
-    """Return normal_poll only when the model timer ticks."""
+    """Return normal_poll when the model timer ticks."""
     decision = poll.decide_poll_action(
         trigger="tick_model",
         key_action=None,
+        has_polled=True,
+    )
+
+    assert decision.action == poll.ACTION_NORMAL_POLL
+
+
+def test_normal_poll_before_first_poll_regardless_of_trigger() -> None:
+    """Return normal_poll for any trigger until the first poll has completed."""
+    decision = poll.decide_poll_action(
+        trigger="key_action",
+        key_action=None,
+        has_polled=False,
     )
 
     assert decision.action == poll.ACTION_NORMAL_POLL
@@ -37,6 +51,7 @@ def test_zoom_connections_from_keyboard_action() -> None:
     decision = poll.decide_poll_action(
         trigger="key_action",
         key_action={"action": "zoom_connections"},
+        has_polled=True,
     )
 
     assert decision.action == poll.ACTION_ZOOM_CONNECTIONS
@@ -47,6 +62,7 @@ def test_rebuild_view_from_keyboard_action() -> None:
     decision = poll.decide_poll_action(
         trigger="key_action",
         key_action={"action": "menu_technical_details"},
+        has_polled=True,
     )
 
     assert decision.action == poll.ACTION_REBUILD_VIEW
@@ -57,6 +73,7 @@ def test_none_when_export_cache_menu_is_clicked() -> None:
     decision = poll.decide_poll_action(
         trigger="menu_export_cache",
         key_action=None,
+        has_polled=True,
     )
 
     assert decision.action == poll.ACTION_NONE
@@ -67,6 +84,7 @@ def test_none_when_geodb_management_keyboard_action_fires() -> None:
     decision = poll.decide_poll_action(
         trigger="key_action",
         key_action={"action": "menu_geodb_management"},
+        has_polled=True,
     )
 
     assert decision.action == poll.ACTION_NONE
@@ -77,6 +95,7 @@ def test_none_when_export_cache_keyboard_action_fires() -> None:
     decision = poll.decide_poll_action(
         trigger="key_action",
         key_action={"action": "menu_export_cache"},
+        has_polled=True,
     )
 
     assert decision.action == poll.ACTION_NONE
@@ -87,6 +106,7 @@ def test_none_when_keyboard_action_is_irrelevant() -> None:
     decision = poll.decide_poll_action(
         trigger="key_action",
         key_action={"action": "something_else"},
+        has_polled=True,
     )
 
     assert decision.action == poll.ACTION_NONE

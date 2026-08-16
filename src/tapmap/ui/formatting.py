@@ -72,9 +72,13 @@ def country_flag(code: str | None) -> str:
     code = code.upper()
     return chr(127397 + ord(code[0])) + chr(127397 + ord(code[1]))
 
+# Display-only; never stored in ApplicationMetadata/ui_cache (those use None).
+PENDING_VERIFICATION_STATUS = "pending"
+
 _VERIFICATION_STATUS_COLORS = {
     "verified": "#00ff66",
     "failed": "#ff4444",
+    PENDING_VERIFICATION_STATUS: "#ffffff",
 }
 _UNKNOWN_VERIFICATION_STATUS_COLOR = "#ffff00"
 
@@ -82,8 +86,8 @@ _UNKNOWN_VERIFICATION_STATUS_COLOR = "#ffff00"
 def verification_status_color(verification_status: str | None) -> str:
     """Return the semantic color for an app_verification_status value.
 
-    Accepts "verified", "failed", "unknown", or None; any other value maps
-    to the unknown color (yellow).
+    Accepts "verified", "failed", "pending", "unknown", or None; any other
+    value maps to the unknown color (yellow).
     """
     return _VERIFICATION_STATUS_COLORS.get(verification_status, _UNKNOWN_VERIFICATION_STATUS_COLOR)
 

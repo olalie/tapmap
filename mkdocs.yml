@@ -49,6 +49,7 @@ nav:
 
   - Developer Guide:
       - Backend Testing: backend-testing.md
+      - AppInfo Performance: appinfo-performance.md
 
   - API: reference/
 

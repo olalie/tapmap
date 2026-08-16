@@ -58,7 +58,8 @@ def _entry(
 ) -> dict[str, Any]:
     """Return a minimal ui_cache entry with a single application.
 
-    As consumed by summary-building methods.
+    As consumed by summary-building methods. exe is set whenever app_name
+    is (absent otherwise, matching the unknown-application bucket).
     """
     exe_key = app_name or "unknown"
     entry: dict[str, Any] = {
@@ -66,7 +67,11 @@ def _entry(
         "port": 443,
         "asn_org": "Google LLC",
         "applications": {
-            exe_key: {"app_name": app_name, "app_verification_status": app_verification_status},
+            exe_key: {
+                "app_name": app_name,
+                "app_verification_status": app_verification_status,
+                "exe": app_name,
+            },
         },
     }
     entry.update(overrides)
@@ -88,6 +93,7 @@ def _app_entry(
         "app_verification_status": None,
         "app_signature_state": None,
         "app_signature_state_details": None,
+        "exe": exe,
     }
     app.update(app_overrides)
     return {
@@ -926,6 +932,7 @@ def test_build_app_click_details_uses_humanized_state_without_details() -> None:
         _app_entry(
             app_name="Firefox",
             app_creator="Mozilla Corporation",
+            app_verification_status="failed",
             app_signature_state="SignatureInvalid",
         )
     ]
@@ -963,6 +970,7 @@ def test_build_app_click_details_ignores_literal_none_details_string() -> None:
     entries = [
         _app_entry(
             app_name="Firefox",
+            app_verification_status="verified",
             app_signature_state="TrustedAndSigned",
             app_signature_state_details="None",
         )
@@ -1102,3 +1110,264 @@ def test_build_view_from_cache_technical_details_on_details_unchanged() -> None:
     assert "Network operator:" not in detail
     assert "App:" in detail
     assert "Firefox" in detail
+
+
+# --- pending verification: representation, propagation, and display ---
+
+
+def test_display_verification_status_pending_for_real_exe() -> None:
+    """A real application with no verification_status yet displays as pending."""
+    app = {"app_name": "Firefox", "app_verification_status": None, "exe": "/firefox.exe"}
+
+    assert CacheViewBuilder._display_verification_status(app) == "pending"
+
+
+def test_display_verification_status_unknown_bucket_stays_none() -> None:
+    """The synthetic unknown-application bucket (no exe) is never treated as pending."""
+    app = {"app_name": None, "app_verification_status": None, "exe": None}
+
+    assert CacheViewBuilder._display_verification_status(app) is None
+
+
+def test_display_verification_status_passes_through_resolved_values() -> None:
+    """A resolved verification_status is returned unchanged, regardless of exe."""
+    app = {"app_verification_status": "failed", "exe": "/malware.exe"}
+
+    assert CacheViewBuilder._display_verification_status(app) == "failed"
+
+
+def test_pending_exe_paths_includes_real_pending_exe() -> None:
+    """An application with a real exe and no verification_status yet is pending."""
+    cache = {
+        "8.8.8.8|443": {
+            "applications": {
+                "/opt/app.exe": {"app_verification_status": None, "exe": "/opt/app.exe"},
+            }
+        }
+    }
+
+    assert CacheViewBuilder.pending_exe_paths(cache) == {"/opt/app.exe"}
+
+
+def test_pending_exe_paths_excludes_unknown_bucket() -> None:
+    """The synthetic unknown-application bucket never contributes a pending exe path."""
+    cache = {
+        "8.8.8.8|443": {
+            "applications": {
+                CacheViewBuilder._UNKNOWN_APP_KEY: {"app_verification_status": None, "exe": None},
+            }
+        }
+    }
+
+    assert CacheViewBuilder.pending_exe_paths(cache) == set()
+
+
+def test_pending_exe_paths_excludes_resolved_apps() -> None:
+    """An application whose verification has already resolved is not pending."""
+    cache = {
+        "8.8.8.8|443": {
+            "applications": {
+                "/opt/app.exe": {"app_verification_status": "verified", "exe": "/opt/app.exe"},
+            }
+        }
+    }
+
+    assert CacheViewBuilder.pending_exe_paths(cache) == set()
+
+
+def test_refresh_resolved_applications_backfills_pending_fields() -> None:
+    """A hand-fed resolved dict backfills the deferred fields on a matching application."""
+    builder = CacheViewBuilder()
+    cache = builder.merge_map_candidates(
+        {}, [_candidate(exe="/opt/app.exe", app_name="Firefox")]
+    )
+
+    builder.refresh_resolved_applications(
+        cache,
+        {
+            "/opt/app.exe": {
+                "app_creator": "Mozilla Corporation",
+                "app_verification_status": "verified",
+                "app_signature_state": "SignedAndTrusted",
+                "app_signature_state_details": None,
+            }
+        },
+    )
+
+    app = cache["8.8.8.8|443"]["applications"]["/opt/app.exe"]
+    assert app["app_creator"] == "Mozilla Corporation"
+    assert app["app_verification_status"] == "verified"
+    assert app["app_signature_state"] == "SignedAndTrusted"
+
+
+def test_refresh_resolved_applications_never_overwrites_a_resolved_value() -> None:
+    """A later resolved dict never overwrites an already-resolved field (backfill-only)."""
+    builder = CacheViewBuilder()
+    cache = builder.merge_map_candidates(
+        {},
+        [
+            _candidate(
+                exe="/opt/app.exe",
+                app_name="Firefox",
+                app_verification_status="verified",
+            )
+        ],
+    )
+
+    builder.refresh_resolved_applications(
+        cache, {"/opt/app.exe": {"app_verification_status": "failed"}}
+    )
+
+    assert cache["8.8.8.8|443"]["applications"]["/opt/app.exe"]["app_verification_status"] == (
+        "verified"
+    )
+
+
+def test_refresh_resolved_applications_ignores_unrelated_exe_paths() -> None:
+    """resolved entries for exe paths not present anywhere in ui_cache are a harmless no-op."""  # noqa: D403
+    builder = CacheViewBuilder()
+    cache = builder.merge_map_candidates(
+        {}, [_candidate(exe="/opt/app.exe", app_name="Firefox")]
+    )
+
+    builder.refresh_resolved_applications(
+        cache, {"/opt/other.exe": {"app_verification_status": "verified"}}
+    )
+
+    assert cache["8.8.8.8|443"]["applications"]["/opt/app.exe"]["app_verification_status"] is None
+
+
+def test_refresh_resolved_applications_updates_entry_whose_connection_has_vanished() -> None:
+    """A retained ui_cache entry whose connection has vanished still gets updated."""
+    builder = CacheViewBuilder()
+
+    # Tick 1: connection present, exe not yet verified.
+    cache = builder.merge_map_candidates(
+        {}, [_candidate(exe="/opt/app.exe", app_name="Firefox")]
+    )
+    assert builder.pending_exe_paths(cache) == {"/opt/app.exe"}
+
+    # Tick 2: connection is gone from the snapshot entirely.
+    cache = builder.merge_map_candidates(cache, [])
+    assert "/opt/app.exe" in cache["8.8.8.8|443"]["applications"]
+    assert builder.pending_exe_paths(cache) == {"/opt/app.exe"}
+
+    # The controller would now call AppInfo.resolved_for(pending_exe_paths(cache))
+    # and translate the result into this plain-dict shape.
+    builder.refresh_resolved_applications(
+        cache,
+        {
+            "/opt/app.exe": {
+                "app_creator": "Mozilla Corporation",
+                "app_verification_status": "verified",
+                "app_signature_state": "SignedAndTrusted",
+                "app_signature_state_details": None,
+            }
+        },
+    )
+
+    app = cache["8.8.8.8|443"]["applications"]["/opt/app.exe"]
+    assert app["app_verification_status"] == "verified"
+    assert app["app_creator"] == "Mozilla Corporation"
+    assert builder.pending_exe_paths(cache) == set()
+
+
+def test_verification_status_text_pending_shows_retrieving() -> None:
+    """A pending real application shows 'Retrieving...' rather than 'Unknown'."""
+    app = {"app_verification_status": None, "exe": "/opt/app.exe"}
+
+    assert CacheViewBuilder._verification_status_text(app) == "Retrieving..."
+
+
+def test_verification_status_text_unknown_bucket_still_shows_unknown() -> None:
+    """The synthetic unknown-application bucket is unaffected by pending handling."""
+    app = {"app_verification_status": None, "exe": None}
+
+    assert CacheViewBuilder._verification_status_text(app) == "Unknown"
+
+
+def test_format_app_line_pending_shows_white_bullet_and_retrieving_text() -> None:
+    """A pending application renders a white bullet and 'Retrieving...' status text."""
+    app = {
+        "app_name": "Firefox",
+        "app_creator": None,
+        "app_verification_status": None,
+        "app_signature_state": None,
+        "app_signature_state_details": None,
+        "exe": "/opt/app.exe",
+    }
+
+    line = CacheViewBuilder()._format_app_line(app)
+
+    assert '<span style="color:#ffffff">Retrieving...</span>' in line
+
+
+def test_format_app_line_pending_creator_shows_retrieving() -> None:
+    """A creator that may still arrive from the deferred lookup shows 'Retrieving...'."""
+    app = {
+        "app_name": "Firefox",
+        "app_creator": None,
+        "app_verification_status": None,
+        "app_signature_state": None,
+        "app_signature_state_details": None,
+        "exe": "/opt/app.exe",
+    }
+
+    line = CacheViewBuilder()._format_app_line(app)
+
+    assert line.startswith("Firefox (Retrieving..., ")
+
+
+def test_format_app_line_resolved_with_no_creator_shows_unknown_creator() -> None:
+    """Once resolved, a creator that was never found shows the settled 'Unknown creator'."""
+    app = {
+        "app_name": "Some App",
+        "app_creator": None,
+        "app_verification_status": "unknown",
+        "app_signature_state": None,
+        "app_signature_state_details": None,
+        "exe": "/opt/app.exe",
+    }
+
+    line = CacheViewBuilder()._format_app_line(app)
+
+    assert line.startswith("Some App (Unknown creator, ")
+
+
+def test_build_app_summary_pending_app_shows_white_bullet() -> None:
+    """A pending representative app renders a white bullet in the hover summary."""
+    entries = [_entry(app_name="New App", app_verification_status=None)]
+
+    summary = CacheViewBuilder()._build_app_summary(
+        place="Somewhere", country_code=None, entries=entries
+    )
+
+    apps_line = summary.split("<br>")[2]
+    assert "#ffffff" in apps_line
+
+
+def test_app_verification_status_priority_orders_pending_between_unknown_and_verified() -> None:
+    """Representative-app selection ranks: failed, unknown, pending, verified."""
+    entries = [
+        _entry(app_name="Verified App", app_verification_status="verified"),
+        _entry(app_name="Pending App", app_verification_status=None),
+        _entry(app_name="Mystery App", app_verification_status="unknown"),
+    ]
+
+    name, verification_status, _, _ = CacheViewBuilder._pick_representative_app(entries)
+
+    assert name == "Mystery App"
+    assert verification_status == "unknown"
+
+
+def test_app_verification_status_priority_prefers_pending_over_verified() -> None:
+    """A pending app is chosen over a verified one, but not over unknown/failed."""
+    entries = [
+        _entry(app_name="Verified App", app_verification_status="verified"),
+        _entry(app_name="Pending App", app_verification_status=None),
+    ]
+
+    name, verification_status, _, _ = CacheViewBuilder._pick_representative_app(entries)
+
+    assert name == "Pending App"
+    assert verification_status == "pending"

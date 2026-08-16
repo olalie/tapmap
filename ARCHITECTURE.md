@@ -102,6 +102,7 @@ Responsibilities include:
 - Process discovery
 - Public IP discovery
 - GeoIP enrichment
+- Application information and platform verification
 - Snapshot creation
 
 ---
@@ -207,6 +208,35 @@ Unmapped Services
 
 Session state exists only while the application is running.
 
+### AppInfo Flow
+
+Application identity information is collected as part of normal snapshot processing. Expensive platform verification runs independently in the background.
+
+```text
+Model.snapshot()
+       │
+       ├── Application identity
+       │
+       ▼
+   model_snapshot
+       │
+       ▼
+    ui_cache
+
+Background verification
+       │
+       ▼
+  AppInfo cache
+       │
+       ▼
+ normal poll
+       │
+       ▼
+    ui_cache
+```
+
+Pending verification does not block snapshot creation or map updates. Completed verification information is merged into retained session state during subsequent polling.
+
 ### Historical Flow
 
 Used for long-term analysis.
@@ -249,6 +279,8 @@ This state is transient and replaced during each polling cycle.
 Session-scoped state.
 
 Contains activity accumulated during the current application session.
+
+Retained entries may be enriched with completed AppInfo verification results during subsequent polling, even when the corresponding connection is no longer present in the latest snapshot.
 
 Used by:
 
@@ -345,3 +377,5 @@ During startup:
 - [GeoIP Database Management](docs/geodb-management.md)
 - [Environment Variables](docs/environment-variables.md)
 - [Backend Testing](docs/backend-testing.md)
+- [Application Information](docs/application-information.md)
+- [AppInfo Performance](docs/appinfo-performance.md)

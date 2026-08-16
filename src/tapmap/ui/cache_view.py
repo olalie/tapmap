@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any
 
 from .formatting import (
+    PENDING_VERIFICATION_STATUS,
     country_flag,
     elide_path_middle,
     humanize_camel_case,
@@ -24,7 +25,8 @@ from .formatting import (
 _APP_VERIFICATION_STATUS_PRIORITY: dict[str | None, int] = {
     "failed": 0,
     "unknown": 1,
-    "verified": 2,
+    PENDING_VERIFICATION_STATUS: 2,
+    "verified": 3,
 }
 
 
@@ -141,7 +143,72 @@ class CacheViewBuilder:
 
         self._prune_cache(cache, now)
         return cache
-    
+
+    @staticmethod
+    def pending_exe_paths(ui_cache: dict[str, Any]) -> set[str]:
+        """Return exe paths in ui_cache whose deferred AppInfo data is still missing.
+
+        Scans ui_cache, not the current snapshot, so retained applications
+        whose connection has vanished are still included. Excludes the
+        synthetic unknown-application bucket and applications already resolved.
+        """
+        pending: set[str] = set()
+        for entry in ui_cache.values():
+            if not isinstance(entry, dict):
+                continue
+            applications = entry.get("applications")
+            if not isinstance(applications, dict):
+                continue
+            for app in applications.values():
+                if not isinstance(app, dict):
+                    continue
+                exe = app.get("exe")
+                if not isinstance(exe, str) or not exe:
+                    continue
+                if app.get("app_verification_status") is None:
+                    pending.add(exe)
+        return pending
+
+    @staticmethod
+    def refresh_resolved_applications(
+        ui_cache: dict[str, Any], resolved: dict[str, dict[str, Any]]
+    ) -> None:
+        """Backfill newly-completed AppInfo fields into matching application records.
+
+        resolved maps exe path to a plain dict of app_creator,
+        app_verification_status, app_signature_state, and
+        app_signature_state_details values. Only fills fields still None, so
+        calling this every poll tick is safe even when nothing changed.
+        Mutates ui_cache in place.
+        """
+        if not resolved:
+            return
+        for entry in ui_cache.values():
+            if not isinstance(entry, dict):
+                continue
+            applications = entry.get("applications")
+            if not isinstance(applications, dict):
+                continue
+            for app in applications.values():
+                if not isinstance(app, dict):
+                    continue
+                exe = app.get("exe")
+                if not isinstance(exe, str):
+                    continue
+                update = resolved.get(exe)
+                if update is None:
+                    continue
+                CacheViewBuilder._merge_missing_attrs(
+                    app,
+                    update,
+                    attrs=(
+                        "app_creator",
+                        "app_verification_status",
+                        "app_signature_state",
+                        "app_signature_state_details",
+                    ),
+                )
+
     def _prune_cache(
         self,
         cache: dict[str, Any],
@@ -180,13 +247,14 @@ class CacheViewBuilder:
         }
 
     @staticmethod
-    def _new_application() -> dict[str, Any]:
+    def _new_application(exe: str | None) -> dict[str, Any]:
         return {
             "app_name": None,
             "app_creator": None,
             "app_verification_status": None,
             "app_signature_state": None,
             "app_signature_state_details": None,
+            "exe": exe,
             "processes": [],
             "proc_pids": {},
         }
@@ -223,7 +291,7 @@ class CacheViewBuilder:
         app_key = exe or self._UNKNOWN_APP_KEY
         app = apps.get(app_key)
         if not isinstance(app, dict):
-            app = self._new_application()
+            app = self._new_application(exe)
             apps[app_key] = app
 
         self._merge_missing_attrs(
@@ -402,13 +470,26 @@ class CacheViewBuilder:
         return Counter(codes).most_common(1)[0][0] if codes else None
 
     @staticmethod
+    def _display_verification_status(app: dict[str, Any]) -> str | None:
+        """Return app_verification_status for display, substituting the pending sentinel.
+
+        Only substitutes for a real application (exe is not None) - the
+        synthetic unknown-application bucket has no pending work and must
+        keep showing "unknown".
+        """
+        status = app.get("app_verification_status")
+        if status is None and app.get("exe") is not None:
+            return PENDING_VERIFICATION_STATUS
+        return status
+
+    @staticmethod
     def _pick_representative_app(
         entries: list[dict[str, Any]],
     ) -> tuple[str, str | None, list[dict[str, Any]], int]:
         """Select the representative application for a ServicePoint.
 
-        Priority: failed, then unknown, then verified. Within a tier,
-        the application present at the most entries wins; ties break
+        Priority: failed, then unknown, then pending, then verified. Within
+        a tier, the application present at the most entries wins; ties break
         alphabetically by display name. Applications with no app_name share
         one "Unknown" group. Each entry's applications dict may contain more
         than one application.
@@ -428,7 +509,9 @@ class CacheViewBuilder:
                     continue
                 name = app.get("app_name")
                 key = name if isinstance(name, str) and name.strip() else None
-                verification_status_by_key.setdefault(key, app.get("app_verification_status"))
+                verification_status_by_key.setdefault(
+                    key, CacheViewBuilder._display_verification_status(app)
+                )
                 if key in seen_keys:
                     continue
                 seen_keys.add(key)
@@ -495,7 +578,7 @@ class CacheViewBuilder:
                 continue
             lines = [f"Network operator: {org}"]
             for app in apps:
-                bullet = verification_status_glyph(app.get("app_verification_status"))
+                bullet = verification_status_glyph(self._display_verification_status(app))
                 lines.append(f"    {bullet} {self._format_app_line(app)}")
             org_blocks.append("\n".join(lines))
 
@@ -513,7 +596,7 @@ class CacheViewBuilder:
                     by_exe.setdefault(exe_key, app)
 
         def sort_key(app: dict[str, Any]) -> tuple[int, str]:
-            verification_status = app.get("app_verification_status")
+            verification_status = CacheViewBuilder._display_verification_status(app)
             name = app.get("app_name") or "Unknown application"
             return (_APP_VERIFICATION_STATUS_PRIORITY.get(verification_status, 1), name.lower())
 
@@ -540,8 +623,12 @@ class CacheViewBuilder:
 
     def _format_app_line(self, app: dict[str, Any]) -> str:
         name = app.get("app_name") or "Unknown application"
-        creator = app.get("app_creator") or "Unknown creator"
-        color = verification_status_color(app.get("app_verification_status"))
+        display_status = self._display_verification_status(app)
+        if display_status == PENDING_VERIFICATION_STATUS:
+            creator = "Retrieving..."
+        else:
+            creator = app.get("app_creator") or "Unknown creator"
+        color = verification_status_color(display_status)
         verification_status_text = (
             f'<span style="color:{color}">{self._verification_status_text(app)}</span>'
         )
@@ -554,6 +641,10 @@ class CacheViewBuilder:
         Uses the platform-specific signature state (humanized) and details
         when available. Falls back to the raw verification status otherwise.
         """
+        display_status = CacheViewBuilder._display_verification_status(app)
+        if display_status == PENDING_VERIFICATION_STATUS:
+            return "Retrieving..."
+
         state = app.get("app_signature_state")
         if isinstance(state, str) and state.strip():
             humanized = humanize_camel_case(state.strip())
@@ -562,7 +653,7 @@ class CacheViewBuilder:
                 return f"{humanized}: {details.strip()}"
             return humanized
 
-        return safe_str(app.get("app_verification_status")) or "Unknown"
+        return safe_str(display_status) or "Unknown"
 
     _HEADER_LABEL_WIDTH = len("Coordinates:") + 2
 

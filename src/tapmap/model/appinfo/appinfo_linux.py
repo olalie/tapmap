@@ -23,8 +23,12 @@ def _get_best_app_name(exe_path: str, package: str) -> str:
 class LinuxAppInfoBackend:
     """Resolve ApplicationMetadata using dpkg package ownership and apt repo provenance."""
 
-    def resolve(self, exe_path: str) -> ApplicationMetadata:
-        """Resolve application metadata for one executable path (uncached)."""
+    def resolve_identity(self, exe_path: str) -> ApplicationMetadata:
+        """Resolve name/creator for one executable path (uncached).
+
+        Terminal (verification_status set, nothing deferred) when the
+        executable isn't owned by any dpkg package.
+        """
         real_path = os.path.realpath(exe_path)
         package = linux_package_info.find_owning_package(real_path)
 
@@ -39,11 +43,38 @@ class LinuxAppInfoBackend:
 
         name = _get_best_app_name(exe_path, package)
         creator = _get_creator(linux_package_info.find_creator(package), None)
+        return ApplicationMetadata(
+            name=name,
+            creator=creator,
+            verification_status=None,
+            signature_state=None,
+            signature_state_details=None,
+        )
+
+    def resolve_verification(
+        self, exe_path: str, identity: ApplicationMetadata
+    ) -> ApplicationMetadata:
+        """Resolve package integrity and repo provenance for one executable path.
+
+        Only called when resolve_identity() found an owning package.
+        """
+        real_path = os.path.realpath(exe_path)
+        package = linux_package_info.find_owning_package(real_path)
+
+        if package is None:
+            # Package may have been removed since resolve_identity() ran.
+            return ApplicationMetadata(
+                name=identity.name,
+                creator=identity.creator,
+                verification_status=VerificationStatus.UNKNOWN,
+                signature_state="Unpackaged",
+                signature_state_details=None,
+            )
 
         if not linux_package_info.verify_package_integrity(package, real_path):
             return ApplicationMetadata(
-                name=name,
-                creator=creator,
+                name=identity.name,
+                creator=identity.creator,
                 verification_status=VerificationStatus.FAILED,
                 signature_state="PackageModified",
                 signature_state_details=None,
@@ -51,16 +82,16 @@ class LinuxAppInfoBackend:
 
         if not linux_package_info.is_repo_backed(package):
             return ApplicationMetadata(
-                name=name,
-                creator=creator,
+                name=identity.name,
+                creator=identity.creator,
                 verification_status=VerificationStatus.UNKNOWN,
                 signature_state="PackageSourceUnverified",
                 signature_state_details=None,
             )
 
         return ApplicationMetadata(
-            name=name,
-            creator=creator,
+            name=identity.name,
+            creator=identity.creator,
             verification_status=VerificationStatus.VERIFIED,
             signature_state="PackageVerified",
             signature_state_details=None,

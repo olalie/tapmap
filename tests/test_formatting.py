@@ -2,7 +2,31 @@
 
 from __future__ import annotations
 
-from tapmap.ui.formatting import elide_path_middle, humanize_camel_case
+from tapmap.ui.formatting import (
+    PENDING_VERIFICATION_STATUS,
+    elide_path_middle,
+    humanize_camel_case,
+    verification_status_color,
+    verification_status_glyph,
+)
+
+
+def test_verification_status_color_pending_is_white() -> None:
+    """A pending verification status renders as white, distinct from unknown's yellow."""
+    assert verification_status_color(PENDING_VERIFICATION_STATUS) == "#ffffff"
+
+
+def test_verification_status_color_unknown_is_yellow() -> None:
+    """An unresolved-but-terminal (unknown) status stays yellow, not white."""
+    assert verification_status_color("unknown") == "#ffff00"
+    assert verification_status_color(None) == "#ffff00"
+
+
+def test_verification_status_glyph_pending_is_white_bullet() -> None:
+    """The pending glyph is a colored bullet using the white pending color."""
+    assert verification_status_glyph(PENDING_VERIFICATION_STATUS) == (
+        '<span style="color:#ffffff">■</span>'
+    )
 
 
 def test_humanize_camel_case_splits_multiple_words() -> None:
