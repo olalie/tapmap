@@ -3,6 +3,7 @@ from pathlib import Path
 import mkdocs_gen_files
 
 ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = ROOT / "src"
 REFERENCE_ROOT = Path("reference")
 README_PATH = ROOT / "README.md"
 INDEX_PATH = Path("index.md")
@@ -10,13 +11,6 @@ PRIVACY_PATH = ROOT / "PRIVACY.md"
 PRIVACY_DOC_PATH = Path("privacy.md")
 
 EXCLUDE_DIRS = {
-    ".venv",
-    ".private",
-    ".github",
-    "docs",
-    "site",
-    "tools",
-    "tests",
     "__pycache__",
 }
 
@@ -69,8 +63,8 @@ def main() -> None:
     write_home_page()
     write_privacy_page()
 
-    for path in iter_python_files(ROOT):
-        module_path = path.relative_to(ROOT).with_suffix("")
+    for path in iter_python_files(SRC_ROOT):
+        module_path = path.relative_to(SRC_ROOT).with_suffix("")
         parts = module_path.parts
 
         if parts[-1] == "__init__":
