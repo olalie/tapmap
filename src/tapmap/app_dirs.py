@@ -112,7 +112,8 @@ def open_folder(path: Path) -> tuple[bool, str]:
         system = platform.system()
 
         if system == "Windows":
-            os.startfile(str(path))
+            # os.startfile() would not bring Explorer to the foreground here.
+            subprocess.Popen(["explorer", str(path)])
             return True, f"Opened: {path}"
 
         if system == "Darwin":

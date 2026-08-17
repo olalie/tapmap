@@ -172,6 +172,23 @@ def test_open_folder_returns_failure_message_when_xdg_open_fails(
     assert message == "xdg-open failed. permission denied"
 
 
+def test_open_folder_launches_new_explorer_process_on_windows(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Open the folder via Explorer on Windows."""
+    calls: list[Any] = []
+    monkeypatch.setattr(app_dirs.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(
+        app_dirs.subprocess, "Popen", lambda args, **kwargs: calls.append(args)
+    )
+
+    ok, message = app_dirs.open_folder(tmp_path)
+
+    assert ok is True
+    assert message == f"Opened: {tmp_path}"
+    assert calls == [["explorer", str(tmp_path)]]
+
+
 def test_reveal_in_file_manager_returns_error_when_file_is_missing(tmp_path: Path) -> None:
     """Return an error when the target file does not exist."""
     missing = tmp_path / "missing.exe"
