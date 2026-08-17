@@ -121,7 +121,7 @@ docker build -t tapmap .
 Start using the provided Docker Compose configuration:
 
 ```bash
-docker compose -f compose.linux.yml up
+docker compose -f compose-linux.yml up
 ```
 
 ## GeoIP databases

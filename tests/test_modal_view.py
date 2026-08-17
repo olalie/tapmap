@@ -25,7 +25,7 @@ def test_for_click_does_not_prepend_its_own_coordinate_line() -> None:
     """
     view = {"details": {"0": "Location: US\nSomething"}}
 
-    result = _builder().for_click(_click_data(), view)
+    result = _builder().for_click(_click_data(), view, is_docker=False)
 
     assert isinstance(result, html.Pre)
     rendered = "".join(c if isinstance(c, str) else c.children for c in result.children)
@@ -38,7 +38,7 @@ def test_for_click_renders_color_span_as_html_span() -> None:
     detail = 'Network operator: Org A\n    <span style="color:#00ff66">■</span> App A'
     view = {"details": {"0": detail}}
 
-    result = _builder().for_click(_click_data(), view)
+    result = _builder().for_click(_click_data(), view, is_docker=False)
 
     children = result.children
     span = next(c for c in children if isinstance(c, html.Span))
@@ -55,7 +55,7 @@ def test_for_click_renders_multi_character_color_span_as_html_span() -> None:
     )
     view = {"details": {"0": detail}}
 
-    result = _builder().for_click(_click_data(), view)
+    result = _builder().for_click(_click_data(), view, is_docker=False)
 
     children = result.children
     span = next(c for c in children if isinstance(c, html.Span))
@@ -71,7 +71,7 @@ def test_for_click_renders_exe_tag_as_clickable_span_with_tooltip() -> None:
     detail = f'Executable:  <exe full="{full_path}">C:\\...\\Feed.exe</exe>'
     view = {"details": {"0": detail}}
 
-    result = _builder().for_click(_click_data(), view)
+    result = _builder().for_click(_click_data(), view, is_docker=False)
 
     children = result.children
     span = next(c for c in children if isinstance(c, html.Span))
@@ -90,7 +90,7 @@ def test_for_click_assigns_distinct_ids_to_multiple_exe_tags() -> None:
     )
     view = {"details": {"0": detail}}
 
-    result = _builder().for_click(_click_data(), view)
+    result = _builder().for_click(_click_data(), view, is_docker=False)
 
     spans = [c for c in result.children if isinstance(c, html.Span)]
     ids = [s.id for s in spans]
@@ -98,3 +98,17 @@ def test_for_click_assigns_distinct_ids_to_multiple_exe_tags() -> None:
         {"type": "reveal-exe", "path": "C:\\a.exe", "idx": 0},
         {"type": "reveal-exe", "path": "C:\\b.exe", "idx": 1},
     ]
+
+
+def test_for_click_renders_exe_tag_as_plain_text_in_docker() -> None:
+    """In Docker, '<exe full=...>' markup renders as plain text, not a clickable span."""
+    full_path = r"C:\Program Files\WindowsApps\...\MicrosoftStartFeedProvider.exe"
+    detail = f'Executable:  <exe full="{full_path}">C:\\...\\Feed.exe</exe>'
+    view = {"details": {"0": detail}}
+
+    result = _builder().for_click(_click_data(), view, is_docker=True)
+
+    children = result.children
+    assert not any(isinstance(c, html.Span) for c in children)
+    assert "C:\\...\\Feed.exe" in children
+    assert not any(isinstance(c, str) and "<exe" in c for c in children)

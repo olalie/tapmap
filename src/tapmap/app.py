@@ -618,7 +618,7 @@ class TapMap:
 
         if screen == "map_click":
             click_data = payload.get("click_data")
-            body = self.modal_text.for_click(click_data, ui_view)
+            body = self.modal_text.for_click(click_data, ui_view, is_docker=self.runtime.is_docker)
             if body is None:
                 return [], "modal-body"
             return self._as_children(body), "modal-body"

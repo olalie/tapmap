@@ -95,12 +95,13 @@ class ModalTextBuilder:
         label = self._label_map.get(action, action)
         return [self._h1("Details"), html.Pre(f"Menu selected: {label}")]
 
-    def for_click(self, click_data: Any, ui_view: Any) -> html.Pre | None:
+    def for_click(self, click_data: Any, ui_view: Any, *, is_docker: bool) -> html.Pre | None:
         """Build click detail content from Plotly clickData.
 
         Args:
             click_data: Plotly clickData payload.
             ui_view: Dash store content with the "details" mapping.
+            is_docker: Whether the application is running in Docker.
 
         Returns:
             html.Pre for a valid click, otherwise None.
@@ -125,14 +126,14 @@ class ModalTextBuilder:
         details_map = details if isinstance(details, dict) else {}
 
         detail = details_map.get(str(idx), f"Location {idx}")
-        return html.Pre(self._render_embedded_markup(detail))
+        return html.Pre(self._render_embedded_markup(detail, is_docker=is_docker))
 
     @staticmethod
     def _h1(title: str) -> html.H1:
         return html.H1(title)
 
     @staticmethod
-    def _render_embedded_markup(text: str) -> list[Any]:
+    def _render_embedded_markup(text: str, *, is_docker: bool) -> list[Any]:
         """Split text on embedded cache-view markup into real Dash components.
 
         Detail strings from the cache view carry inline color markup
@@ -142,7 +143,8 @@ class ModalTextBuilder:
         ('<exe full="...">display</exe>'). html.Pre renders string children as
         plain text, so this markup is rendered as real components - carrying a
         native tooltip and a click target for the executable case - instead of
-        literal tag text.
+        literal tag text. In Docker there is no file manager to reveal an
+        executable in, so exe markup renders as plain text instead.
         """
         parts: list[Any] = []
         pos = 0
@@ -154,6 +156,8 @@ class ModalTextBuilder:
 
             if m.group("color") is not None:
                 parts.append(html.Span(m.group("glyph"), style={"color": m.group("color")}))
+            elif is_docker:
+                parts.append(m.group("exe_text"))
             else:
                 exe_path = m.group("exe_path")
                 parts.append(
