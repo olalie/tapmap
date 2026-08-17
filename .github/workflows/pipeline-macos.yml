@@ -61,8 +61,7 @@ jobs:
           $PYTHON --version
 
           $PYTHON -m pip install --upgrade pip
-          $PYTHON -m pip install -r requirements-tests.txt
-          $PYTHON -m pip install pyinstaller
+          $PYTHON -m pip install -r requirements-build.txt
 
           brew install create-dmg
 

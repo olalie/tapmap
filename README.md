@@ -321,6 +321,10 @@ Run tests:
 
 #### Build distribution packages (optional)
 
+Install build dependencies:
+
+    pip install -r requirements-build.txt
+
 Build the distribution package for the current platform:
 
     python tools/build.py
