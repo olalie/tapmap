@@ -66,6 +66,7 @@ from tapmap.state.poll import (
     ACTION_NORMAL_POLL,
     ACTION_REBUILD_VIEW,
     ACTION_ZOOM_CONNECTIONS,
+    PollDecision,
     decide_poll_action,
 )
 from tapmap.state.status_cache import StatusCache
@@ -149,6 +150,10 @@ class TapMap:
         )
         self._ui_cache: dict[str, Any] = {}
         self._status_cache = StatusCache()
+        # Technical details setting the current ui_view was built with, so a
+        # setting change can trigger an immediate rebuild instead of waiting for
+        # the next poll.
+        self._last_built_technical_details: bool | None = None
 
         self.modal_text = ModalTextBuilder(
             self.runtime.meta.name,
@@ -703,8 +708,8 @@ class TapMap:
             Input("tick_model", "n_intervals"),
             Input("key_action", "data"),
             Input("menu_clear_cache", "n_clicks"),
+            Input("technical_details_on", "data"),
             State("status_flash", "data"),
-            State("technical_details_on", "data"),
             State("model_snapshot", "data"),
             prevent_initial_call=False,
         )
@@ -712,8 +717,8 @@ class TapMap:
             tick_n: int,
             key_action: Any,
             _clear_clicks: int,
-            status_flash_data: Any,
             technical_details_data: Any,
+            status_flash_data: Any,
             model_snapshot_data: Any,
         ):
             status_cache = self._status_cache
@@ -726,11 +731,26 @@ class TapMap:
                 has_polled=model_snapshot_data is not None,
             )
 
+            # Refresh the view immediately when Technical details has changed since
+            # it was last built, rather than waiting for the next poll. Trigger
+            # identity isn't a reliable signal for this, so compare values instead.
+            view_is_stale = (
+                self._last_built_technical_details is not None
+                and self._last_built_technical_details != technical_details_enabled
+            )
+            if view_is_stale and decision.action not in (
+                ACTION_CLEAR_CACHE,
+                ACTION_NORMAL_POLL,
+                ACTION_REBUILD_VIEW,
+            ):
+                decision = PollDecision(action=ACTION_REBUILD_VIEW)
+
             if decision.action == ACTION_CLEAR_CACHE:
                 snap, cache, sc_store, view, flash = self._handle_clear_cache(
                     status_cache, technical_details_enabled
                 )
                 self._ui_cache = cache
+                self._last_built_technical_details = technical_details_enabled
                 return snap, sc_store, view, flash
 
             if decision.action == ACTION_NORMAL_POLL:
@@ -738,6 +758,7 @@ class TapMap:
                     tick_n, status_cache, ui_cache, technical_details_enabled
                 )
                 self._ui_cache = cache
+                self._last_built_technical_details = technical_details_enabled
 
                 now = datetime.now().timestamp()
                 if isinstance(status_flash_data, dict):
@@ -751,6 +772,7 @@ class TapMap:
                 view = self.view_builder.build_view_from_cache(
                     self._ui_cache, technical_details_enabled
                 )
+                self._last_built_technical_details = technical_details_enabled
                 return no_update, no_update, view, no_update
 
             return no_update, no_update, no_update, no_update
