@@ -136,6 +136,7 @@ TapMap follows a simple local pipeline:
 It uses:
 
 - `psutil` (Windows and Linux) or `lsof` (macOS) to read active network connections
+- Operating system metadata and verification mechanisms to identify and verify applications
 - GeoIP databases for IP geolocation
 - Dash and Plotly to render an interactive world map
 

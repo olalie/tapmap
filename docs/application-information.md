@@ -33,6 +33,10 @@ Instead, it uses information available from the operating system to verify the a
     <td>🟡</td>
     <td><strong>Unknown or unavailable</strong>: Verification could not be completed.</td>
   </tr>
+  <tr>
+    <td>⚪</td>
+    <td><strong>Retrieving...</strong>: Verification is in progress.</td>
+  </tr>
 </table>
 
 A failed verification does not necessarily mean that an application is malicious, and an unknown status does not mean that it is unsafe.

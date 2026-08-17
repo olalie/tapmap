@@ -359,6 +359,16 @@ def render_help() -> list[Any]:
                                 ),
                             ]
                         ),
+                        html.Tr(
+                            [
+                                html.Td(
+                                    html.Span("■", style={"color": "#ffffff"})
+                                ),
+                                html.Td(
+                                    "Retrieving...: Verification is in progress."
+                                ),
+                            ]
+                        ),
                     ]
                 ),
             ],

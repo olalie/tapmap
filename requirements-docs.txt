@@ -4,4 +4,4 @@ mkdocs-literate-nav==0.6.2
 mkdocs-material==9.7.4
 mkdocstrings==1.0.3
 mkdocstrings-python==2.0.3
-pymdown-extensions==10.21
+pymdown-extensions==10.21.3
