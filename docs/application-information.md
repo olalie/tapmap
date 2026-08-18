@@ -475,4 +475,3 @@ Application information depends on information made available by the operating s
 TapMap does not maintain its own database of verified applications and does not decide whether software is safe or malicious.
 
 The displayed verification status describes the result of operating system verification and should be considered together with the other application information shown by TapMap.
-
