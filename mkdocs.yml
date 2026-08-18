@@ -48,11 +48,14 @@ nav:
       - Docker: docker.md
 
   - Developer Guide:
+      - Contributing: contributing.md
+      - Architecture: architecture.md
       - Backend Testing: backend-testing.md
       - AppInfo Performance: appinfo-performance.md
 
   - API: reference/
 
+  - Security Policy: security.md
   - Privacy Policy: privacy.md
 
 extra:

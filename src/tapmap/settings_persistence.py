@@ -51,7 +51,7 @@ def save_settings(path: Path, settings: Settings) -> None:
         settings: Settings to save.
 
     Raises:
-        OSError
+        OSError: If the settings file cannot be written or replaced.
     """
     tmp_path = path.with_suffix(".tmp")
 

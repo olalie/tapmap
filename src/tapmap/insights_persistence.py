@@ -16,9 +16,6 @@ def load_insights(path: Path) -> dict[str, Any]:
 
     Returns:
         Normalized insights dict with only the four expected keys.
-
-    Raises:
-        OSError, json.JSONDecodeError
     """
     expected_keys = {"countries", "providers", "ports", "applications"}
     try:
@@ -43,7 +40,7 @@ def save_insights(path: Path, data: dict[str, Any]) -> None:
         data: Raw dict to save.
 
     Raises:
-        OSError
+        OSError: If the insights file cannot be written or replaced.
     """
     tmp_path = path.with_suffix(".tmp")
 
