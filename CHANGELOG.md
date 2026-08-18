@@ -1,5 +1,42 @@
 ## Unreleased
 
+### Features
+
+- Add cross-platform application information
+  - Show application name and creator/publisher for network connections
+  - Show platform-native signature and verification information
+  - Support Windows, macOS and Linux
+  - Add application information to map hover summaries and marker details
+  - Add **Technical details** option with `T` keyboard shortcut
+  - Allow executable paths to be opened in the system file manager
+
+### Improvements
+
+- Improve application information performance
+  - Move expensive verification to background processing
+  - Show application identity information immediately
+  - Cache and reuse completed verification results
+  - Show **Retrieving...** while verification is pending
+
+### Packaging
+
+- Add SignPath test signing to the Windows build and packaging pipeline
+  - Sign the application, uninstaller and installer through the same signing process
+  - Generate Windows VERSIONINFO from project metadata
+
+### CI
+
+- Simplify and align Windows, Linux and macOS build pipelines
+- Separate runtime, test and build dependencies
+
+### Documentation
+
+- Add application information documentation
+- Add AppInfo performance documentation
+- Publish Architecture, Contributing and Security documentation
+- Add GitHub issue and discussion templates
+- Update README and Help
+
 ## 1.9.0 (2026-07-21)
 
 ### Features
