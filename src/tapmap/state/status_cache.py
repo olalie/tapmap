@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, TypedDict
 
+from .normalization import safe_str
+
 Proto = str
 Ip = str
 Port = int
@@ -228,11 +230,6 @@ class StatusCache:
         return out
 
     @staticmethod
-    def _safe_str(value: Any) -> str:
-        """Return empty string for None, else str(value)."""
-        return "" if value is None else str(value)
-
-    @staticmethod
     def _key_ip_port(key: Any) -> tuple[str, int]:
         """Extract (ip, port) sort key from 'ip|port' service key."""
         if not isinstance(key, str):
@@ -261,7 +258,7 @@ class StatusCache:
                 proc_pids_raw if isinstance(proc_pids_raw, dict) else {}
             )
             for name in procs:
-                name_s = StatusCache._safe_str(name).strip()
+                name_s = safe_str(name).strip()
                 if not name_s:
                     continue
                 pid_set = combined.setdefault(name_s, set())
@@ -304,16 +301,16 @@ class StatusCache:
             if not isinstance(entry, dict):
                 continue
 
-            ip = self._safe_str(entry.get("ip")) or self._safe_str(key).split("|", 1)[0]
+            ip = safe_str(entry.get("ip")) or safe_str(key).split("|", 1)[0]
 
             port = entry.get("port")
             port_txt = str(int(port)) if isinstance(port, int) else "-"
 
             proto = self._normalize_proto(entry.get("proto"))
 
-            asn_org = self._safe_str(entry.get("asn_org")) or "-"
-            city = self._safe_str(entry.get("city")) or ""
-            country = self._safe_str(entry.get("country")) or ""
+            asn_org = safe_str(entry.get("asn_org")) or "-"
+            city = safe_str(entry.get("city")) or ""
+            country = safe_str(entry.get("country")) or ""
             place = ", ".join([x for x in [city, country] if x]) or "-"
 
             procs_txt = self._format_procs_with_pids(entry)

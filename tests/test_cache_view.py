@@ -1,20 +1,13 @@
-"""Test CacheViewBuilder's per-service cache merge and hover summary generation."""
+"""Test CacheViewBuilder's hover summary and click detail generation."""
 
 from __future__ import annotations
 
 import re
 from typing import Any
 
+from tapmap.state.connection_state import ConnectionState
 from tapmap.ui.cache_view import CacheViewBuilder
 from tapmap.ui.formatting import country_flag, verification_status_glyph
-
-_APP_FIELDS = (
-    "app_name",
-    "app_creator",
-    "app_verification_status",
-    "app_signature_state",
-    "app_signature_state_details",
-)
 
 _DEFAULT_EXE = "/opt/app/app.exe"
 
@@ -43,11 +36,6 @@ def _candidate(**overrides: Any) -> dict[str, Any]:
     }
     candidate.update(overrides)
     return candidate
-
-
-def _app_fields(app: dict[str, Any]) -> dict[str, Any]:
-    """Return only the app_* fields from an application record."""
-    return {field: app.get(field) for field in _APP_FIELDS}
 
 
 def _entry(
@@ -102,147 +90,6 @@ def _app_entry(
         "asn_org": asn_org,
         "applications": {exe: app},
     }
-
-
-# --- merge_map_candidates: application record propagation ---
-
-
-def test_merge_map_candidates_propagates_app_fields_into_new_application() -> None:
-    """A new application record carries all five app_* fields from the candidate."""
-    builder = CacheViewBuilder()
-
-    candidate = _candidate(
-        app_name="Firefox",
-        app_creator="Mozilla Corporation",
-        app_verification_status="verified",
-        app_signature_state="SignedAndTrusted",
-        app_signature_state_details="None",
-    )
-
-    cache = builder.merge_map_candidates({}, [candidate])
-    app = cache["8.8.8.8|443"]["applications"][_DEFAULT_EXE]
-
-    assert _app_fields(app) == {
-        "app_name": "Firefox",
-        "app_creator": "Mozilla Corporation",
-        "app_verification_status": "verified",
-        "app_signature_state": "SignedAndTrusted",
-        "app_signature_state_details": "None",
-    }
-
-
-def test_merge_map_candidates_leaves_app_fields_none_when_absent() -> None:
-    """A candidate with no app data (AppInfo disabled) leaves app_* fields None."""
-    builder = CacheViewBuilder()
-
-    cache = builder.merge_map_candidates({}, [_candidate()])
-    app = cache["8.8.8.8|443"]["applications"][_DEFAULT_EXE]
-
-    assert _app_fields(app) == dict.fromkeys(_APP_FIELDS)
-
-
-def test_merge_map_candidates_backfills_app_fields_on_existing_application() -> None:
-    """A later candidate fills in app_* fields that were previously missing."""
-    builder = CacheViewBuilder()
-
-    cache = builder.merge_map_candidates({}, [_candidate()])
-    cache = builder.merge_map_candidates(
-        cache,
-        [
-            _candidate(
-                app_name="Firefox",
-                app_creator="Mozilla Corporation",
-                app_verification_status="verified",
-                app_signature_state="SignedAndTrusted",
-                app_signature_state_details="None",
-            )
-        ],
-    )
-    app = cache["8.8.8.8|443"]["applications"][_DEFAULT_EXE]
-
-    assert app["app_name"] == "Firefox"
-    assert app["app_verification_status"] == "verified"
-
-
-def test_merge_map_candidates_keeps_first_app_value_for_same_exe() -> None:
-    """A distinct later value for the same exe path does not overwrite the first."""
-    builder = CacheViewBuilder()
-
-    cache = builder.merge_map_candidates(
-        {}, [_candidate(app_name="Firefox", app_verification_status="verified")]
-    )
-    cache = builder.merge_map_candidates(
-        cache, [_candidate(app_name="Other Name", app_verification_status="failed")]
-    )
-    app = cache["8.8.8.8|443"]["applications"][_DEFAULT_EXE]
-
-    assert app["app_name"] == "Firefox"
-    assert app["app_verification_status"] == "verified"
-
-
-def test_merge_map_candidates_keeps_different_exe_paths_separate() -> None:
-    """Two different applications sharing (ip, port) each get their own application record."""
-    builder = CacheViewBuilder()
-
-    cache = builder.merge_map_candidates(
-        {},
-        [
-            _candidate(
-                exe="/opt/firefox/firefox.exe",
-                app_name="Firefox",
-                app_verification_status="verified",
-            ),
-            _candidate(
-                exe="/tmp/malware.exe", app_name="Malware", app_verification_status="failed"
-            ),
-        ],
-    )
-    applications = cache["8.8.8.8|443"]["applications"]
-
-    assert applications["/opt/firefox/firefox.exe"]["app_name"] == "Firefox"
-    assert applications["/opt/firefox/firefox.exe"]["app_verification_status"] == "verified"
-    assert applications["/tmp/malware.exe"]["app_name"] == "Malware"
-    assert applications["/tmp/malware.exe"]["app_verification_status"] == "failed"
-
-
-def test_merge_map_candidates_uses_unknown_bucket_when_exe_missing() -> None:
-    """Candidates with no resolvable exe path share a dedicated unknown-application bucket."""
-    builder = CacheViewBuilder()
-
-    cache = builder.merge_map_candidates(
-        {}, [_candidate(exe=None, process_name="svchost.exe", pid=100)]
-    )
-    applications = cache["8.8.8.8|443"]["applications"]
-
-    assert CacheViewBuilder._UNKNOWN_APP_KEY in applications
-    assert applications[CacheViewBuilder._UNKNOWN_APP_KEY]["processes"] == ["svchost.exe"]
-
-
-def test_merge_map_candidates_accumulates_processes_within_application() -> None:
-    """Multiple processes for the same exe path accumulate in that application's record."""
-    builder = CacheViewBuilder()
-
-    cache = builder.merge_map_candidates(
-        {},
-        [
-            _candidate(process_name="Spotify.exe", pid=17840),
-            _candidate(process_name="SpotifyLauncher.exe", pid=16696),
-        ],
-    )
-    app = cache["8.8.8.8|443"]["applications"][_DEFAULT_EXE]
-
-    assert app["processes"] == ["Spotify.exe", "SpotifyLauncher.exe"]
-    assert app["proc_pids"] == {"Spotify.exe": [17840], "SpotifyLauncher.exe": [16696]}
-
-
-def test_merge_map_candidates_propagates_country_code() -> None:
-    """country_code is propagated the same way as the other geo fields."""
-    builder = CacheViewBuilder()
-
-    cache = builder.merge_map_candidates({}, [_candidate(country_code="NO")])
-    entry = cache["8.8.8.8|443"]
-
-    assert entry["country_code"] == "NO"
 
 
 # --- _pick_representative_app: selection rules ---
@@ -501,8 +348,8 @@ def test_build_view_from_cache_technical_details_off_uses_app_summary() -> None:
     """technical_details_enabled=False produces the application-oriented summary."""
     builder = CacheViewBuilder()
 
-    cache = builder.merge_map_candidates(
-        {}, [_candidate(app_name="Firefox", app_verification_status="verified")]
+    cache = ConnectionState().merge(
+        [_candidate(app_name="Firefox", app_verification_status="verified")]
     )
     view = builder.build_view_from_cache(cache, technical_details_enabled=False)
 
@@ -517,15 +364,14 @@ def test_build_view_from_cache_technical_details_on_matches_existing_format() ->
     """
     builder = CacheViewBuilder()
 
-    cache = builder.merge_map_candidates(
-        {},
+    cache = ConnectionState().merge(
         [
             _candidate(
                 app_name="Firefox",
                 app_creator="Mozilla Corp",
                 app_verification_status="verified",
             )
-        ],
+        ]
     )
     view = builder.build_view_from_cache(cache, technical_details_enabled=True)
 
@@ -545,8 +391,7 @@ def test_build_view_from_cache_shows_failed_app_sharing_endpoint_with_verified_a
     """A failed application is never hidden by a verified application at the same endpoint."""
     builder = CacheViewBuilder()
 
-    cache = builder.merge_map_candidates(
-        {},
+    cache = ConnectionState().merge(
         [
             _candidate(
                 exe="/opt/firefox/firefox.exe",
@@ -556,7 +401,7 @@ def test_build_view_from_cache_shows_failed_app_sharing_endpoint_with_verified_a
             _candidate(
                 exe="/tmp/malware.exe", app_name="Malware", app_verification_status="failed"
             ),
-        ],
+        ]
     )
     view = builder.build_view_from_cache(cache, technical_details_enabled=False)
 
@@ -567,8 +412,7 @@ def test_build_click_details_shows_processes_from_multiple_applications() -> Non
     """Technical Details lists processes from every application at an endpoint."""
     builder = CacheViewBuilder()
 
-    cache = builder.merge_map_candidates(
-        {},
+    cache = ConnectionState().merge(
         [
             _candidate(
                 exe="/opt/firefox/firefox.exe",
@@ -584,7 +428,7 @@ def test_build_click_details_shows_processes_from_multiple_applications() -> Non
                 app_name="Malware",
                 app_verification_status="failed",
             ),
-        ],
+        ]
     )
     view = builder.build_view_from_cache(cache, technical_details_enabled=True)
     detail = view["details"]["0"]
@@ -1073,15 +917,14 @@ def test_build_view_from_cache_technical_details_off_uses_app_click_details() ->
     """technical_details_enabled=False routes click details through the new builder."""
     builder = CacheViewBuilder()
 
-    cache = builder.merge_map_candidates(
-        {},
+    cache = ConnectionState().merge(
         [
             _candidate(
                 app_name="Firefox",
                 app_creator="Mozilla Corporation",
                 app_verification_status="verified",
             )
-        ],
+        ]
     )
     view = builder.build_view_from_cache(cache, technical_details_enabled=False)
     detail = view["details"]["0"]
@@ -1100,8 +943,8 @@ def test_build_view_from_cache_technical_details_on_details_unchanged() -> None:
     """
     builder = CacheViewBuilder()
 
-    cache = builder.merge_map_candidates(
-        {}, [_candidate(app_name="Firefox", app_verification_status="verified")]
+    cache = ConnectionState().merge(
+        [_candidate(app_name="Firefox", app_verification_status="verified")]
     )
     view = builder.build_view_from_cache(cache, technical_details_enabled=True)
     detail = view["details"]["0"]
@@ -1134,142 +977,6 @@ def test_display_verification_status_passes_through_resolved_values() -> None:
     app = {"app_verification_status": "failed", "exe": "/malware.exe"}
 
     assert CacheViewBuilder._display_verification_status(app) == "failed"
-
-
-def test_pending_exe_paths_includes_real_pending_exe() -> None:
-    """An application with a real exe and no verification_status yet is pending."""
-    cache = {
-        "8.8.8.8|443": {
-            "applications": {
-                "/opt/app.exe": {"app_verification_status": None, "exe": "/opt/app.exe"},
-            }
-        }
-    }
-
-    assert CacheViewBuilder.pending_exe_paths(cache) == {"/opt/app.exe"}
-
-
-def test_pending_exe_paths_excludes_unknown_bucket() -> None:
-    """The synthetic unknown-application bucket never contributes a pending exe path."""
-    cache = {
-        "8.8.8.8|443": {
-            "applications": {
-                CacheViewBuilder._UNKNOWN_APP_KEY: {"app_verification_status": None, "exe": None},
-            }
-        }
-    }
-
-    assert CacheViewBuilder.pending_exe_paths(cache) == set()
-
-
-def test_pending_exe_paths_excludes_resolved_apps() -> None:
-    """An application whose verification has already resolved is not pending."""
-    cache = {
-        "8.8.8.8|443": {
-            "applications": {
-                "/opt/app.exe": {"app_verification_status": "verified", "exe": "/opt/app.exe"},
-            }
-        }
-    }
-
-    assert CacheViewBuilder.pending_exe_paths(cache) == set()
-
-
-def test_refresh_resolved_applications_backfills_pending_fields() -> None:
-    """A hand-fed resolved dict backfills the deferred fields on a matching application."""
-    builder = CacheViewBuilder()
-    cache = builder.merge_map_candidates(
-        {}, [_candidate(exe="/opt/app.exe", app_name="Firefox")]
-    )
-
-    builder.refresh_resolved_applications(
-        cache,
-        {
-            "/opt/app.exe": {
-                "app_creator": "Mozilla Corporation",
-                "app_verification_status": "verified",
-                "app_signature_state": "SignedAndTrusted",
-                "app_signature_state_details": None,
-            }
-        },
-    )
-
-    app = cache["8.8.8.8|443"]["applications"]["/opt/app.exe"]
-    assert app["app_creator"] == "Mozilla Corporation"
-    assert app["app_verification_status"] == "verified"
-    assert app["app_signature_state"] == "SignedAndTrusted"
-
-
-def test_refresh_resolved_applications_never_overwrites_a_resolved_value() -> None:
-    """A later resolved dict never overwrites an already-resolved field (backfill-only)."""
-    builder = CacheViewBuilder()
-    cache = builder.merge_map_candidates(
-        {},
-        [
-            _candidate(
-                exe="/opt/app.exe",
-                app_name="Firefox",
-                app_verification_status="verified",
-            )
-        ],
-    )
-
-    builder.refresh_resolved_applications(
-        cache, {"/opt/app.exe": {"app_verification_status": "failed"}}
-    )
-
-    assert cache["8.8.8.8|443"]["applications"]["/opt/app.exe"]["app_verification_status"] == (
-        "verified"
-    )
-
-
-def test_refresh_resolved_applications_ignores_unrelated_exe_paths() -> None:
-    """resolved entries for exe paths not present anywhere in ui_cache are a harmless no-op."""  # noqa: D403
-    builder = CacheViewBuilder()
-    cache = builder.merge_map_candidates(
-        {}, [_candidate(exe="/opt/app.exe", app_name="Firefox")]
-    )
-
-    builder.refresh_resolved_applications(
-        cache, {"/opt/other.exe": {"app_verification_status": "verified"}}
-    )
-
-    assert cache["8.8.8.8|443"]["applications"]["/opt/app.exe"]["app_verification_status"] is None
-
-
-def test_refresh_resolved_applications_updates_entry_whose_connection_has_vanished() -> None:
-    """A retained ui_cache entry whose connection has vanished still gets updated."""
-    builder = CacheViewBuilder()
-
-    # Tick 1: connection present, exe not yet verified.
-    cache = builder.merge_map_candidates(
-        {}, [_candidate(exe="/opt/app.exe", app_name="Firefox")]
-    )
-    assert builder.pending_exe_paths(cache) == {"/opt/app.exe"}
-
-    # Tick 2: connection is gone from the snapshot entirely.
-    cache = builder.merge_map_candidates(cache, [])
-    assert "/opt/app.exe" in cache["8.8.8.8|443"]["applications"]
-    assert builder.pending_exe_paths(cache) == {"/opt/app.exe"}
-
-    # The controller would now call AppInfo.resolved_for(pending_exe_paths(cache))
-    # and translate the result into this plain-dict shape.
-    builder.refresh_resolved_applications(
-        cache,
-        {
-            "/opt/app.exe": {
-                "app_creator": "Mozilla Corporation",
-                "app_verification_status": "verified",
-                "app_signature_state": "SignedAndTrusted",
-                "app_signature_state_details": None,
-            }
-        },
-    )
-
-    app = cache["8.8.8.8|443"]["applications"]["/opt/app.exe"]
-    assert app["app_verification_status"] == "verified"
-    assert app["app_creator"] == "Mozilla Corporation"
-    assert builder.pending_exe_paths(cache) == set()
 
 
 def test_verification_status_text_pending_shows_retrieving() -> None:

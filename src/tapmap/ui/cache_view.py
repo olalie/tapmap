@@ -1,22 +1,21 @@
 """Cache view preparation helpers for the TapMap UI.
 
-Merge service entries into a stable UI cache and build
-map points, hover summaries, and click details.
+Build map points, hover summaries, and click details from the
+accumulated per-service cache owned by ConnectionState.
 """
 
 from __future__ import annotations
 
 import logging
 from collections import Counter, defaultdict
-from datetime import datetime
 from typing import Any
 
+from ..state.connection_state import UNKNOWN_APP_KEY
 from .formatting import (
     PENDING_VERIFICATION_STATUS,
     country_flag,
     elide_path_middle,
     humanize_camel_case,
-    safe_int,
     safe_str,
     verification_status_color,
     verification_status_glyph,
@@ -33,22 +32,16 @@ _APP_VERIFICATION_STATUS_PRIORITY: dict[str | None, int] = {
 class CacheViewBuilder:
     """Build UI cache and map view data."""
 
-    _UNKNOWN_APP_KEY = "__unknown_application__"
+    _UNKNOWN_APP_KEY = UNKNOWN_APP_KEY
 
     def __init__(
         self,
         coord_precision: int = 3,
         is_docker: bool = False,
-        cache_retention_min: int = 0,
     ) -> None:
         self.coord_precision = int(coord_precision)
         self.is_docker = bool(is_docker)
-        self.cache_retention_min = int(cache_retention_min)
         self.logger = logging.getLogger(__name__)
-
-    @staticmethod
-    def _service_key(ip: str, port: int) -> str:
-        return f"{ip}|{port}"
 
     @staticmethod
     def _fmt_ip_port(ip: str, port: int) -> str:
@@ -62,10 +55,6 @@ class CacheViewBuilder:
     def _safe_proto(value: Any) -> str:
         p = str(value).strip().lower() if value else "tcp"
         return p if p in {"tcp", "udp"} else "tcp"
-
-    @staticmethod
-    def _now_text() -> str:
-        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     @staticmethod
     def format_list_compact(items: list[Any], max_items: int) -> str:
@@ -87,255 +76,13 @@ class CacheViewBuilder:
         shown = ", ".join(cleaned[:max_items])
         return f"{shown} +{len(cleaned) - max_items}"
 
-    def merge_map_candidates(
-        self,
-        ui_cache: dict[str, Any],
-        map_candidates: list[dict[str, Any]],
-    ) -> dict[str, Any]:
-        """Merge map candidates into a per-service cache."""
-        now = datetime.now().timestamp()
-        cache = dict(ui_cache) if isinstance(ui_cache, dict) else {}
-
-        for candidate in map_candidates:
-            if not isinstance(candidate, dict):
-                continue
-
-            ip = safe_str(candidate.get("ip"))
-            if not ip:
-                continue
-
-            port = safe_int(candidate.get("port"))
-            if port is None:
-                continue
-
-            proto = safe_str(candidate.get("proto")) or None
-            process_name = safe_str(candidate.get("process_name"))
-            pid = safe_int(candidate.get("pid"))
-            exe = safe_str(candidate.get("exe")) or None
-
-            key = self._service_key(ip, port)
-            entry = cache.get(key)
-
-            if not isinstance(entry, dict):
-                entry = self._new_entry(candidate, ip=ip, port=port, proto=proto)
-                cache[key] = entry
-
-            entry["last_seen"] = now
-
-            self._merge_missing_attrs(
-                entry,
-                candidate,
-                attrs=(
-                    "proto",
-                    "lon",
-                    "lat",
-                    "city",
-                    "country",
-                    "country_code",
-                    "asn",
-                    "asn_org",
-                ),
-            )
-
-            self._merge_application(
-                entry, exe=exe, candidate=candidate, process_name=process_name, pid=pid
-            )
-
-        self._prune_cache(cache, now)
-        return cache
-
-    @staticmethod
-    def pending_exe_paths(ui_cache: dict[str, Any]) -> set[str]:
-        """Return exe paths in ui_cache whose deferred AppInfo data is still missing.
-
-        Scans ui_cache, not the current snapshot, so retained applications
-        whose connection has vanished are still included. Excludes the
-        synthetic unknown-application bucket and applications already resolved.
-        """
-        pending: set[str] = set()
-        for entry in ui_cache.values():
-            if not isinstance(entry, dict):
-                continue
-            applications = entry.get("applications")
-            if not isinstance(applications, dict):
-                continue
-            for app in applications.values():
-                if not isinstance(app, dict):
-                    continue
-                exe = app.get("exe")
-                if not isinstance(exe, str) or not exe:
-                    continue
-                if app.get("app_verification_status") is None:
-                    pending.add(exe)
-        return pending
-
-    @staticmethod
-    def refresh_resolved_applications(
-        ui_cache: dict[str, Any], resolved: dict[str, dict[str, Any]]
-    ) -> None:
-        """Backfill newly-completed AppInfo fields into matching application records.
-
-        resolved maps exe path to a plain dict of app_creator,
-        app_verification_status, app_signature_state, and
-        app_signature_state_details values. Only fills fields still None, so
-        calling this every poll tick is safe even when nothing changed.
-        Mutates ui_cache in place.
-        """
-        if not resolved:
-            return
-        for entry in ui_cache.values():
-            if not isinstance(entry, dict):
-                continue
-            applications = entry.get("applications")
-            if not isinstance(applications, dict):
-                continue
-            for app in applications.values():
-                if not isinstance(app, dict):
-                    continue
-                exe = app.get("exe")
-                if not isinstance(exe, str):
-                    continue
-                update = resolved.get(exe)
-                if update is None:
-                    continue
-                CacheViewBuilder._merge_missing_attrs(
-                    app,
-                    update,
-                    attrs=(
-                        "app_creator",
-                        "app_verification_status",
-                        "app_signature_state",
-                        "app_signature_state_details",
-                    ),
-                )
-
-    def _prune_cache(
-        self,
-        cache: dict[str, Any],
-        now: float,
-    ) -> None:
-        """Remove cache entries older than the configured retention period."""
-        retention_min = self.cache_retention_min
-
-        if retention_min <= 0:
-            return
-
-        cutoff = now - (retention_min * 60)
-
-        for key, entry in list(cache.items()):
-            if entry["last_seen"] < cutoff:
-                del cache[key]
-
-    def _new_entry(
-        self, candidate: dict[str, Any], *, ip: str, port: int, proto: str | None
-    ) -> dict[str, Any]:
-        return {
-            "ip": ip,
-            "port": port,
-            "proto": proto,
-            "lon": candidate.get("lon"),
-            "lat": candidate.get("lat"),
-            "city": candidate.get("city"),
-            "country": candidate.get("country"),
-            "country_code": candidate.get("country_code"),
-            "asn": candidate.get("asn"),
-            "asn_org": candidate.get("asn_org"),
-            "f": self._now_text(),
-            "l": self._now_text(),
-            "m": 0,
-            "applications": {},
-        }
-
-    @staticmethod
-    def _new_application(exe: str | None) -> dict[str, Any]:
-        return {
-            "app_name": None,
-            "app_creator": None,
-            "app_verification_status": None,
-            "app_signature_state": None,
-            "app_signature_state_details": None,
-            "exe": exe,
-            "processes": [],
-            "proc_pids": {},
-        }
-
-    @staticmethod
-    def _merge_missing_attrs(
-        entry: dict[str, Any],
-        candidate: dict[str, Any],
-        *,
-        attrs: tuple[str, ...],
-    ) -> None:
-        for attr in attrs:
-            if entry.get(attr) is None and candidate.get(attr) is not None:
-                entry[attr] = candidate.get(attr)
-
-    def _merge_application(
-        self,
-        entry: dict[str, Any],
-        *,
-        exe: str | None,
-        candidate: dict[str, Any],
-        process_name: str,
-        pid: int | None,
-    ) -> None:
-        """Merge one candidate's application metadata into its exe-keyed bucket.
-
-        Candidates with no resolvable exe path share _UNKNOWN_APP_KEY, since
-        no reliable identity exists to key them individually.
-        """
-        applications = entry.get("applications")
-        apps: dict[str, Any] = applications if isinstance(applications, dict) else {}
-        entry["applications"] = apps
-
-        app_key = exe or self._UNKNOWN_APP_KEY
-        app = apps.get(app_key)
-        if not isinstance(app, dict):
-            app = self._new_application(exe)
-            apps[app_key] = app
-
-        self._merge_missing_attrs(
-            app,
-            candidate,
-            attrs=(
-                "app_name",
-                "app_creator",
-                "app_verification_status",
-                "app_signature_state",
-                "app_signature_state_details",
-            ),
-        )
-
-        if process_name:
-            self._merge_process(app, process_name=process_name, pid=pid)
-
-    def _merge_process(self, record: dict[str, Any], *, process_name: str, pid: int | None) -> None:
-        processes = record.get("processes")
-        proc_list = processes if isinstance(processes, list) else []
-        proc_set = {p.strip() for p in proc_list if isinstance(p, str) and p.strip()}
-        proc_set.add(process_name)
-        record["processes"] = sorted(proc_set, key=str.lower)
-
-        proc_pids = record.get("proc_pids")
-        proc_pids_map: dict[str, list[int]] = proc_pids if isinstance(proc_pids, dict) else {}
-        record["proc_pids"] = proc_pids_map
-
-        if pid is None:
-            return
-
-        existing = proc_pids_map.get(process_name)
-        existing_list = existing if isinstance(existing, list) else []
-        pid_set = {int(x) for x in existing_list if isinstance(x, int) and x > 0}
-        pid_set.add(pid)
-        proc_pids_map[process_name] = sorted(pid_set)
-
     def build_view_from_cache(
         self, ui_cache: dict[str, Any], technical_details_enabled: bool
     ) -> dict[str, Any]:
         """Group cached entries by rounded coordinates and build map view data.
 
         Args:
-            ui_cache: Per-service cache from merge_map_candidates.
+            ui_cache: Per-service cache from ConnectionState.merge/clear.
             technical_details_enabled: When True, hover summaries use the
                 connection-oriented format. When False, hover summaries use
                 the application-oriented format. Click details are
