@@ -55,8 +55,8 @@ from tapmap.model.model import Model
 from tapmap.model.netinfo import NetInfo
 from tapmap.model.public_ip import iter_public_ip_candidates
 from tapmap.settings_persistence import Settings, load_settings, save_settings
+from tapmap.state.connection_analyzer import ConnectionAnalyzer
 from tapmap.state.connection_state import ConnectionState
-from tapmap.state.insights import process_insights
 from tapmap.state.insights_log import write_insights_log
 from tapmap.state.keyboard import build_key_action
 from tapmap.state.menu import compute_menu_open_state
@@ -199,6 +199,9 @@ class TapMap:
         self.insights_path = self.runtime.app_data_dir / "insights.json"
         self._load_insights()
         self._last_insights_save = 0.0
+
+        # Construct after _load_insights() to reference the loaded Insights dict.
+        self.connection_analyzer = ConnectionAnalyzer(self.connection_state, self.insights)
 
         self.settings_path = self.runtime.app_data_dir / "settings.json"
         self.settings: Settings = load_settings(self.settings_path)
@@ -464,27 +467,27 @@ class TapMap:
    
     def _handle_clear_cache(
         self, status_cache: StatusCache, technical_details_enabled: bool
-    ) -> tuple[Any, Any, Any, Any]:
+    ) -> tuple[Any, Any, Any, Any, Any]:
         """Reset the runtime cache without observing the monitored system."""
         status_cache.clear()
         cache = self.connection_state.clear()
         view = self.view_builder.build_view_from_cache(cache, technical_details_enabled)
         flash = self._flash("Clearing cache...", self.MIN_FLASH_S)
-        return no_update, status_cache.to_store(), view, flash
+        return no_update, status_cache.to_store(), view, flash, no_update
 
     def _handle_normal_poll(
         self,
         tick_n: int,
         status_cache: StatusCache,
         technical_details_enabled: bool,
-    ) -> tuple[Any, Any, Any, Any]:
+    ) -> tuple[Any, Any, Any, Any, Any]:
         snap = self.model.snapshot()
         if not isinstance(snap, dict):
             view = self.view_builder.build_view_from_cache(
                 self.connection_state.cache, technical_details_enabled
             )
             flash = self._flash("Model snapshot is invalid. See terminal.", self.MIN_FLASH_S)
-            return {"error": True}, status_cache.to_store(), view, flash
+            return {"error": True}, status_cache.to_store(), view, flash, no_update
 
         snap["runtime_info"] = self._build_runtime_info()
 
@@ -492,20 +495,21 @@ class TapMap:
             view = self.view_builder.build_view_from_cache(
                 self.connection_state.cache, technical_details_enabled
             )
-            return snap, status_cache.to_store(), view, no_update
-
-        candidates_any = snap.get("map_candidates")
-        candidates = candidates_any if isinstance(candidates_any, list) else []
-        updated_cache = self.connection_state.merge(candidates)
-        self._refresh_pending_app_verifications()
+            return snap, status_cache.to_store(), view, no_update, no_update
 
         items_any = snap.get("cache_items")
         items = items_any if isinstance(items_any, list) else []
+
+        insights_data = self.connection_analyzer.analyze(items)
+        self._refresh_pending_app_verifications()
+
         status_cache.update(items)
-        view = self.view_builder.build_view_from_cache(updated_cache, technical_details_enabled)
+        view = self.view_builder.build_view_from_cache(
+            self.connection_state.cache, technical_details_enabled
+        )
         self._maybe_save_insights()
 
-        return snap, status_cache.to_store(), view, no_update
+        return snap, status_cache.to_store(), view, no_update, insights_data
 
     def _refresh_pending_app_verifications(self) -> None:
         """Backfill AppInfo verification results that completed since the last poll.
@@ -710,6 +714,7 @@ class TapMap:
             Output("status_cache", "data"),
             Output("ui_view", "data"),
             Output("status_flash", "data"),
+            Output("insights_cache", "data"),
             Input("tick_model", "n_intervals"),
             Input("key_action", "data"),
             Input("menu_clear_cache", "n_clicks"),
@@ -750,14 +755,14 @@ class TapMap:
                 decision = PollDecision(action=ACTION_REBUILD_VIEW)
 
             if decision.action == ACTION_CLEAR_CACHE:
-                snap, sc_store, view, flash = self._handle_clear_cache(
+                snap, sc_store, view, flash, insights_data = self._handle_clear_cache(
                     status_cache, technical_details_enabled
                 )
                 self._last_built_technical_details = technical_details_enabled
-                return snap, sc_store, view, flash
+                return snap, sc_store, view, flash, insights_data
 
             if decision.action == ACTION_NORMAL_POLL:
-                snap, sc_store, view, _flash = self._handle_normal_poll(
+                snap, sc_store, view, _flash, insights_data = self._handle_normal_poll(
                     tick_n, status_cache, technical_details_enabled
                 )
                 self._last_built_technical_details = technical_details_enabled
@@ -766,18 +771,18 @@ class TapMap:
                 if isinstance(status_flash_data, dict):
                     until = status_flash_data.get("until")
                     if isinstance(until, (int, float)) and now < until:
-                        return snap, sc_store, view, no_update
+                        return snap, sc_store, view, no_update, insights_data
 
-                return snap, sc_store, view, None
+                return snap, sc_store, view, None, insights_data
 
             if decision.action == ACTION_REBUILD_VIEW:
                 view = self.view_builder.build_view_from_cache(
                     self.connection_state.cache, technical_details_enabled
                 )
                 self._last_built_technical_details = technical_details_enabled
-                return no_update, no_update, view, no_update
+                return no_update, no_update, view, no_update, no_update
 
-            return no_update, no_update, no_update, no_update
+            return no_update, no_update, no_update, no_update, no_update
 
     def _register_menu_callbacks(self) -> None:
         @self.app.callback(
@@ -1281,23 +1286,6 @@ class TapMap:
                 return []
 
             return render_insights_panel(data, selected_country=selected_country)
-
-        @self.app.callback(
-            Output("insights_cache", "data"),
-            Input("model_snapshot", "data"),
-        )
-        def update_insights_data(snapshot: Any) -> Any:
-
-            if not isinstance(snapshot, dict):
-                return {"new": {}, "top": {}}
-
-            now = datetime.now()
-
-            return process_insights(
-                snapshot.get("cache_items", []),
-                self.insights,
-                now,
-            )
 
     def run(self) -> None:
         """Start the Dash server and launch the local UI."""
