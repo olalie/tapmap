@@ -115,7 +115,7 @@ def process_insights(
         if isinstance(port, int):
             ports.add(str(port))
 
-        app = item.get("process_name")
+        app = item.get("app_name")
         if isinstance(app, str) and app:
             apps.add(app)
 

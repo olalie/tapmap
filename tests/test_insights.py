@@ -553,7 +553,7 @@ class TestInputFiltering:
             "country_code": "US",
             "asn_org": "Acme Inc",
             "port": 443,
-            "process_name": "nginx",
+            "app_name": "nginx",
         }]
         insights: dict[str, Any] = {}
         process_insights(items, insights, _now(1))
@@ -561,6 +561,16 @@ class TestInputFiltering:
         assert "Acme Inc" in insights["providers"]
         assert "443" in insights["ports"]
         assert "nginx" in insights["applications"]
+
+    def test_applications_dimension_uses_app_name_not_process_name(self) -> None:
+        """The applications dimension is keyed by app_name; process_name alone is not sufficient."""
+        items = [{
+            "service_scope": "PUBLIC",
+            "process_name": "nginx",
+        }]
+        insights: dict[str, Any] = {}
+        process_insights(items, insights, _now(1))
+        assert insights.get("applications", {}) == {}
 
     def test_missing_service_scope_field_is_not_treated_as_public(self) -> None:
         """Item with no service_scope key is not counted (treated as non-PUBLIC)."""

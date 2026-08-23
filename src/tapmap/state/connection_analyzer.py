@@ -1,4 +1,4 @@
-"""Analyze external/public connections and update ConnectionState and Insights."""
+"""Analyze connections and update ConnectionState, Insights, and Significant Connections."""
 
 from __future__ import annotations
 
@@ -7,27 +7,33 @@ from typing import Any
 
 from .connection_state import ConnectionState
 from .insights import process_insights
+from .significance import SignificanceHistory, get_significant
+from .significant_connections import SignificantConnections
 
 
 class ConnectionAnalyzer:
-    """Update ConnectionState and Insights from a snapshot's cache_items."""
+    """Process a snapshot's cache_items: connection state, Significant Connections, and Insights."""
 
-    def __init__(self, connection_state: ConnectionState, insights: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        connection_state: ConnectionState,
+        insights: dict[str, Any],
+        significant_connections: SignificantConnections,
+        significance_history: SignificanceHistory,
+    ) -> None:
         self.connection_state = connection_state
         self.insights = insights
+        self.significant_connections = significant_connections
+        self.significance_history = significance_history
 
     def analyze(self, cache_items: list[dict[str, Any]]) -> dict[str, Any]:
-        """Update ConnectionState with mapped PUBLIC connections; return the Insights result."""
-        mapped = self._classify_mapped_public(cache_items)
-        self.connection_state.merge(mapped)
+        """Update ConnectionState, Significant Connections, and Insights from cache_items.
 
+        Returns the Insights result ({new, top}).
+        """
         now = datetime.now()
-        return process_insights(cache_items, self.insights, now)
-
-    @staticmethod
-    def _classify_mapped_public(cache_items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Return cache_items with PUBLIC scope and valid map coordinates."""
         mapped: list[dict[str, Any]] = []
+
         for item in cache_items:
             if item.get("service_scope") != "PUBLIC":
                 continue
@@ -37,4 +43,10 @@ class ConnectionAnalyzer:
             if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
                 mapped.append(item)
 
-        return mapped
+            significant_connection = get_significant(item, self.significance_history, now)
+            if significant_connection is not None:
+                self.significant_connections.add(significant_connection)
+
+        self.connection_state.merge(mapped)
+
+        return process_insights(cache_items, self.insights, now)

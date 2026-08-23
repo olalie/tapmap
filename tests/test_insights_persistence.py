@@ -14,30 +14,60 @@ import pytest
 
 from tapmap.app import TapMap
 from tapmap.settings_persistence import Settings
+from tapmap.state.insights_state import CURRENT_SCHEMA_VERSION, InsightsState
+from tapmap.state.significant_connections import SignificantConnections
 
 
 def test_failed_save_does_not_corrupt_state(tmp_path: Path) -> None:
-    """A failed save does not corrupt or clear in-memory state."""
+    """A failed save does not corrupt or clear in-memory state, for either history file."""
     app = _bare_app(tmp_path)
-    app.insights = {
-        "countries": {"NO": 1},
-        "providers": {},
-        "ports": {},
-        "applications": {},
-    }
+    app.insights_state = InsightsState(
+        version=CURRENT_SCHEMA_VERSION,
+        insights={"countries": {"NO": 1}, "providers": {}, "ports": {}, "applications": {}},
+        verification_failed={},
+    )
+    app.significant_connections = SignificantConnections([{"timestamp": "t", "reasons": ["x"]}])
     # Simulate save failure by patching Path.open to raise OSError
     with (
         unittest.mock.patch.object(Path, "open", side_effect=OSError("disk full")),
         contextlib.suppress(OSError),
     ):
-        app._save_insights()
+        app._save_history()
     # State should be unchanged
-    assert app.insights == {
+    assert app.insights_state.insights == {
         "countries": {"NO": 1},
         "providers": {},
         "ports": {},
         "applications": {},
     }
+    assert app.significant_connections.items == [{"timestamp": "t", "reasons": ["x"]}]
+
+
+def test_save_history_isolates_failure_per_file(tmp_path: Path) -> None:
+    """A failing insights save must not prevent Significant Connections from being saved."""
+    app = _bare_app(tmp_path)
+    app.insights_state = InsightsState(
+        version=CURRENT_SCHEMA_VERSION,
+        insights=_EMPTY,
+        verification_failed={},
+    )
+    app.significant_connections = SignificantConnections([{"timestamp": "t", "reasons": ["x"]}])
+
+    real_open = Path.open
+
+    def _flaky_open(self: Path, *args: object, **kwargs: object):
+        if self.name.startswith("insights"):
+            raise OSError("disk full")
+        return real_open(self, *args, **kwargs)
+
+    with (
+        unittest.mock.patch.object(Path, "open", _flaky_open),
+        contextlib.suppress(OSError),
+    ):
+        app._save_history()
+
+    assert not app.insights_path.exists()
+    assert app.significant_connections_path.exists()
 
 
 def test_failed_save_settings_does_not_corrupt_state(tmp_path: Path) -> None:
@@ -61,79 +91,150 @@ def _bare_app(tmp_path: Path) -> TapMap:
     """Return a TapMap instance with only the attributes needed for method-level tests."""
     app = object.__new__(TapMap)
     app.logger = logging.getLogger("test")
-    app.insights = {}
+    app.insights_state = InsightsState(
+        version=CURRENT_SCHEMA_VERSION, insights={}, verification_failed={}
+    )
     app.insights_path = tmp_path / "insights.json"
+    app.significant_connections = SignificantConnections([])
+    app.significant_connections_path = tmp_path / "significant_connections.json"
     app.settings = Settings()
     app.settings_path = tmp_path / "settings.json"
     app._lock_path = tmp_path / "tapmap.lock"
     return app
 
 
-# --- _load_insights: corrupt JSON ---
+# --- _load_history: corrupt JSON ---
 
 
-def test_load_insights_corrupt_json_fallback(tmp_path: Path) -> None:
+def test_load_history_corrupt_json_fallback(tmp_path: Path) -> None:
     """Corrupt JSON must not crash; insights must become the empty structure."""
     app = _bare_app(tmp_path)
     app.insights_path.write_text("not valid json", encoding="utf-8")
-    app._load_insights()
-    assert app.insights == _EMPTY
+    app._load_history()
+    assert app.insights_state.insights == _EMPTY
+    assert app.insights_state.verification_failed == {}
+    assert app.significant_connections.items == []
 
 
-# --- _load_insights: unexpected structure ---
+# --- _load_history: unexpected structure ---
 
 
-def test_load_insights_wrong_structure_fallback(tmp_path: Path) -> None:
+def test_load_history_wrong_structure_fallback(tmp_path: Path) -> None:
     """A non-dict 'insights' value must fall back to the empty structure."""
     app = _bare_app(tmp_path)
     app.insights_path.write_text(json.dumps({"insights": ["not", "a", "dict"]}), encoding="utf-8")
-    app._load_insights()
-    assert app.insights == _EMPTY
+    app._load_history()
+    assert app.insights_state.insights == _EMPTY
 
 
-# --- _load_insights: unknown top-level keys are discarded ---
+# --- _load_history: unknown top-level keys are discarded ---
 
 
-def test_load_insights_strips_unknown_keys(tmp_path: Path) -> None:
-    """Only the four recognised keys should be kept; unknown keys are discarded."""
+def test_load_history_strips_unknown_keys(tmp_path: Path) -> None:
+    """Only the four recognised Insights keys should be kept; unknown keys are discarded."""
     app = _bare_app(tmp_path)
     data = {
+        "version": CURRENT_SCHEMA_VERSION,
         "insights": {
             "countries": {"US": 1},
             "providers": {},
             "ports": {},
             "applications": {},
             "legacy_field": {"should": "be_removed"},
-        }
+        },
     }
     app.insights_path.write_text(json.dumps(data), encoding="utf-8")
-    app._load_insights()
-    assert set(app.insights.keys()) == {"countries", "providers", "ports", "applications"}
-    assert "legacy_field" not in app.insights
-    assert app.insights["countries"] == {"US": 1}
+    app._load_history()
+    assert set(app.insights_state.insights.keys()) == {
+        "countries",
+        "providers",
+        "ports",
+        "applications",
+    }
+    assert "legacy_field" not in app.insights_state.insights
+    assert app.insights_state.insights["countries"] == {"US": 1}
 
 
-# --- _save_insights / _load_insights: roundtrip ---
+# --- _save_history / _load_history: roundtrip ---
 
 
 def test_save_and_reload_preserves_data(tmp_path: Path) -> None:
-    """Saving and reloading insights must preserve all data exactly."""
+    """Saving and reloading both history files must preserve all data exactly."""
     app = _bare_app(tmp_path)
-    app.insights = {
+    app.insights_state = InsightsState(
+        version=CURRENT_SCHEMA_VERSION,
+        insights={
+            "countries": {"DE": 3},
+            "providers": {"AS1234": 1},
+            "ports": {"443": 5},
+            "applications": {"curl": 2},
+        },
+        verification_failed={"BadApp": 738000},
+    )
+    app.significant_connections = SignificantConnections(
+        [{"timestamp": "2026-08-01T00:00:00", "reasons": ["new_app"]}]
+    )
+    app._save_history()
+
+    app.insights_state = InsightsState(version=0, insights={}, verification_failed={})
+    app.significant_connections = SignificantConnections([])
+    app._load_history()
+
+    assert app.insights_state.insights == {
         "countries": {"DE": 3},
         "providers": {"AS1234": 1},
         "ports": {"443": 5},
         "applications": {"curl": 2},
     }
-    app._save_insights()
-    app.insights = {}
-    app._load_insights()
-    assert app.insights == {
-        "countries": {"DE": 3},
-        "providers": {"AS1234": 1},
-        "ports": {"443": 5},
-        "applications": {"curl": 2},
+    assert app.insights_state.verification_failed == {"BadApp": 738000}
+    assert app.insights_state.version == CURRENT_SCHEMA_VERSION
+    assert app.significant_connections.items == [
+        {"timestamp": "2026-08-01T00:00:00", "reasons": ["new_app"]}
+    ]
+
+
+# --- _load_history: applications-only migration ---
+
+
+def test_load_history_migrates_pre_v2_applications_only(tmp_path: Path) -> None:
+    """A file with no version marker resets applications but preserves other dimensions."""
+    app = _bare_app(tmp_path)
+    data = {
+        "insights": {
+            "countries": {"US": 1},
+            "providers": {"AS15169": 1},
+            "ports": {"443": 1},
+            "applications": {"chrome.exe": {"l": 738000, "m": 1}},
+        }
     }
+    app.insights_path.write_text(json.dumps(data), encoding="utf-8")
+    app._load_history()
+
+    assert app.insights_state.insights["applications"] == {}
+    assert app.insights_state.insights["countries"] == {"US": 1}
+    assert app.insights_state.insights["providers"] == {"AS15169": 1}
+    assert app.insights_state.insights["ports"] == {"443": 1}
+    assert app.insights_state.version == CURRENT_SCHEMA_VERSION
+
+
+def test_load_history_does_not_migrate_current_version(tmp_path: Path) -> None:
+    """A file already at the current schema version keeps its applications history."""
+    app = _bare_app(tmp_path)
+    data = {
+        "version": CURRENT_SCHEMA_VERSION,
+        "insights": {
+            "countries": {},
+            "providers": {},
+            "ports": {},
+            "applications": {"Google Chrome": {"l": 738000, "m": 1}},
+        },
+        "verification_failed": {},
+    }
+    app.insights_path.write_text(json.dumps(data), encoding="utf-8")
+    app._load_history()
+
+    assert app.insights_state.insights["applications"] == {"Google Chrome": {"l": 738000, "m": 1}}
+
 
 # --- _acquire_lock ---
 

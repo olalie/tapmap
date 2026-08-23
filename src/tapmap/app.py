@@ -55,9 +55,14 @@ from tapmap.model.model import Model
 from tapmap.model.netinfo import NetInfo
 from tapmap.model.public_ip import iter_public_ip_candidates
 from tapmap.settings_persistence import Settings, load_settings, save_settings
+from tapmap.significant_connections_persistence import (
+    load_significant_connections,
+    save_significant_connections,
+)
 from tapmap.state.connection_analyzer import ConnectionAnalyzer
 from tapmap.state.connection_state import ConnectionState
 from tapmap.state.insights_log import write_insights_log
+from tapmap.state.insights_state import CURRENT_SCHEMA_VERSION, InsightsState
 from tapmap.state.keyboard import build_key_action
 from tapmap.state.menu import compute_menu_open_state
 from tapmap.state.modal import decide_modal_route
@@ -70,6 +75,8 @@ from tapmap.state.poll import (
     PollDecision,
     decide_poll_action,
 )
+from tapmap.state.significance import SignificanceHistory
+from tapmap.state.significant_connections import SignificantConnections
 from tapmap.state.status_cache import StatusCache
 from tapmap.state.status_line import render_status_text
 from tapmap.ui.cache_view import CacheViewBuilder
@@ -187,21 +194,23 @@ class TapMap:
             ],
         }
 
-        self.insights: dict[str, Any] = {
-            "countries": {},
-            "providers": {},
-            "ports": {},
-
-
-            "applications": {},
-        }
-
         self.insights_path = self.runtime.app_data_dir / "insights.json"
-        self._load_insights()
-        self._last_insights_save = 0.0
+        self.significant_connections_path = (
+            self.runtime.app_data_dir / "significant_connections.json"
+        )
+        self._load_history()
+        self._last_history_save = 0.0
 
-        # Construct after _load_insights() to reference the loaded Insights dict.
-        self.connection_analyzer = ConnectionAnalyzer(self.connection_state, self.insights)
+        # Constructed after _load_history() so SignificanceHistory derives from
+        # the loaded InsightsState, and ConnectionAnalyzer references the
+        # already-loaded SignificantConnections.
+        self.significance_history = SignificanceHistory.from_insights_state(self.insights_state)
+        self.connection_analyzer = ConnectionAnalyzer(
+            self.connection_state,
+            self.insights_state.insights,
+            self.significant_connections,
+            self.significance_history,
+        )
 
         self.settings_path = self.runtime.app_data_dir / "settings.json"
         self.settings: Settings = load_settings(self.settings_path)
@@ -507,7 +516,7 @@ class TapMap:
         view = self.view_builder.build_view_from_cache(
             self.connection_state.cache, technical_details_enabled
         )
-        self._maybe_save_insights()
+        self._maybe_save_history()
 
         return snap, status_cache.to_store(), view, no_update, insights_data
 
@@ -638,7 +647,7 @@ class TapMap:
             return self._as_children(body), "modal-body"
 
         if screen == "menu_daily_report":
-            report = persist_build_daily_report(self.insights)
+            report = persist_build_daily_report(self.insights_state.insights)
             return (
                 render_daily_activity_report(report),
                 self._class_for_modal_screen(screen),
@@ -648,7 +657,7 @@ class TapMap:
             log_path = self.insights_path.with_suffix(".log")
             text = ""
             with contextlib.suppress(Exception):
-                write_insights_log(self.insights, log_path)
+                write_insights_log(self.insights_state.insights, log_path)
                 text = log_path.read_text(encoding="utf-8")
             return (
                 render_insights_log(text),
@@ -1313,24 +1322,40 @@ class TapMap:
     def _empty_insights() -> dict[str, Any]:
         return {"countries": {}, "providers": {}, "ports": {}, "applications": {}}
 
-    def _load_insights(self) -> None:
-        """Load insights data from JSON file into memory (delegated)."""
+    def _load_history(self) -> None:
+        """Load Insights and Significant Connections history from disk (delegated)."""
         try:
-            self.insights = load_insights(self.insights_path)
+            self.insights_state = load_insights(self.insights_path)
         except Exception as exc:
             self.logger.warning(
                 "Unable to load insights. Starting with empty history. Reason: %s",
                 exc,
             )
-            self.insights = self._empty_insights()
+            self.insights_state = InsightsState(
+                version=CURRENT_SCHEMA_VERSION,
+                insights=self._empty_insights(),
+                verification_failed={},
+            )
 
-    def _maybe_save_insights(self) -> None:
-        """Save insights periodically to limit disk writes."""
+        try:
+            significant_connections_items = load_significant_connections(
+                self.significant_connections_path
+            )
+        except Exception as exc:
+            self.logger.warning(
+                "Unable to load Significant Connections history. Starting empty. Reason: %s",
+                exc,
+            )
+            significant_connections_items = []
+        self.significant_connections = SignificantConnections(significant_connections_items)
+
+    def _maybe_save_history(self) -> None:
+        """Save Insights and Significant Connections history periodically to limit disk writes."""
         now = datetime.now().timestamp()
 
-        if now - self._last_insights_save >= 60:
-            self._last_insights_save = now
-            self._save_insights()
+        if now - self._last_history_save >= 60:
+            self._last_history_save = now
+            self._save_history()
 
     def _save_settings(self) -> None:
         """Write settings data to disk atomically."""
@@ -1342,13 +1367,28 @@ class TapMap:
                 exc,
             )
 
-    def _save_insights(self) -> None:
-        """Write insights data to disk atomically (delegated)."""
+    def _save_history(self) -> None:
+        """Write Insights and Significant Connections history to disk atomically (delegated).
+
+        Each file's save failure is isolated so one failing write does not
+        prevent the other from being persisted.
+        """
         try:
-            save_insights(self.insights_path, self.insights)
+            save_insights(self.insights_path, self.insights_state)
         except Exception as exc:
             self.logger.warning(
                 "Unable to save insights. Changes will not be preserved. Reason: %s",
+                exc,
+            )
+
+        try:
+            save_significant_connections(
+                self.significant_connections_path, self.significant_connections.items
+            )
+        except Exception as exc:
+            self.logger.warning(
+                "Unable to save Significant Connections history. Changes will not be preserved."
+                " Reason: %s",
                 exc,
             )
 
@@ -1404,7 +1444,7 @@ class TapMap:
     def close(self) -> None:
         """Close model resources."""
         self.logger.info("Shutting down")
-        self._save_insights()
+        self._save_history()
         self._release_lock()
         close_fn = getattr(self.model.geoinfo, "close", None)
         if callable(close_fn):

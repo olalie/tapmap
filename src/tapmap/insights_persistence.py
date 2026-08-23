@@ -6,38 +6,74 @@ from pathlib import Path
 from typing import Any
 
 from tapmap.state.daily_report import DailyReportData, build_report_data
+from tapmap.state.insights_state import CURRENT_SCHEMA_VERSION, InsightsState
+
+_DIMENSION_KEYS = ("countries", "providers", "ports", "applications")
 
 
-def load_insights(path: Path) -> dict[str, Any]:
-    """Load insights from a JSON file, restoring historical contract.
+def _empty_insights_dict() -> dict[str, Any]:
+    return {k: {} for k in _DIMENSION_KEYS}
+
+
+def load_insights(path: Path) -> InsightsState:
+    """Load InsightsState from a JSON file, migrating older schema versions as needed.
+
+    A file with no version marker, or version < CURRENT_SCHEMA_VERSION, has
+    its applications history reset (process-name-keyed history cannot be
+    reliably converted to app_name-keyed history); countries, providers, and
+    ports are preserved.
 
     Args:
         path: Path to the insights file.
 
     Returns:
-        Normalized insights dict with only the four expected keys.
+        InsightsState at the current schema version. Empty on missing,
+        corrupt, or malformed input.
     """
-    expected_keys = {"countries", "providers", "ports", "applications"}
     try:
         with path.open(encoding="utf-8") as f:
             data = json.load(f)
-        insights = data.get("insights")
-        if not isinstance(insights, dict):
+
+        version = data.get("version")
+        version = version if isinstance(version, int) else 1
+
+        raw_insights = data.get("insights")
+        if not isinstance(raw_insights, dict):
             raise ValueError("insights is not a dict")
-        normalized = {
-            k: dict(insights[k]) if isinstance(insights.get(k), dict) else {} for k in expected_keys
+
+        insights = {
+            k: dict(raw_insights[k]) if isinstance(raw_insights.get(k), dict) else {}
+            for k in _DIMENSION_KEYS
         }
-        return normalized
+
+        raw_verification_failed = data.get("verification_failed")
+        verification_failed = (
+            dict(raw_verification_failed) if isinstance(raw_verification_failed, dict) else {}
+        )
+
+        if version < CURRENT_SCHEMA_VERSION:
+            insights["applications"] = {}
+            version = CURRENT_SCHEMA_VERSION
+
+        return InsightsState(
+            version=version,
+            insights=insights,
+            verification_failed=verification_failed,
+        )
     except Exception:
-        return {k: {} for k in ["countries", "providers", "ports", "applications"]}
+        return InsightsState(
+            version=CURRENT_SCHEMA_VERSION,
+            insights=_empty_insights_dict(),
+            verification_failed={},
+        )
 
 
-def save_insights(path: Path, data: dict[str, Any]) -> None:
-    """Save insights to a JSON file, using historical wrapper contract.
+def save_insights(path: Path, state: InsightsState) -> None:
+    """Save InsightsState to a JSON file as one atomic unit.
 
     Args:
         path: Path to the insights file.
-        data: Raw dict to save.
+        state: InsightsState to persist.
 
     Raises:
         OSError: If the insights file cannot be written or replaced.
@@ -46,7 +82,11 @@ def save_insights(path: Path, data: dict[str, Any]) -> None:
 
     with tmp_path.open("w", encoding="utf-8") as f:
         json.dump(
-            {"insights": data},
+            {
+                "version": state.version,
+                "insights": state.insights,
+                "verification_failed": state.verification_failed,
+            },
             f,
             ensure_ascii=False,
             indent=2,
