@@ -113,7 +113,9 @@ The state layer contains deterministic application logic.
 
 Examples include:
 
+- Connection and Unmapped state (session-lifetime)
 - Insights processing
+- Significant Connections evaluation and history
 - Menu state
 - Modal state
 - Keyboard handling
@@ -190,23 +192,34 @@ Used for real-time visualization.
 ```text
 model_snapshot
        │
-       ▼
+       ├──────────────────────┬───────────────────────┐
+       │                      │                        │
+       ▼                      ▼                        ▼
 
-    ui_cache
+ConnectionAnalyzer         Open Ports        LAN/LOCAL Services
        │
-       ▼
+  ┌────┴────┐
+  │         │
+  ▼         ▼
 
-    ui_view
-       │
-       ▼
+mapped   unmapped
+  │         │
+  ▼         ▼
 
-Map
-Open Ports
-LAN/LOCAL Services
-Unmapped Services
+ConnectionState   UnmappedState
+  │                    │
+  ▼                    ▼
+
+ui_view            Unmapped Services
+  │
+  ▼
+
+  Map
 ```
 
-Session state exists only while the application is running.
+ConnectionAnalyzer classifies each PUBLIC connection as mapped (usable GeoIP) or unmapped, and routes it into ConnectionState or UnmappedState accordingly. ConnectionState and UnmappedState accumulate observations for the lifetime of the application session.
+
+Open Ports and LAN/LOCAL Services are not accumulated. They are read directly from the current snapshot on each render and never pass through ConnectionAnalyzer or either session state store.
 
 ### AppInfo Flow
 
@@ -221,7 +234,7 @@ Model.snapshot()
    model_snapshot
        │
        ▼
-    ui_cache
+ConnectionState / UnmappedState
 
 Background verification
        │
@@ -232,10 +245,10 @@ Background verification
  normal poll
        │
        ▼
-    ui_cache
+ConnectionState / UnmappedState
 ```
 
-Pending verification does not block snapshot creation or map updates. Completed verification information is merged into retained session state during subsequent polling.
+Pending verification does not block snapshot creation or map updates. Completed verification information is merged into ConnectionState and UnmappedState independently during subsequent polling.
 
 ### Historical Flow
 
@@ -245,6 +258,16 @@ Used for long-term analysis.
 model_snapshot
        │
        ▼
+
+ConnectionAnalyzer
+       │
+       ├── per PUBLIC connection (mapped and unmapped):
+       │      evaluate significance against SignificanceHistory
+       │      │
+       │      ▼
+       │   significant? ──▶ SignificantConnections ──▶ significant_connections.json
+       │
+       ▼  (after the loop; mapped PUBLIC connections only)
 
 process_insights()
        │
@@ -262,6 +285,10 @@ process_insights()
   insights.json
 ```
 
+Significant Connections evaluation runs per connection, inside the same loop that classifies mapped/unmapped connections, for every PUBLIC connection regardless of mapped/unmapped status. Novelty is judged against SignificanceHistory, an in-memory structure seeded from the persisted Insights bitmasks at startup and updated as each connection is evaluated; SignificanceHistory itself is not directly persisted. Connections judged significant are appended to SignificantConnections, a bounded, persisted event log.
+
+Insights is a separate, batch-updated structure: after the per-connection loop completes, process_insights() updates the rolling 30-day Insights history using only the mapped PUBLIC connections observed in that poll. Unmapped PUBLIC connections are evaluated for significance but do not contribute to Insights.
+
 Historical state survives application restarts.
 
 ---
@@ -274,35 +301,60 @@ Represents the current network snapshot.
 
 This state is transient and replaced during each polling cycle.
 
-### ui_cache
+### ConnectionState
 
 Session-scoped state.
 
-Contains activity accumulated during the current application session.
+Accumulates mapped PUBLIC connections (usable GeoIP) observed during the current application session, routed here by ConnectionAnalyzer.
 
 Retained entries may be enriched with completed AppInfo verification results during subsequent polling, even when the corresponding connection is no longer present in the latest snapshot.
 
-Used by:
-
-- Interactive Map
-- Open Ports
-- LAN/LOCAL Services
-- Unmapped Services
+Used by the Interactive Map.
 
 Cleared when the application exits or the user clears the cache.
+
+### UnmappedState
+
+Session-scoped state.
+
+Accumulates PUBLIC connections without usable GeoIP observed during the current application session, routed here by ConnectionAnalyzer.
+
+Retained entries may be enriched with completed AppInfo verification results during subsequent polling, the same as ConnectionState.
+
+Used by Unmapped Services.
+
+Cleared when the application exits or the user clears the cache.
+
+### SignificanceHistory
+
+Runtime-only novelty tracking. Not directly persisted.
+
+Records the last-seen day for each observed application, country, provider, and port, plus verification-failure history. The last-seen dictionaries are seeded once from the persisted Insights bitmasks at startup; verification-failure history is shared with InsightsState. The history is then updated in memory as each PUBLIC connection is evaluated.
+
+Used by ConnectionAnalyzer to decide whether a connection is significant.
+
+### SignificantConnections
+
+Persistent historical state.
+
+A bounded, chronological event log (most recent 500) of PUBLIC connections judged significant against SignificanceHistory, covering both mapped and unmapped connections.
+
+Loaded at startup and periodically written to disk as significant_connections.json.
 
 ### insights
 
 Persistent historical state.
 
-Maintains rolling activity history for:
+Maintains rolling 30-day activity history for:
 
 - Applications
 - Countries
 - Providers (ASN)
 - Ports
 
-Loaded at startup and periodically written to disk.
+Populated only from mapped PUBLIC connections; unmapped PUBLIC connections do not contribute.
+
+Loaded at startup and periodically written to disk as insights.json.
 
 Used by:
 

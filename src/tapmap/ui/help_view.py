@@ -387,7 +387,10 @@ def render_help() -> list[Any]:
             ]
         ),
         html.H2("Insights"),
-        html.P("The Insights panel highlights activity observed during the last 30 days."),
+        html.P(
+            "The Insights panel highlights mapped public activity observed during "
+            "the last 30 days."
+        ),
         html.Ul(
             [
                 html.Li(
@@ -402,16 +405,13 @@ def render_help() -> list[Any]:
             ]
         ),
         html.P(
-            "Insights may include activity that is not currently visible on the map."
-        ),
-        html.P(
-            "The map is limited to activity observed during the current session, "
-            "while Insights use activity observed during the last 30 days."
+            "Insights may include mapped activity that is no longer visible on the map because "
+            "the map covers the current session, while Insights retain activity for 30 days."
         ),
         html.H2("Daily Activity Report"),
         html.P(
-            "The Daily Activity Report analyzes historical activity observed during "
-            "the last 30 days."
+            "The Daily Activity Report analyzes mapped public activity observed "
+            "during the last 30 days."
         ),
         html.Ul(
             [
