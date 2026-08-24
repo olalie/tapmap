@@ -1,7 +1,8 @@
 """Analyze connections and route them to state: mapped, unmapped, insights, significant.
 
-Mapped PUBLIC connections update ConnectionState; PUBLIC connections without
-usable GeoIP update UnmappedState.
+Mapped PUBLIC connections update ConnectionState and feed Insights. PUBLIC
+connections without usable GeoIP update UnmappedState and remain eligible
+for Significant Connections, but do not contribute to Insights.
 """
 
 from __future__ import annotations
@@ -37,7 +38,8 @@ class ConnectionAnalyzer:
     def analyze(self, connections: list[dict[str, Any]]) -> dict[str, Any]:
         """Update ConnectionState, UnmappedState, Significant Connections, and Insights.
 
-        Returns the Insights result ({new, top}).
+        Insights is derived only from mapped PUBLIC connections. Returns the
+        Insights result ({new, top}).
         """
         now = datetime.now()
         mapped: list[dict[str, Any]] = []
@@ -61,4 +63,4 @@ class ConnectionAnalyzer:
         self.connection_state.merge(mapped)
         self.unmapped_state.merge(unmapped)
 
-        return process_insights(connections, self.insights, now)
+        return process_insights(mapped, self.insights, now)

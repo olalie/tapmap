@@ -99,17 +99,27 @@ def test_analyze_excludes_non_public_scopes() -> None:
     assert connection_state.cache == {}
 
 
-# --- insights: updated from the full connection set, not just mapped ---
+# --- insights: updated only from mapped PUBLIC connections ---
 
 
-def test_analyze_feeds_full_connections_to_insights_not_just_mapped() -> None:
-    """Insights are updated from every PUBLIC connection, including unmapped ones."""
+def test_analyze_feeds_mapped_public_connections_to_insights() -> None:
+    """Insights are updated from mapped PUBLIC connections (valid lat/lon)."""
+    insights: dict[str, Any] = {}
+    analyzer = _analyzer(insights=insights)
+
+    analyzer.analyze([_connection(country_code="NO")])
+
+    assert "NO" in insights["countries"]
+
+
+def test_analyze_excludes_unmapped_public_connections_from_insights() -> None:
+    """A PUBLIC connection without usable GeoIP does not contribute to Insights."""
     insights: dict[str, Any] = {}
     analyzer = _analyzer(insights=insights)
 
     analyzer.analyze([_connection(lat=None, lon=None, country_code="NO")])
 
-    assert "NO" in insights["countries"]
+    assert insights.get("countries", {}) == {}
 
 
 def test_analyze_excludes_non_public_connections_from_insights() -> None:

@@ -486,12 +486,18 @@ class TestBuildTop:
 class TestInputFiltering:
     """process_insights correctly classifies and filters snapshot items."""
 
-    def test_private_scope_item_is_ignored(self) -> None:
-        """Items with service_scope != 'PUBLIC' are not counted in any dimension."""
+    def test_does_not_filter_by_service_scope(self) -> None:
+        """process_insights trusts its caller and applies no scope filtering itself.
+
+        PUBLIC-eligibility is ConnectionAnalyzer's responsibility: it filters
+        and routes connections before calling process_insights(). This item
+        would never reach process_insights() in production, but the function
+        itself does not re-check service_scope.
+        """
         items = [{"service_scope": "PRIVATE", "country_code": "US"}]
         insights: dict[str, Any] = {}
         process_insights(items, insights, _now(1))
-        assert insights.get("countries", {}) == {}
+        assert "US" in insights["countries"]
 
     def test_none_country_code_is_not_added(self) -> None:
         """country_code=None is skipped."""
@@ -571,11 +577,3 @@ class TestInputFiltering:
         insights: dict[str, Any] = {}
         process_insights(items, insights, _now(1))
         assert insights.get("applications", {}) == {}
-
-    def test_missing_service_scope_field_is_not_treated_as_public(self) -> None:
-        """Item with no service_scope key is not counted (treated as non-PUBLIC)."""
-        items = [{"country_code": "US", "port": 80}]
-        insights: dict[str, Any] = {}
-        process_insights(items, insights, _now(1))
-        assert insights.get("countries", {}) == {}
-        assert insights.get("ports", {}) == {}

@@ -46,7 +46,11 @@ def process_insights(
     insights: dict[str, Any],
     now: datetime,
 ) -> dict[str, Any]:
-    """Process snapshot and return new insights entries."""
+    """Process items and return new insights entries.
+
+    Caller must supply only mapped PUBLIC connections; no scope filtering is
+    applied here.
+    """
 
     def update_dimension(
         values: set[str],
@@ -98,9 +102,6 @@ def process_insights(
 
     for item in items:
         if not isinstance(item, dict):
-            continue
-
-        if item.get("service_scope") != "PUBLIC":
             continue
 
         cc = item.get("country_code")
