@@ -61,8 +61,8 @@ class StatusCache:
         self.unm.clear()
         self.loc.clear()
 
-    def update(self, cache_items: Sequence[StatusCacheItem]) -> None:
-        """Merge snapshot cache_items into the cache.
+    def update(self, connections: Sequence[StatusCacheItem]) -> None:
+        """Merge snapshot connections into the cache.
 
         Required keys:
             ip: str
@@ -75,7 +75,7 @@ class StatusCache:
             service_scope: 'PUBLIC', 'LAN', 'LOCAL', or 'UNKNOWN'
             lat, lon: numeric coordinates for PUBLIC services
         """
-        for item in cache_items:
+        for item in connections:
             ip = item.get("ip")
             if not isinstance(ip, str) or not ip:
                 continue

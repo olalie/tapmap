@@ -17,7 +17,7 @@ from .unmapped_state import UnmappedState
 
 
 class ConnectionAnalyzer:
-    """Process a snapshot's cache_items: connection, unmapped, insights, and significant state."""
+    """Process a snapshot's connections: connection, unmapped, insights, and significant state."""
 
     def __init__(
         self,
@@ -34,7 +34,7 @@ class ConnectionAnalyzer:
         self.significant_connections = significant_connections
         self.significance_history = significance_history
 
-    def analyze(self, cache_items: list[dict[str, Any]]) -> dict[str, Any]:
+    def analyze(self, connections: list[dict[str, Any]]) -> dict[str, Any]:
         """Update ConnectionState, UnmappedState, Significant Connections, and Insights.
 
         Returns the Insights result ({new, top}).
@@ -43,7 +43,7 @@ class ConnectionAnalyzer:
         mapped: list[dict[str, Any]] = []
         unmapped: list[dict[str, Any]] = []
 
-        for item in cache_items:
+        for item in connections:
             if item.get("service_scope") != "PUBLIC":
                 continue
 
@@ -61,4 +61,4 @@ class ConnectionAnalyzer:
         self.connection_state.merge(mapped)
         self.unmapped_state.merge(unmapped)
 
-        return process_insights(cache_items, self.insights, now)
+        return process_insights(connections, self.insights, now)

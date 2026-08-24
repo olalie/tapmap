@@ -19,7 +19,7 @@ from tapmap.state.significance import (
 )
 
 
-def _cache_item(**overrides: Any) -> dict[str, Any]:
+def _connection(**overrides: Any) -> dict[str, Any]:
     item = {
         "proto": "tcp",
         "ip": "8.8.8.8",
@@ -154,7 +154,7 @@ def test_get_significant_returns_none_when_nothing_is_new() -> None:
         verification_failed={},
     )
 
-    result = get_significant(_cache_item(), history, datetime.fromordinal(today))
+    result = get_significant(_connection(), history, datetime.fromordinal(today))
 
     assert result is None
 
@@ -163,7 +163,7 @@ def test_get_significant_new_connection_reports_all_four_new_reasons() -> None:
     """A connection novel in all four dimensions produces one event with all four reasons."""
     history = SignificanceHistory(last_seen=_empty_last_seen(), verification_failed={})
 
-    result = get_significant(_cache_item(), history, datetime(2026, 8, 22))
+    result = get_significant(_connection(), history, datetime(2026, 8, 22))
 
     assert result is not None
     assert set(result["reasons"]) == {
@@ -179,7 +179,7 @@ def test_get_significant_event_preserves_full_connection_detail() -> None:
     history = SignificanceHistory(last_seen=_empty_last_seen(), verification_failed={})
     now = datetime(2026, 8, 22, 10, 30, 0)
 
-    result = get_significant(_cache_item(), history, now)
+    result = get_significant(_connection(), history, now)
 
     assert result is not None
     assert result["timestamp"] == now.isoformat()
@@ -207,7 +207,7 @@ def test_get_significant_verification_failed_reason() -> None:
         verification_failed={},
     )
 
-    result = get_significant(_cache_item(app_verification_status="failed"), history, today_dt)
+    result = get_significant(_connection(app_verification_status="failed"), history, today_dt)
 
     assert result is not None
     assert result["reasons"] == [REASON_VERIFICATION_FAILED]
@@ -218,7 +218,7 @@ def test_get_significant_missing_app_name_excludes_new_app_and_verification_fail
     history = SignificanceHistory(last_seen=_empty_last_seen(), verification_failed={})
 
     result = get_significant(
-        _cache_item(app_name=None, app_verification_status="failed"),
+        _connection(app_name=None, app_verification_status="failed"),
         history,
         datetime(2026, 8, 22),
     )
@@ -237,8 +237,8 @@ def test_first_connection_owns_new_reason_within_one_poll() -> None:
     history = SignificanceHistory(last_seen=_empty_last_seen(), verification_failed={})
     now = datetime(2026, 8, 22)
 
-    first = get_significant(_cache_item(ip="1.1.1.1", port=80), history, now)
-    second = get_significant(_cache_item(ip="2.2.2.2", port=80), history, now)
+    first = get_significant(_connection(ip="1.1.1.1", port=80), history, now)
+    second = get_significant(_connection(ip="2.2.2.2", port=80), history, now)
 
     assert first is not None
     assert REASON_NEW_COUNTRY in first["reasons"]
@@ -257,9 +257,9 @@ def test_significance_across_polls_deduplicates_then_becomes_new_again_after_30_
     day2 = datetime(2026, 1, 2)
     day_after_30_more = datetime(2026, 2, 1)
 
-    poll1 = get_significant(_cache_item(), history, day1)
-    poll2 = get_significant(_cache_item(), history, day2)
-    poll3 = get_significant(_cache_item(), history, day_after_30_more)
+    poll1 = get_significant(_connection(), history, day1)
+    poll2 = get_significant(_connection(), history, day2)
+    poll3 = get_significant(_connection(), history, day_after_30_more)
 
     assert poll1 is not None
     assert REASON_NEW_COUNTRY in poll1["reasons"]

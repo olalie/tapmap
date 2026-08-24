@@ -13,8 +13,8 @@ from datetime import datetime
 from typing import Any, TypedDict
 
 
-class CacheItem(TypedDict):
-    """Define one cache item for the UI."""
+class Connection(TypedDict):
+    """Define one connection observed in a Model snapshot."""
 
     proto: str
     ip: str
@@ -60,8 +60,7 @@ class SnapshotPayload(TypedDict):
 
     error: bool
     stats: dict[str, Any]
-    cache_items: list[CacheItem]
-    map_candidates: list[CacheItem]
+    connections: list[Connection]
     open_ports: list[OpenPort]
 
 
@@ -81,13 +80,13 @@ class Model:
         app_enabled = self._appinfo_enabled()
 
         try:
-            connections = self.netinfo.get_data()
+            records = self.netinfo.get_data()
 
             if geo_enabled:
-                self.geoinfo.enrich(connections)
+                self.geoinfo.enrich(records)
 
             if app_enabled:
-                self.appinfo.enrich(connections)
+                self.appinfo.enrich(records)
 
             live_tcp_total = 0
             live_tcp_established = 0
@@ -96,11 +95,10 @@ class Model:
             live_udp_bound = 0
             dropped_missing_remote = 0
 
-            cache_items: list[CacheItem] = []
-            map_candidates: list[CacheItem] = []
+            connections: list[Connection] = []
             open_ports: list[OpenPort] = []
 
-            for conn in connections:
+            for conn in records:
                 if not isinstance(conn, dict):
                     continue
 
@@ -117,9 +115,7 @@ class Model:
                             dropped_missing_remote += 1
                             continue
 
-                        cache_items.append(item)
-                        if self._is_map_candidate(item):
-                            map_candidates.append(item)
+                        connections.append(item)
                         continue
 
                     if status == "LISTEN":
@@ -135,9 +131,7 @@ class Model:
                     item = self._build_remote_endpoint_item(conn, proto="udp")
                     if item is not None:
                         live_udp_remote += 1
-                        cache_items.append(item)
-                        if self._is_map_candidate(item):
-                            map_candidates.append(item)
+                        connections.append(item)
                         continue
 
                     live_udp_bound += 1
@@ -159,8 +153,7 @@ class Model:
                     "geoinfo_enabled": geo_enabled,
                     "appinfo_enabled": app_enabled,
                 },
-                "cache_items": cache_items,
-                "map_candidates": map_candidates,
+                "connections": connections,
                 "open_ports": open_ports,
             }
 
@@ -179,8 +172,7 @@ class Model:
                     "geoinfo_enabled": geo_enabled,
                     "appinfo_enabled": app_enabled,
                 },
-                "cache_items": [],
-                "map_candidates": [],
+                "connections": [],
                 "open_ports": [],
             }
 
@@ -189,15 +181,6 @@ class Model:
 
     def _appinfo_enabled(self) -> bool:
         return bool(getattr(self.appinfo, "enabled", False))
-
-    @staticmethod
-    def _is_map_candidate(item: CacheItem) -> bool:
-        """Return True if PUBLIC service with valid geolocation."""
-        if item.get("service_scope") != "PUBLIC":
-            return False
-        lat = item.get("lat")
-        lon = item.get("lon")
-        return isinstance(lat, (int, float)) and isinstance(lon, (int, float))
 
     @staticmethod
     def _bind_scope(ip: str | None) -> str:
@@ -286,7 +269,7 @@ class Model:
             "bind_scope": self._bind_scope(l_ip),
         }
 
-    def _build_remote_endpoint_item(self, conn: dict[str, Any], *, proto: str) -> CacheItem | None:
+    def _build_remote_endpoint_item(self, conn: dict[str, Any], *, proto: str) -> Connection | None:
         proto_norm = str(proto).lower() or "tcp"
 
         remote_ip = conn.get("raddr_ip")
@@ -320,8 +303,8 @@ class Model:
             "lat": lat_value,
             "lon": lon_value,
             "pid": conn.get("pid"),
-            # CacheItem.process_name intentionally stores the display-oriented
-            # process label, not the raw backend process name. Cache items are
+            # Connection.process_name intentionally stores the display-oriented
+            # process label, not the raw backend process name. Connections are
             # used for UI aggregation, grouping, and summaries where fallback
             # labels such as "System" are required.
             "process_name": conn.get("process_label"),

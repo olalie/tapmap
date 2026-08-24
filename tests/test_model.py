@@ -2,9 +2,9 @@
 
 from typing import Any
 
-from tapmap.model.model import CacheItem, Model
+from tapmap.model.model import Connection, Model
 
-_APP_CACHE_ITEM_FIELDS = {
+_APP_CONNECTION_FIELDS = {
     "app_name",
     "app_creator",
     "app_verification_status",
@@ -35,64 +35,6 @@ def test_bind_scope_classifies_addresses() -> None:
     assert Model._bind_scope("::") == "PUBLIC"
     assert Model._bind_scope(None) == "UNKNOWN"
     assert Model._bind_scope("bad-ip") == "UNKNOWN"
-
-
-def test_is_map_candidate_requires_public_scope_and_coordinates() -> None:
-    """Verify map candidate classification requires PUBLIC scope and coordinates."""
-    assert (
-        Model._is_map_candidate(
-            {
-                "service_scope": "PUBLIC",
-                "lat": 59.91,
-                "lon": 10.75,
-            }
-        )
-        is True
-    )
-
-    assert (
-        Model._is_map_candidate(
-            {
-                "service_scope": "LAN",
-                "lat": 59.91,
-                "lon": 10.75,
-            }
-        )
-        is False
-    )
-
-    assert (
-        Model._is_map_candidate(
-            {
-                "service_scope": "PUBLIC",
-                "lat": None,
-                "lon": 10.75,
-            }
-        )
-        is False
-    )
-
-    assert (
-        Model._is_map_candidate(
-            {
-                "service_scope": "PUBLIC",
-                "lat": 59.91,
-                "lon": None,
-            }
-        )
-        is False
-    )
-
-    assert (
-        Model._is_map_candidate(
-            {
-                "service_scope": "UNKNOWN",
-                "lat": 59.91,
-                "lon": 10.75,
-            }
-        )
-        is False
-    )
 
 
 # --- snapshot() / AppInfo integration ---
@@ -158,9 +100,9 @@ def _set_app_fields(connections: list[dict[str, Any]]) -> None:
         conn["app_signature_state_details"] = "None"
 
 
-def test_cache_item_key_set_matches_contract() -> None:
-    """Pin the full CacheItem key set so an accidental rename fails a test, not the UI."""
-    assert set(CacheItem.__annotations__) == {
+def test_connection_key_set_matches_contract() -> None:
+    """Pin the full Connection key set so an accidental rename fails a test, not the UI."""
+    assert set(Connection.__annotations__) == {
         "proto",
         "ip",
         "port",
@@ -179,12 +121,12 @@ def test_cache_item_key_set_matches_contract() -> None:
         "country_code",
         "asn",
         "asn_org",
-        *_APP_CACHE_ITEM_FIELDS,
+        *_APP_CONNECTION_FIELDS,
     }
 
 
-def test_snapshot_copies_app_fields_into_cache_item() -> None:
-    """CacheItem carries all app_* fields set by AppInfo.enrich()."""
+def test_snapshot_copies_app_fields_into_connection() -> None:
+    """Connection carries all app_* fields set by AppInfo.enrich()."""
     model = Model(
         netinfo=FakeNetInfo([_established_tcp_connection()]),
         geoinfo=FakeGeoInfo(),
@@ -194,8 +136,8 @@ def test_snapshot_copies_app_fields_into_cache_item() -> None:
     snap = model.snapshot()
 
     assert snap["error"] is False
-    assert len(snap["cache_items"]) == 1
-    item = snap["cache_items"][0]
+    assert len(snap["connections"]) == 1
+    item = snap["connections"][0]
     assert item["app_name"] == "Firefox"
     assert item["app_creator"] == "Mozilla Corporation"
     assert item["app_verification_status"] == "verified"
@@ -229,17 +171,17 @@ def test_snapshot_does_not_call_enrich_when_appinfo_disabled() -> None:
     snap = model.snapshot()
 
     assert appinfo.enrich_calls == 0
-    item = snap["cache_items"][0]
-    for field in _APP_CACHE_ITEM_FIELDS:
+    item = snap["connections"][0]
+    for field in _APP_CONNECTION_FIELDS:
         assert item[field] is None
 
 
 def test_snapshot_app_fields_default_to_none_when_unset() -> None:
-    """CacheItem app_* fields fall back to None when AppInfo does not set them.
+    """Connection app_* fields fall back to None when AppInfo does not set them.
 
     This covers any reason a connection ends up without app data (AppInfo
     could not resolve it, chose to skip it, etc.) - Model's own contract is
-    only to surface whatever AppInfo did or didn't provide, via CacheItem's
+    only to surface whatever AppInfo did or didn't provide, via Connection's
     established conn.get(...) defaulting pattern already used for geo fields.
     """
     model = Model(
@@ -250,30 +192,6 @@ def test_snapshot_app_fields_default_to_none_when_unset() -> None:
 
     snap = model.snapshot()
 
-    item = snap["cache_items"][0]
-    for field in _APP_CACHE_ITEM_FIELDS:
+    item = snap["connections"][0]
+    for field in _APP_CONNECTION_FIELDS:
         assert item[field] is None
-
-
-def test_snapshot_map_candidate_shares_app_fields_with_cache_item() -> None:
-    """A map candidate is the same object as its cache_items entry, app fields included."""
-
-    def _set_app_and_geo_fields(connections: list[dict[str, Any]]) -> None:
-        # A public IP with no lat/lon is not a map candidate; add coordinates
-        # directly, since GeoInfo enrichment itself is out of scope here.
-        _set_app_fields(connections)
-        for conn in connections:
-            conn["lat"] = 37.4
-            conn["lon"] = -122.1
-
-    model = Model(
-        netinfo=FakeNetInfo([_established_tcp_connection()]),
-        geoinfo=FakeGeoInfo(),
-        appinfo=FakeAppInfo(enabled=True, enrich_fn=_set_app_and_geo_fields),
-    )
-
-    snap = model.snapshot()
-
-    assert len(snap["map_candidates"]) == 1
-    assert snap["map_candidates"][0] is snap["cache_items"][0]
-    assert snap["map_candidates"][0]["app_name"] == "Firefox"

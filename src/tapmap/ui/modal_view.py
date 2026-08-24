@@ -461,13 +461,13 @@ class ModalTextBuilder:
     def _render_lan_local(cls, snapshot: Any | None) -> list[Any]:
         """Render LAN and LOCAL established services."""
         snap = snapshot if isinstance(snapshot, dict) else {}
-        items = snap.get("cache_items")
+        items = snap.get("connections")
         rows = items if isinstance(items, list) else []
 
         cleaned: list[dict[str, Any]] = [r for r in rows if isinstance(r, dict)]
 
         def is_established_tcp(row: dict[str, Any]) -> bool:
-            # CacheItem rows only contain ESTABLISHED TCP or remote UDP endpoints.
+            # Connection rows only contain ESTABLISHED TCP or remote UDP endpoints.
             # The model pre-filters all other TCP states, so no explicit state check is needed here.
             proto = row.get("proto")
             return not (isinstance(proto, str) and proto.strip() and proto.strip().lower() != "tcp")

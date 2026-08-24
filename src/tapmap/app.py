@@ -513,7 +513,7 @@ class TapMap:
             )
             return snap, status_cache.to_store(), view, no_update, no_update
 
-        items_any = snap.get("cache_items")
+        items_any = snap.get("connections")
         items = items_any if isinstance(items_any, list) else []
 
         insights_data = self.connection_analyzer.analyze(items)

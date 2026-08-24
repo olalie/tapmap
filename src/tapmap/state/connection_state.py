@@ -1,8 +1,8 @@
 """Own the accumulated per-service connection cache for the TapMap state layer.
 
-Merge Model.snapshot() map candidates into a per-service cache, prune
-entries past the configured retention window, and backfill deferred
-AppInfo verification results into retained entries.
+Merge mapped connections into a per-service cache, prune entries past the
+configured retention window, and backfill deferred AppInfo verification
+results into retained entries.
 """
 
 from __future__ import annotations
@@ -37,12 +37,12 @@ class ConnectionState:
     def _now_text() -> str:
         return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    def merge(self, map_candidates: list[dict[str, Any]]) -> dict[str, Any]:
-        """Merge map candidates into the cache, prune stale entries, and return the cache."""
+    def merge(self, mapped_connections: list[dict[str, Any]]) -> dict[str, Any]:
+        """Merge mapped connections into the cache, prune stale entries, and return the cache."""
         now = datetime.now().timestamp()
         cache = self._cache
 
-        for candidate in map_candidates:
+        for candidate in mapped_connections:
             if not isinstance(candidate, dict):
                 continue
 

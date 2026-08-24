@@ -128,7 +128,7 @@ def test_for_action_menu_unmapped_routes_to_unmapped_view() -> None:
 
     result = _builder().for_action(
         "menu_unmapped",
-        snapshot={"cache_items": []},
+        snapshot={"connections": []},
         is_docker=False,
         unmapped_cache=unmapped_cache,
         technical_details_enabled=True,
