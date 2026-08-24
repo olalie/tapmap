@@ -310,37 +310,6 @@ def test_build_app_summary_aligns_app_value_with_other_rows() -> None:
     assert operators_rendered.index("Google LLC") == apps_rendered.index("Spotify")
 
 
-# --- _format_procs_with_pids: multi-application rendering ---
-
-
-def test_format_procs_with_pids_combines_multiple_applications() -> None:
-    """Procs text lists processes from every application, sorted alphabetically."""
-    builder = CacheViewBuilder()
-    entry = {
-        "applications": {
-            "/opt/spotify/Spotify.exe": {
-                "processes": ["Spotify.exe"],
-                "proc_pids": {"Spotify.exe": [17840]},
-            },
-            "/opt/spotify/SpotifyLauncher.exe": {
-                "processes": ["SpotifyLauncher.exe"],
-                "proc_pids": {"SpotifyLauncher.exe": [16696]},
-            },
-        }
-    }
-
-    text = builder._format_procs_with_pids(entry)
-
-    assert text == "Spotify.exe (pid 17840), SpotifyLauncher.exe (pid 16696)"
-
-
-def test_format_procs_with_pids_returns_placeholder_for_no_applications() -> None:
-    """An entry with no applications formats as '-'."""
-    builder = CacheViewBuilder()
-
-    assert builder._format_procs_with_pids({"applications": {}}) == "-"
-
-
 # --- build_view_from_cache: mode selection and multi-application behavior ---
 
 

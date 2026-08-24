@@ -6,7 +6,6 @@ accumulated per-service cache owned by ConnectionState.
 
 from __future__ import annotations
 
-import logging
 from collections import Counter, defaultdict
 from typing import Any
 
@@ -41,7 +40,6 @@ class CacheViewBuilder:
     ) -> None:
         self.coord_precision = int(coord_precision)
         self.is_docker = bool(is_docker)
-        self.logger = logging.getLogger(__name__)
 
     @staticmethod
     def _fmt_ip_port(ip: str, port: int) -> str:
@@ -638,38 +636,3 @@ class CacheViewBuilder:
 
         return ", ".join(parts)
 
-    def _format_procs_with_pids(self, entry: dict[str, Any]) -> str:
-        """Format every process/PID observed at this entry, across all applications."""
-        applications = entry.get("applications")
-        apps = applications if isinstance(applications, dict) else {}
-
-        combined: dict[str, set[int]] = {}
-        for app in apps.values():
-            if not isinstance(app, dict):
-                continue
-            processes = app.get("processes")
-            procs = processes if isinstance(processes, list) else []
-            proc_pids_raw = app.get("proc_pids")
-            proc_pids: dict[str, list[int]] = (
-                proc_pids_raw if isinstance(proc_pids_raw, dict) else {}
-            )
-            for name in procs:
-                if not isinstance(name, str):
-                    continue
-                name_s = name.strip()
-                if not name_s:
-                    continue
-                pid_set = combined.setdefault(name_s, set())
-                pids_raw = proc_pids.get(name_s)
-                if isinstance(pids_raw, list):
-                    pid_set.update(x for x in pids_raw if isinstance(x, int) and x > 0)
-
-        parts: list[str] = []
-        for name in sorted(combined, key=str.lower):
-            pids = sorted(combined[name])
-            if pids:
-                parts.append(f"{name} (pid {', '.join(str(x) for x in pids)})")
-            else:
-                parts.append(name)
-
-        return ", ".join(parts) if parts else "-"
