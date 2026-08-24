@@ -23,6 +23,7 @@ from .formatting import (
 )
 from .help_view import render_help
 from .tables import ColumnSpec, build_table, cell
+from .unmapped_view import render_unmapped
 
 _EMBEDDED_MARKUP_RE = re.compile(
     r'<span style="color:(?P<color>#[0-9a-fA-F]{6})">(?P<glyph>.*?)</span>'
@@ -60,6 +61,8 @@ class ModalTextBuilder:
         snapshot: Any | None = None,
         show_system: bool = False,
         is_docker: bool,
+        unmapped_cache: dict[str, Any] | None = None,
+        technical_details_enabled: bool = False,
     ) -> list[Any]:
         """Build modal body content for a menu action.
 
@@ -68,12 +71,17 @@ class ModalTextBuilder:
             snapshot: Latest model snapshot (dict) or None.
             show_system: Open ports view toggle state.
             is_docker: Whether the application is running in Docker.
+            unmapped_cache: UnmappedState.cache, used for menu_unmapped.
+            technical_details_enabled: Technical details setting, used for
+                menu_unmapped's presentation mode.
 
         Returns:
             Dash components for the modal body.
         """
         if action == "menu_unmapped":
-            return self._render_unmapped(snapshot)
+            return render_unmapped(
+                unmapped_cache or {}, technical_details_enabled=technical_details_enabled
+            )
 
         if action == "menu_lan_local":
             return self._render_lan_local(snapshot)
@@ -448,43 +456,6 @@ class ModalTextBuilder:
             header_cells=[c.header for c in columns],
             body_rows=cls._build_service_body_rows(aggregated),
         )
-
-    @classmethod
-    def _render_unmapped(cls, snapshot: Any | None) -> list[Any]:
-        """Render unmapped services.
-
-        Render established TCP services with PUBLIC service_scope and missing geolocation.
-        """
-        snap = snapshot if isinstance(snapshot, dict) else {}
-        items = snap.get("cache_items")
-        rows = items if isinstance(items, list) else []
-
-        cleaned: list[dict[str, Any]] = [r for r in rows if isinstance(r, dict)]
-
-        def has_geo(r: dict[str, Any]) -> bool:
-            lat = r.get("lat")
-            lon = r.get("lon")
-            return isinstance(lat, (int, float)) and isinstance(lon, (int, float))
-
-        filtered: list[dict[str, Any]] = []
-        for r in cleaned:
-            scope = safe_str(r.get("service_scope")) or "UNKNOWN"
-            geo_ok = has_geo(r)
-            if scope == "PUBLIC" and not geo_ok:
-                filtered.append(r)
-
-        header = html.H1("Unmapped public services (missing geolocation)", className="mx-h1")
-
-        if not filtered:
-            return [header, html.Pre("(no unmapped public services)")]
-
-        aggregated = cls._aggregate_service_rows(filtered)
-        table = cls._build_service_table(
-            aggregated,
-            class_name="mx-table mx-unmapped",
-        )
-
-        return [header, table]
 
     @classmethod
     def _render_lan_local(cls, snapshot: Any | None) -> list[Any]:

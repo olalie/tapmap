@@ -97,6 +97,32 @@ def verification_status_glyph(verification_status: str | None) -> str:
     return f'<span style="color:{verification_status_color(verification_status)}">■</span>'
 
 
+_VERIFICATION_STATUS_PRIORITY = {
+    "failed": 0,
+    "unknown": 1,
+    PENDING_VERIFICATION_STATUS: 2,
+    "verified": 3,
+}
+
+
+def verification_status_priority(verification_status: str | None) -> int:
+    """Return the severity rank for an app_verification_status value: lower is more concerning."""
+    return _VERIFICATION_STATUS_PRIORITY.get(verification_status, 1)
+
+
+def display_verification_status(app: dict[str, Any]) -> str | None:
+    """Return app_verification_status for display, substituting the pending sentinel.
+
+    Only substitutes for a real application (exe is not None) - the
+    synthetic unknown-application bucket has no pending work and must
+    keep showing "unknown".
+    """
+    status = app.get("app_verification_status")
+    if status is None and app.get("exe") is not None:
+        return PENDING_VERIFICATION_STATUS
+    return status
+
+
 def elide_path_middle(path: str, max_length: int = 60) -> str:
     r"""Shorten a filesystem path for display by collapsing middle directory components.
 

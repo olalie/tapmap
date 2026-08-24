@@ -112,3 +112,27 @@ def test_for_click_renders_exe_tag_as_plain_text_in_docker() -> None:
     assert not any(isinstance(c, html.Span) for c in children)
     assert "C:\\...\\Feed.exe" in children
     assert not any(isinstance(c, str) and "<exe" in c for c in children)
+
+
+def test_for_action_menu_unmapped_routes_to_unmapped_view() -> None:
+    """menu_unmapped renders from unmapped_cache via unmapped_view, not the latest snapshot."""
+    unmapped_cache = {
+        "203.0.113.7|8443": {
+            "ip": "203.0.113.7",
+            "port": 8443,
+            "proto": "tcp",
+            "service": "https",
+            "applications": {},
+        }
+    }
+
+    result = _builder().for_action(
+        "menu_unmapped",
+        snapshot={"cache_items": []},
+        is_docker=False,
+        unmapped_cache=unmapped_cache,
+        technical_details_enabled=True,
+    )
+
+    table = next(c for c in result if isinstance(c, html.Table))
+    assert table is not None

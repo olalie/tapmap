@@ -9,23 +9,18 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from typing import Any
 
-from ..state.connection_state import UNKNOWN_APP_KEY
+from ..state.service_entries import UNKNOWN_APP_KEY
 from .formatting import (
     PENDING_VERIFICATION_STATUS,
     country_flag,
+    display_verification_status,
     elide_path_middle,
     humanize_camel_case,
     safe_str,
     verification_status_color,
     verification_status_glyph,
+    verification_status_priority,
 )
-
-_APP_VERIFICATION_STATUS_PRIORITY: dict[str | None, int] = {
-    "failed": 0,
-    "unknown": 1,
-    PENDING_VERIFICATION_STATUS: 2,
-    "verified": 3,
-}
 
 
 class ServicePointViewBuilder:
@@ -214,19 +209,6 @@ class ServicePointViewBuilder:
         return Counter(codes).most_common(1)[0][0] if codes else None
 
     @staticmethod
-    def _display_verification_status(app: dict[str, Any]) -> str | None:
-        """Return app_verification_status for display, substituting the pending sentinel.
-
-        Only substitutes for a real application (exe is not None) - the
-        synthetic unknown-application bucket has no pending work and must
-        keep showing "unknown".
-        """
-        status = app.get("app_verification_status")
-        if status is None and app.get("exe") is not None:
-            return PENDING_VERIFICATION_STATUS
-        return status
-
-    @staticmethod
     def _pick_representative_app(
         entries: list[dict[str, Any]],
     ) -> tuple[str, str | None, list[dict[str, Any]], int]:
@@ -253,9 +235,7 @@ class ServicePointViewBuilder:
                     continue
                 name = app.get("app_name")
                 key = name if isinstance(name, str) and name.strip() else None
-                verification_status_by_key.setdefault(
-                    key, ServicePointViewBuilder._display_verification_status(app)
-                )
+                verification_status_by_key.setdefault(key, display_verification_status(app))
                 if key in seen_keys:
                     continue
                 seen_keys.add(key)
@@ -269,7 +249,7 @@ class ServicePointViewBuilder:
             verification_status = verification_status_by_key.get(key)
             display = key or "Unknown"
             return (
-                _APP_VERIFICATION_STATUS_PRIORITY.get(verification_status, 1),
+                verification_status_priority(verification_status),
                 -len(group_entries),
                 display.lower(),
             )
@@ -322,7 +302,7 @@ class ServicePointViewBuilder:
                 continue
             lines = [f"Network operator: {org}"]
             for app in apps:
-                bullet = verification_status_glyph(self._display_verification_status(app))
+                bullet = verification_status_glyph(display_verification_status(app))
                 lines.append(f"    {bullet} {self._format_app_line(app)}")
             org_blocks.append("\n".join(lines))
 
@@ -340,9 +320,9 @@ class ServicePointViewBuilder:
                     by_exe.setdefault(exe_key, app)
 
         def sort_key(app: dict[str, Any]) -> tuple[int, str]:
-            verification_status = ServicePointViewBuilder._display_verification_status(app)
+            verification_status = display_verification_status(app)
             name = app.get("app_name") or "Unknown application"
-            return (_APP_VERIFICATION_STATUS_PRIORITY.get(verification_status, 1), name.lower())
+            return (verification_status_priority(verification_status), name.lower())
 
         ordered = sorted(by_exe.values(), key=sort_key)
 
@@ -367,7 +347,7 @@ class ServicePointViewBuilder:
 
     def _format_app_line(self, app: dict[str, Any]) -> str:
         name = app.get("app_name") or "Unknown application"
-        display_status = self._display_verification_status(app)
+        display_status = display_verification_status(app)
         if display_status == PENDING_VERIFICATION_STATUS:
             creator = "Retrieving..."
         else:
@@ -385,7 +365,7 @@ class ServicePointViewBuilder:
         Uses the platform-specific signature state (humanized) and details
         when available. Falls back to the raw verification status otherwise.
         """
-        display_status = ServicePointViewBuilder._display_verification_status(app)
+        display_status = display_verification_status(app)
         if display_status == PENDING_VERIFICATION_STATUS:
             return "Retrieving..."
 

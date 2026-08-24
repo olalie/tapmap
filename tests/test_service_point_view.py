@@ -929,27 +929,6 @@ def test_build_view_from_cache_technical_details_on_details_unchanged() -> None:
 # --- pending verification: representation, propagation, and display ---
 
 
-def test_display_verification_status_pending_for_real_exe() -> None:
-    """A real application with no verification_status yet displays as pending."""
-    app = {"app_name": "Firefox", "app_verification_status": None, "exe": "/firefox.exe"}
-
-    assert ServicePointViewBuilder._display_verification_status(app) == "pending"
-
-
-def test_display_verification_status_unknown_bucket_stays_none() -> None:
-    """The synthetic unknown-application bucket (no exe) is never treated as pending."""
-    app = {"app_name": None, "app_verification_status": None, "exe": None}
-
-    assert ServicePointViewBuilder._display_verification_status(app) is None
-
-
-def test_display_verification_status_passes_through_resolved_values() -> None:
-    """A resolved verification_status is returned unchanged, regardless of exe."""
-    app = {"app_verification_status": "failed", "exe": "/malware.exe"}
-
-    assert ServicePointViewBuilder._display_verification_status(app) == "failed"
-
-
 def test_verification_status_text_pending_shows_retrieving() -> None:
     """A pending real application shows 'Retrieving...' rather than 'Unknown'."""
     app = {"app_verification_status": None, "exe": "/opt/app.exe"}

@@ -1,8 +1,6 @@
-"""Own the accumulated per-service connection cache for the TapMap state layer.
+"""Own the accumulated per-service cache of unmapped PUBLIC services.
 
-Merge Model.snapshot() map candidates into a per-service cache, prune
-entries past the configured retention window, and backfill deferred
-AppInfo verification results into retained entries.
+Contains no mapped-only GeoIP fields.
 """
 
 from __future__ import annotations
@@ -15,10 +13,11 @@ from . import service_entries
 from .normalization import safe_int, safe_str
 
 
-class ConnectionState:
-    """Own and mutate the accumulated per-service connection cache."""
+class UnmappedState:
+    """Own and mutate the accumulated per-service cache of unmapped PUBLIC services."""
 
     def __init__(self, cache_retention_min: int = 0) -> None:
+        """Initialize with an empty cache and the given retention window."""
         self.cache_retention_min = int(cache_retention_min)
         self.logger = logging.getLogger(__name__)
         self._cache: dict[str, Any] = {}
@@ -33,16 +32,12 @@ class ConnectionState:
         self._cache = {}
         return self._cache
 
-    @staticmethod
-    def _now_text() -> str:
-        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    def merge(self, map_candidates: list[dict[str, Any]]) -> dict[str, Any]:
-        """Merge map candidates into the cache, prune stale entries, and return the cache."""
+    def merge(self, candidates: list[dict[str, Any]]) -> dict[str, Any]:
+        """Merge unmapped PUBLIC candidates into the cache, prune stale entries, return cache."""
         now = datetime.now().timestamp()
         cache = self._cache
 
-        for candidate in map_candidates:
+        for candidate in candidates:
             if not isinstance(candidate, dict):
                 continue
 
@@ -71,16 +66,7 @@ class ConnectionState:
             service_entries.merge_missing_attrs(
                 entry,
                 candidate,
-                attrs=(
-                    "proto",
-                    "lon",
-                    "lat",
-                    "city",
-                    "country",
-                    "country_code",
-                    "asn",
-                    "asn_org",
-                ),
+                attrs=("proto", "service"),
             )
 
             service_entries.merge_application(
@@ -91,24 +77,11 @@ class ConnectionState:
         return cache
 
     def pending_exe_paths(self) -> set[str]:
-        """Return exe paths in the cache whose deferred AppInfo data is still missing.
-
-        Scans the accumulated cache, not the current snapshot, so retained
-        applications whose connection has vanished are still included.
-        Excludes the synthetic unknown-application bucket and applications
-        already resolved.
-        """
+        """Return exe paths in the cache whose deferred AppInfo data is still missing."""
         return service_entries.pending_exe_paths(self._cache)
 
     def refresh_resolved_applications(self, resolved: dict[str, dict[str, Any]]) -> None:
-        """Backfill newly-completed AppInfo fields into matching application records.
-
-        resolved maps exe path to a plain dict of app_creator,
-        app_verification_status, app_signature_state, and
-        app_signature_state_details values. Only fills fields still None, so
-        calling this every poll tick is safe even when nothing changed.
-        Mutates the cache in place.
-        """
+        """Backfill newly-completed AppInfo fields into matching application records."""
         service_entries.refresh_resolved_applications(self._cache, resolved)
 
     def _prune_cache(
@@ -128,22 +101,15 @@ class ConnectionState:
             if entry["last_seen"] < cutoff:
                 del cache[key]
 
+    @staticmethod
     def _new_entry(
-        self, candidate: dict[str, Any], *, ip: str, port: int, proto: str | None
+        candidate: dict[str, Any], *, ip: str, port: int, proto: str | None
     ) -> dict[str, Any]:
+        """Return a new entry dict for one unmapped service."""
         return {
             "ip": ip,
             "port": port,
             "proto": proto,
-            "lon": candidate.get("lon"),
-            "lat": candidate.get("lat"),
-            "city": candidate.get("city"),
-            "country": candidate.get("country"),
-            "country_code": candidate.get("country_code"),
-            "asn": candidate.get("asn"),
-            "asn_org": candidate.get("asn_org"),
-            "f": self._now_text(),
-            "l": self._now_text(),
-            "m": 0,
+            "service": candidate.get("service"),
             "applications": {},
         }

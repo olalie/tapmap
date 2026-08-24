@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from tapmap.ui.formatting import (
     PENDING_VERIFICATION_STATUS,
+    display_verification_status,
     elide_path_middle,
     humanize_camel_case,
     verification_status_color,
@@ -27,6 +28,27 @@ def test_verification_status_glyph_pending_is_white_bullet() -> None:
     assert verification_status_glyph(PENDING_VERIFICATION_STATUS) == (
         '<span style="color:#ffffff">■</span>'
     )
+
+
+def test_display_verification_status_pending_for_real_exe() -> None:
+    """A real application with no verification_status yet displays as pending."""
+    app = {"app_name": "Firefox", "app_verification_status": None, "exe": "/firefox.exe"}
+
+    assert display_verification_status(app) == "pending"
+
+
+def test_display_verification_status_unknown_bucket_stays_none() -> None:
+    """The synthetic unknown-application bucket (no exe) is never treated as pending."""
+    app = {"app_name": None, "app_verification_status": None, "exe": None}
+
+    assert display_verification_status(app) is None
+
+
+def test_display_verification_status_passes_through_resolved_values() -> None:
+    """A resolved verification_status is returned unchanged, regardless of exe."""
+    app = {"app_verification_status": "failed", "exe": "/malware.exe"}
+
+    assert display_verification_status(app) == "failed"
 
 
 def test_humanize_camel_case_splits_multiple_words() -> None:

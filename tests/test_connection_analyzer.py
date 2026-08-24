@@ -9,6 +9,7 @@ from tapmap.state.connection_state import ConnectionState
 from tapmap.state.insights_state import InsightsState
 from tapmap.state.significance import SignificanceHistory
 from tapmap.state.significant_connections import SignificantConnections
+from tapmap.state.unmapped_state import UnmappedState
 
 
 def _cache_item(**overrides: Any) -> dict[str, Any]:
@@ -40,11 +41,13 @@ def _cache_item(**overrides: Any) -> dict[str, Any]:
 
 def _analyzer(
     connection_state: ConnectionState | None = None,
+    unmapped_state: UnmappedState | None = None,
     insights: dict[str, Any] | None = None,
 ) -> ConnectionAnalyzer:
     """Build a ConnectionAnalyzer with fresh, empty significance collaborators."""
     return ConnectionAnalyzer(
         connection_state if connection_state is not None else ConnectionState(),
+        unmapped_state if unmapped_state is not None else UnmappedState(),
         insights if insights is not None else {},
         SignificantConnections([]),
         SignificanceHistory.from_insights_state(
@@ -137,6 +140,7 @@ def test_analyze_records_significant_event_for_novel_public_connection() -> None
     significant_connections = SignificantConnections([])
     analyzer = ConnectionAnalyzer(
         ConnectionState(),
+        UnmappedState(),
         {},
         significant_connections,
         SignificanceHistory.from_insights_state(
@@ -161,6 +165,7 @@ def test_analyze_does_not_evaluate_significance_for_non_public_connections() -> 
     significant_connections = SignificantConnections([])
     analyzer = ConnectionAnalyzer(
         ConnectionState(),
+        UnmappedState(),
         {},
         significant_connections,
         SignificanceHistory.from_insights_state(
@@ -189,9 +194,38 @@ def test_analyze_does_not_repeat_significant_event_for_same_snapshot_repeat() ->
             verification_failed={},
         )
     )
-    analyzer = ConnectionAnalyzer(ConnectionState(), {}, significant_connections, history)
+    analyzer = ConnectionAnalyzer(
+        ConnectionState(), UnmappedState(), {}, significant_connections, history
+    )
 
     analyzer.analyze([_cache_item(country_code="US")])
     analyzer.analyze([_cache_item(country_code="US")])
 
     assert len(significant_connections.items) == 1
+
+
+# --- mapped/unmapped routing ---
+
+
+def test_analyze_routes_public_without_geo_to_unmapped_state() -> None:
+    """A PUBLIC connection missing lat/lon is merged into UnmappedState, not ConnectionState."""
+    connection_state = ConnectionState()
+    unmapped_state = UnmappedState()
+    analyzer = _analyzer(connection_state, unmapped_state)
+
+    analyzer.analyze([_cache_item(lat=None, lon=None)])
+
+    assert connection_state.cache == {}
+    assert "8.8.8.8|443" in unmapped_state.cache
+
+
+def test_analyze_routes_public_with_geo_to_connection_state_only() -> None:
+    """A PUBLIC connection with valid lat/lon is merged into ConnectionState, not UnmappedState."""
+    connection_state = ConnectionState()
+    unmapped_state = UnmappedState()
+    analyzer = _analyzer(connection_state, unmapped_state)
+
+    analyzer.analyze([_cache_item()])
+
+    assert "8.8.8.8|443" in connection_state.cache
+    assert unmapped_state.cache == {}

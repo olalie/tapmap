@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from tapmap.state.connection_state import UNKNOWN_APP_KEY, ConnectionState
+from tapmap.state.connection_state import ConnectionState
+from tapmap.state.service_entries import UNKNOWN_APP_KEY
 
 _APP_FIELDS = (
     "app_name",

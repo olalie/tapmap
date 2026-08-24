@@ -79,6 +79,7 @@ from tapmap.state.significance import SignificanceHistory
 from tapmap.state.significant_connections import SignificantConnections
 from tapmap.state.status_cache import StatusCache
 from tapmap.state.status_line import render_status_text
+from tapmap.state.unmapped_state import UnmappedState
 from tapmap.ui.daily_activity_report_view import render_daily_activity_report
 from tapmap.ui.insights_log_view import render_insights_log
 from tapmap.ui.insights_view import render_insights_panel
@@ -138,6 +139,7 @@ class TapMap:
     MIN_FLASH_S = 3.0
 
     def __init__(self, runtime_ctx: RuntimeContext) -> None:
+        """Build runtime state, wire Dash callbacks, and start from persisted history."""
         self.runtime = runtime_ctx
         self.logger = logging.getLogger(__name__)
         self._lock_path = self.runtime.app_data_dir / "tapmap.lock"
@@ -156,6 +158,9 @@ class TapMap:
             is_docker=self.runtime.is_docker,
         )
         self.connection_state = ConnectionState(
+            cache_retention_min=self.runtime.cache_retention_min
+        )
+        self.unmapped_state = UnmappedState(
             cache_retention_min=self.runtime.cache_retention_min
         )
         self._status_cache = StatusCache()
@@ -207,6 +212,7 @@ class TapMap:
         self.significance_history = SignificanceHistory.from_insights_state(self.insights_state)
         self.connection_analyzer = ConnectionAnalyzer(
             self.connection_state,
+            self.unmapped_state,
             self.insights_state.insights,
             self.significant_connections,
             self.significance_history,
@@ -477,9 +483,10 @@ class TapMap:
     def _handle_clear_cache(
         self, status_cache: StatusCache, technical_details_enabled: bool
     ) -> tuple[Any, Any, Any, Any, Any]:
-        """Reset the runtime cache without observing the monitored system."""
+        """Reset connection and unmapped state without observing the monitored system."""
         status_cache.clear()
         cache = self.connection_state.clear()
+        self.unmapped_state.clear()
         view = self.view_builder.build_view_from_cache(cache, technical_details_enabled)
         flash = self._flash("Clearing cache...", self.MIN_FLASH_S)
         return no_update, status_cache.to_store(), view, flash, no_update
@@ -523,10 +530,13 @@ class TapMap:
     def _refresh_pending_app_verifications(self) -> None:
         """Backfill AppInfo verification results that completed since the last poll.
 
-        Covers connection-state entries whose connection has left the
-        current snapshot but are still retained. Never triggers new AppInfo work.
+        Covers connection-state and unmapped-state entries whose connection
+        has left the current snapshot but are still retained. Never triggers
+        new AppInfo work.
         """
-        pending = self.connection_state.pending_exe_paths()
+        pending = (
+            self.connection_state.pending_exe_paths() | self.unmapped_state.pending_exe_paths()
+        )
         if not pending:
             return
 
@@ -548,6 +558,7 @@ class TapMap:
             for exe, metadata in resolved.items()
         }
         self.connection_state.refresh_resolved_applications(fields)
+        self.unmapped_state.refresh_resolved_applications(fields)
 
     def _open_browser(self, url: str, delay_s: float = 0.8) -> None:
         try:
@@ -615,8 +626,9 @@ class TapMap:
         ui_view: Any,
         geo_path: str,
         geodb_event: dict[str, Any] | None,
+        technical_details_enabled: bool,
     ) -> tuple[list[Any], str]:
-        
+        """Return modal body children and CSS class for the current modal screen."""
         if not isinstance(modal_state, dict):
             return [], "modal-body"
 
@@ -687,6 +699,8 @@ class TapMap:
                 snapshot=snapshot,
                 show_system=show_system,
                 is_docker=self.runtime.is_docker,
+                unmapped_cache=self.unmapped_state.cache,
+                technical_details_enabled=technical_details_enabled,
             )
             return self._as_children(body), self._class_for_modal_screen(screen)
 
@@ -1060,6 +1074,7 @@ class TapMap:
             Input("geodb_event", "data"),
             State("ui_view", "data"),
             State("model_snapshot", "data"),
+            State("technical_details_on", "data"),
             prevent_initial_call=False,
         )
         def modal_renderer(
@@ -1067,6 +1082,7 @@ class TapMap:
             geodb_event_data: Any,
             ui_view: Any,
             snapshot: Any,
+            technical_details_data: Any,
         ):
             geo_path = str(self.runtime.geo_data_dir)
 
@@ -1076,6 +1092,7 @@ class TapMap:
                 ui_view,
                 geo_path,
                 geodb_event_data,
+                bool(technical_details_data),
             )
 
             overlay_class = self._modal_overlay_class(
