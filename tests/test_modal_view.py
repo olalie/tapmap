@@ -21,7 +21,7 @@ def test_for_click_does_not_prepend_its_own_coordinate_line() -> None:
     """for_click renders detail as-is; it no longer prepends its own lon/lat line.
 
     The Technical Details view's own 'Coordinates:' line is now built by
-    cache_view.py as part of detail itself, not injected here.
+    service_point_view.py as part of detail itself, not injected here.
     """
     view = {"details": {"0": "Location: US\nSomething"}}
 

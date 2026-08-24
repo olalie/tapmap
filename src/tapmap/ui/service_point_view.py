@@ -1,4 +1,4 @@
-"""Cache view preparation helpers for the TapMap UI.
+"""Service point view preparation helpers for the TapMap UI.
 
 Build map points, hover summaries, and click details from the
 accumulated per-service cache owned by ConnectionState.
@@ -28,8 +28,8 @@ _APP_VERIFICATION_STATUS_PRIORITY: dict[str | None, int] = {
 }
 
 
-class CacheViewBuilder:
-    """Build UI cache and map view data."""
+class ServicePointViewBuilder:
+    """Build map view data grouped into ServicePoints."""
 
     _UNKNOWN_APP_KEY = UNKNOWN_APP_KEY
 
@@ -75,19 +75,18 @@ class CacheViewBuilder:
         return f"{shown} +{len(cleaned) - max_items}"
 
     def build_view_from_cache(
-        self, ui_cache: dict[str, Any], technical_details_enabled: bool
+        self, cache: dict[str, Any], technical_details_enabled: bool
     ) -> dict[str, Any]:
         """Group cached entries by rounded coordinates and build map view data.
 
         Args:
-            ui_cache: Per-service cache from ConnectionState.merge/clear.
+            cache: Per-service cache from ConnectionState.merge/clear.
             technical_details_enabled: When True, hover summaries use the
                 connection-oriented format. When False, hover summaries use
                 the application-oriented format. Click details are
                 unaffected either way.
         """
-        cache = ui_cache if isinstance(ui_cache, dict) else {}
-        groups = self._group_by_coord(cache)
+        groups = self._group_by_coord(cache if isinstance(cache, dict) else {})
 
         points: list[tuple[float, float]] = []
         summaries: dict[str, str] = {}
@@ -255,7 +254,7 @@ class CacheViewBuilder:
                 name = app.get("app_name")
                 key = name if isinstance(name, str) and name.strip() else None
                 verification_status_by_key.setdefault(
-                    key, CacheViewBuilder._display_verification_status(app)
+                    key, ServicePointViewBuilder._display_verification_status(app)
                 )
                 if key in seen_keys:
                     continue
@@ -341,7 +340,7 @@ class CacheViewBuilder:
                     by_exe.setdefault(exe_key, app)
 
         def sort_key(app: dict[str, Any]) -> tuple[int, str]:
-            verification_status = CacheViewBuilder._display_verification_status(app)
+            verification_status = ServicePointViewBuilder._display_verification_status(app)
             name = app.get("app_name") or "Unknown application"
             return (_APP_VERIFICATION_STATUS_PRIORITY.get(verification_status, 1), name.lower())
 
@@ -386,7 +385,7 @@ class CacheViewBuilder:
         Uses the platform-specific signature state (humanized) and details
         when available. Falls back to the raw verification status otherwise.
         """
-        display_status = CacheViewBuilder._display_verification_status(app)
+        display_status = ServicePointViewBuilder._display_verification_status(app)
         if display_status == PENDING_VERIFICATION_STATUS:
             return "Retrieving..."
 

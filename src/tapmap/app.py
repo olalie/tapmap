@@ -79,13 +79,13 @@ from tapmap.state.significance import SignificanceHistory
 from tapmap.state.significant_connections import SignificantConnections
 from tapmap.state.status_cache import StatusCache
 from tapmap.state.status_line import render_status_text
-from tapmap.ui.cache_view import CacheViewBuilder
 from tapmap.ui.daily_activity_report_view import render_daily_activity_report
 from tapmap.ui.insights_log_view import render_insights_log
 from tapmap.ui.insights_view import render_insights_panel
 from tapmap.ui.layout_view import render_layout
 from tapmap.ui.map_view import MapUI
 from tapmap.ui.modal_view import ModalTextBuilder
+from tapmap.ui.service_point_view import ServicePointViewBuilder
 
 from .app_dirs import open_folder, reveal_in_file_manager
 from .config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
@@ -151,7 +151,7 @@ class TapMap:
         )
 
         self.ui = MapUI(zoom_near_km=ZOOM_NEAR_KM)
-        self.view_builder = CacheViewBuilder(
+        self.view_builder = ServicePointViewBuilder(
             coord_precision=COORD_PRECISION,
             is_docker=self.runtime.is_docker,
         )

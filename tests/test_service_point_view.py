@@ -1,4 +1,4 @@
-"""Test CacheViewBuilder's hover summary and click detail generation."""
+"""Test ServicePointViewBuilder's hover summary and click detail generation."""
 
 from __future__ import annotations
 
@@ -6,8 +6,8 @@ import re
 from typing import Any
 
 from tapmap.state.connection_state import ConnectionState
-from tapmap.ui.cache_view import CacheViewBuilder
 from tapmap.ui.formatting import country_flag, verification_status_glyph
+from tapmap.ui.service_point_view import ServicePointViewBuilder
 
 _DEFAULT_EXE = "/opt/app/app.exe"
 
@@ -44,7 +44,7 @@ def _entry(
     app_verification_status: str | None = None,
     **overrides: Any,
 ) -> dict[str, Any]:
-    """Return a minimal ui_cache entry with a single application.
+    """Return a minimal cache entry with a single application.
 
     As consumed by summary-building methods. exe is set whenever app_name
     is (absent otherwise, matching the unknown-application bucket).
@@ -74,7 +74,7 @@ def _app_entry(
     exe: str = "/opt/app.exe",
     **app_overrides: Any,
 ) -> dict[str, Any]:
-    """Return a ui_cache entry with one fully-specified application record."""
+    """Return a cache entry with one fully-specified application record."""
     app: dict[str, Any] = {
         "app_name": None,
         "app_creator": None,
@@ -103,8 +103,8 @@ def test_pick_representative_app_prefers_failed_tier() -> None:
         _entry(app_name="Bad App", app_verification_status="failed"),
     ]
 
-    name, verification_status, app_entries, count = CacheViewBuilder._pick_representative_app(
-        entries
+    name, verification_status, app_entries, count = (
+        ServicePointViewBuilder._pick_representative_app(entries)
     )
 
     assert name == "Bad App"
@@ -120,7 +120,7 @@ def test_pick_representative_app_prefers_unknown_over_verified() -> None:
         _entry(app_name="Mystery App", app_verification_status="unknown"),
     ]
 
-    name, verification_status, _, _ = CacheViewBuilder._pick_representative_app(entries)
+    name, verification_status, _, _ = ServicePointViewBuilder._pick_representative_app(entries)
 
     assert name == "Mystery App"
     assert verification_status == "unknown"
@@ -134,7 +134,7 @@ def test_pick_representative_app_breaks_tie_by_connection_count() -> None:
         _entry(app_name="Big App", app_verification_status="verified"),
     ]
 
-    name, _, app_entries, _ = CacheViewBuilder._pick_representative_app(entries)
+    name, _, app_entries, _ = ServicePointViewBuilder._pick_representative_app(entries)
 
     assert name == "Big App"
     assert len(app_entries) == 2
@@ -147,7 +147,7 @@ def test_pick_representative_app_breaks_remaining_tie_alphabetically() -> None:
         _entry(app_name="Alpha App", app_verification_status="verified"),
     ]
 
-    name, _, _, _ = CacheViewBuilder._pick_representative_app(entries)
+    name, _, _, _ = ServicePointViewBuilder._pick_representative_app(entries)
 
     assert name == "Alpha App"
 
@@ -159,8 +159,8 @@ def test_pick_representative_app_groups_missing_names_as_unknown() -> None:
         _entry(app_name=None, app_verification_status=None),
     ]
 
-    name, verification_status, app_entries, count = CacheViewBuilder._pick_representative_app(
-        entries
+    name, verification_status, app_entries, count = (
+        ServicePointViewBuilder._pick_representative_app(entries)
     )
 
     assert name == "Unknown"
@@ -173,8 +173,8 @@ def test_pick_representative_app_returns_unknown_for_no_applications() -> None:
     """Entries with no applications at all produce the empty/Unknown result."""
     entries = [{"ip": "8.8.8.8", "port": 443, "applications": {}}]
 
-    name, verification_status, app_entries, count = CacheViewBuilder._pick_representative_app(
-        entries
+    name, verification_status, app_entries, count = (
+        ServicePointViewBuilder._pick_representative_app(entries)
     )
 
     assert name == "Unknown"
@@ -188,9 +188,11 @@ def test_pick_representative_app_returns_unknown_for_no_applications() -> None:
 
 def test_format_summary_row_aligns_value_regardless_of_icon_width() -> None:
     """Value text starts at the same column whether or not a row has an icon."""
-    row_with_wide_icon = CacheViewBuilder._format_summary_row("Location:", "XX", "value")
-    row_without_icon = CacheViewBuilder._format_summary_row("Network operator:", "  ", "value")
-    row_with_narrow_icon = CacheViewBuilder._format_summary_row("App:", "X ", "value")
+    row_with_wide_icon = ServicePointViewBuilder._format_summary_row("Location:", "XX", "value")
+    row_without_icon = ServicePointViewBuilder._format_summary_row(
+        "Network operator:", "  ", "value"
+    )
+    row_with_narrow_icon = ServicePointViewBuilder._format_summary_row("App:", "X ", "value")
 
     assert row_with_wide_icon.index("value") == row_without_icon.index("value")
     assert row_without_icon.index("value") == row_with_narrow_icon.index("value")
@@ -203,7 +205,7 @@ def test_build_app_summary_shows_location_with_flag() -> None:
     """Location row shows city, country and the matching flag."""
     entries = [_entry(app_name="Firefox", app_verification_status="verified")]
 
-    summary = CacheViewBuilder()._build_app_summary(
+    summary = ServicePointViewBuilder()._build_app_summary(
         place="Kansas City, United States", country_code="US", entries=entries
     )
 
@@ -220,7 +222,7 @@ def test_build_app_summary_scopes_network_operator_to_selected_app() -> None:
         _entry(app_name="Bad App", app_verification_status="failed", asn_org="Org B2"),
     ]
 
-    summary = CacheViewBuilder()._build_app_summary(
+    summary = ServicePointViewBuilder()._build_app_summary(
         place="Somewhere", country_code=None, entries=entries
     )
 
@@ -238,7 +240,7 @@ def test_build_app_summary_appends_count_for_additional_apps() -> None:
         _entry(app_name="App Three", app_verification_status="verified"),
     ]
 
-    summary = CacheViewBuilder()._build_app_summary(
+    summary = ServicePointViewBuilder()._build_app_summary(
         place="Somewhere", country_code=None, entries=entries
     )
 
@@ -251,7 +253,7 @@ def test_build_app_summary_omits_count_for_single_app() -> None:
     """No +N suffix appears when only one unique app is present."""
     entries = [_entry(app_name="Only App", app_verification_status="verified")]
 
-    summary = CacheViewBuilder()._build_app_summary(
+    summary = ServicePointViewBuilder()._build_app_summary(
         place="Somewhere", country_code=None, entries=entries
     )
 
@@ -264,7 +266,7 @@ def test_build_app_summary_uses_singular_labels() -> None:
     """Location, network operator and app labels are all singular."""
     entries = [_entry(app_name="Solo App", app_verification_status="verified")]
 
-    summary = CacheViewBuilder()._build_app_summary(
+    summary = ServicePointViewBuilder()._build_app_summary(
         place="Somewhere", country_code=None, entries=entries
     )
 
@@ -278,7 +280,7 @@ def test_build_app_summary_uses_colored_bullet_verification_indicator() -> None:
     """The app row's verification indicator is a single colored bullet character."""
     entries = [_entry(app_name="Solo App", app_verification_status="verified")]
 
-    summary = CacheViewBuilder()._build_app_summary(
+    summary = ServicePointViewBuilder()._build_app_summary(
         place="Somewhere", country_code=None, entries=entries
     )
 
@@ -297,7 +299,7 @@ def test_build_app_summary_aligns_app_value_with_other_rows() -> None:
         _entry(app_name="Spotify", app_verification_status="verified", asn_org="Google LLC")
     ]
 
-    summary = CacheViewBuilder()._build_app_summary(
+    summary = ServicePointViewBuilder()._build_app_summary(
         place="United States", country_code="US", entries=entries
     )
 
@@ -315,7 +317,7 @@ def test_build_app_summary_aligns_app_value_with_other_rows() -> None:
 
 def test_build_view_from_cache_technical_details_off_uses_app_summary() -> None:
     """technical_details_enabled=False produces the application-oriented summary."""
-    builder = CacheViewBuilder()
+    builder = ServicePointViewBuilder()
 
     cache = ConnectionState().merge(
         [_candidate(app_name="Firefox", app_verification_status="verified")]
@@ -331,7 +333,7 @@ def test_build_view_from_cache_technical_details_on_matches_existing_format() ->
     The click-details panel now shows the app name via its own App: field
     (see _format_process_blocks), but never creator or verification-status wording.
     """
-    builder = CacheViewBuilder()
+    builder = ServicePointViewBuilder()
 
     cache = ConnectionState().merge(
         [
@@ -358,7 +360,7 @@ def test_build_view_from_cache_technical_details_on_matches_existing_format() ->
 
 def test_build_view_from_cache_shows_failed_app_sharing_endpoint_with_verified_app() -> None:
     """A failed application is never hidden by a verified application at the same endpoint."""
-    builder = CacheViewBuilder()
+    builder = ServicePointViewBuilder()
 
     cache = ConnectionState().merge(
         [
@@ -379,7 +381,7 @@ def test_build_view_from_cache_shows_failed_app_sharing_endpoint_with_verified_a
 
 def test_build_click_details_shows_processes_from_multiple_applications() -> None:
     """Technical Details lists processes from every application at an endpoint."""
-    builder = CacheViewBuilder()
+    builder = ServicePointViewBuilder()
 
     cache = ConnectionState().merge(
         [
@@ -422,7 +424,7 @@ def test_format_process_blocks_elides_long_executable_path() -> None:
         },
     }
 
-    _, _, exe_line = CacheViewBuilder()._format_process_blocks(entry)
+    _, _, exe_line = ServicePointViewBuilder()._format_process_blocks(entry)
     visible_text = re.sub(r"<[^>]+>", "", exe_line)
 
     assert long_exe not in visible_text
@@ -447,7 +449,7 @@ def test_format_org_block_shows_process_app_and_executable_fields() -> None:
         },
     }
 
-    block = CacheViewBuilder()._format_org_block("Org A", [entry])
+    block = ServicePointViewBuilder()._format_org_block("Org A", [entry])
 
     assert "Process:" in block
     assert "firefox.exe (pid 1000)" in block
@@ -459,14 +461,14 @@ def test_format_org_block_shows_process_app_and_executable_fields() -> None:
 
 def test_display_exe_wraps_resolved_path_with_full_path_attribute() -> None:
     """A resolved executable is wrapped in an <exe full="..."> tag carrying the raw path."""
-    result = CacheViewBuilder()._display_exe(r"C:\opt\app.exe")
+    result = ServicePointViewBuilder()._display_exe(r"C:\opt\app.exe")
 
     assert result == r'<exe full="C:\opt\app.exe">C:\opt\app.exe</exe>'
 
 
 def test_display_exe_does_not_wrap_unknown_executable() -> None:
     """An unresolved executable shows plain 'Unknown', not wrapped in a tag."""
-    result = CacheViewBuilder()._display_exe(CacheViewBuilder._UNKNOWN_APP_KEY)
+    result = ServicePointViewBuilder()._display_exe(ServicePointViewBuilder._UNKNOWN_APP_KEY)
 
     assert result == "Unknown"
 
@@ -478,7 +480,7 @@ def test_format_org_block_shows_unknown_for_unresolved_executable() -> None:
         "port": 443,
         "proto": "tcp",
         "applications": {
-            CacheViewBuilder._UNKNOWN_APP_KEY: {
+            ServicePointViewBuilder._UNKNOWN_APP_KEY: {
                 "app_name": None,
                 "processes": ["svchost.exe"],
                 "proc_pids": {},
@@ -486,11 +488,11 @@ def test_format_org_block_shows_unknown_for_unresolved_executable() -> None:
         },
     }
 
-    block = CacheViewBuilder()._format_org_block("Org A", [entry])
+    block = ServicePointViewBuilder()._format_org_block("Org A", [entry])
 
     assert "Executable:" in block
     assert "Unknown" in block
-    assert CacheViewBuilder._UNKNOWN_APP_KEY not in block
+    assert ServicePointViewBuilder._UNKNOWN_APP_KEY not in block
 
 
 def test_format_org_block_separates_multiple_process_blocks_with_one_blank_line() -> None:
@@ -505,7 +507,7 @@ def test_format_org_block_separates_multiple_process_blocks_with_one_blank_line(
         },
     }
 
-    block = CacheViewBuilder()._format_org_block("Org A", [entry])
+    block = ServicePointViewBuilder()._format_org_block("Org A", [entry])
 
     assert block.split("\n").count("") == 1
 
@@ -531,7 +533,7 @@ def test_format_org_block_has_no_blank_line_between_connections() -> None:
         },
     ]
 
-    block = CacheViewBuilder()._format_org_block("Org A", entries)
+    block = ServicePointViewBuilder()._format_org_block("Org A", entries)
 
     assert "" not in block.split("\n")
 
@@ -552,7 +554,7 @@ def test_format_process_blocks_aligns_values_in_same_column() -> None:
         },
     }
 
-    process_line, app_line, exe_line = CacheViewBuilder()._format_process_blocks(entry)
+    process_line, app_line, exe_line = ServicePointViewBuilder()._format_process_blocks(entry)
     exe_visible = re.sub(r"<[^>]+>", "", exe_line)
 
     assert process_line.index("firefox.exe") == app_line.index("Firefox")
@@ -569,7 +571,7 @@ def test_build_app_click_details_shows_location_once() -> None:
         _app_entry(exe="/b.exe", app_name="App B", asn_org="Org B"),
     ]
 
-    details = CacheViewBuilder()._build_app_click_details(
+    details = ServicePointViewBuilder()._build_app_click_details(
         place="Oslo, Norway", country_code="NO", entries=entries
     )
 
@@ -585,7 +587,7 @@ def test_build_app_click_details_groups_by_network_operator() -> None:
         _app_entry(exe="/b.exe", app_name="App B", asn_org="Org B"),
     ]
 
-    details = CacheViewBuilder()._build_app_click_details(
+    details = ServicePointViewBuilder()._build_app_click_details(
         place="Somewhere", country_code=None, entries=entries
     )
 
@@ -604,7 +606,7 @@ def test_build_app_click_details_deduplicates_same_exe_within_operator() -> None
         _app_entry(port=8080, exe="/a.exe", app_name="App A", asn_org="Org A"),
     ]
 
-    details = CacheViewBuilder()._build_app_click_details(
+    details = ServicePointViewBuilder()._build_app_click_details(
         place="Somewhere", country_code=None, entries=entries
     )
 
@@ -638,7 +640,7 @@ def test_build_app_click_details_deduplicates_same_named_app_across_different_ex
         ),
     ]
 
-    details = CacheViewBuilder()._build_app_click_details(
+    details = ServicePointViewBuilder()._build_app_click_details(
         place="Somewhere", country_code=None, entries=entries
     )
 
@@ -666,7 +668,7 @@ def test_build_app_click_details_keeps_differently_verified_same_named_apps_sepa
         ),
     ]
 
-    details = CacheViewBuilder()._build_app_click_details(
+    details = ServicePointViewBuilder()._build_app_click_details(
         place="Somewhere", country_code=None, entries=entries
     )
 
@@ -690,7 +692,7 @@ def test_build_app_click_details_lists_different_exe_paths_separately() -> None:
         ),
     ]
 
-    details = CacheViewBuilder()._build_app_click_details(
+    details = ServicePointViewBuilder()._build_app_click_details(
         place="Somewhere", country_code=None, entries=entries
     )
 
@@ -712,7 +714,7 @@ def test_build_app_click_details_sorts_failed_first() -> None:
         ),
     ]
 
-    details = CacheViewBuilder()._build_app_click_details(
+    details = ServicePointViewBuilder()._build_app_click_details(
         place="Somewhere", country_code=None, entries=entries
     )
 
@@ -731,7 +733,7 @@ def test_build_app_click_details_uses_humanized_state_with_details() -> None:
         )
     ]
 
-    details = CacheViewBuilder()._build_app_click_details(
+    details = ServicePointViewBuilder()._build_app_click_details(
         place="Somewhere", country_code=None, entries=entries
     )
     visible = re.sub(r"<[^>]+>", "", details)
@@ -750,7 +752,7 @@ def test_build_app_click_details_uses_humanized_state_without_details() -> None:
         )
     ]
 
-    details = CacheViewBuilder()._build_app_click_details(
+    details = ServicePointViewBuilder()._build_app_click_details(
         place="Somewhere", country_code=None, entries=entries
     )
     visible = re.sub(r"<[^>]+>", "", details)
@@ -770,7 +772,7 @@ def test_build_app_click_details_renders_macos_developer_signed_with_notarized_d
         )
     ]
 
-    details = CacheViewBuilder()._build_app_click_details(
+    details = ServicePointViewBuilder()._build_app_click_details(
         place="Somewhere", country_code=None, entries=entries
     )
     visible = re.sub(r"<[^>]+>", "", details)
@@ -789,7 +791,7 @@ def test_build_app_click_details_ignores_literal_none_details_string() -> None:
         )
     ]
 
-    details = CacheViewBuilder()._build_app_click_details(
+    details = ServicePointViewBuilder()._build_app_click_details(
         place="Somewhere", country_code=None, entries=entries
     )
     visible = re.sub(r"<[^>]+>", "", details)
@@ -801,7 +803,7 @@ def test_build_app_click_details_falls_back_to_verification_status_without_state
     """With no signature state, the raw verification status is shown."""
     entries = [_app_entry(app_name="Some App", app_verification_status="unknown")]
 
-    details = CacheViewBuilder()._build_app_click_details(
+    details = ServicePointViewBuilder()._build_app_click_details(
         place="Somewhere", country_code=None, entries=entries
     )
     visible = re.sub(r"<[^>]+>", "", details)
@@ -819,7 +821,7 @@ def test_format_app_line_colorizes_only_the_verification_status_text() -> None:
         "app_signature_state_details": None,
     }
 
-    line = CacheViewBuilder()._format_app_line(app)
+    line = ServicePointViewBuilder()._format_app_line(app)
 
     assert line == (
         'Firefox (Mozilla Corporation, '
@@ -837,7 +839,7 @@ def test_format_app_line_uses_failed_color_for_unsigned() -> None:
         "app_signature_state_details": None,
     }
 
-    line = CacheViewBuilder()._format_app_line(app)
+    line = ServicePointViewBuilder()._format_app_line(app)
 
     assert '<span style="color:#ff4444">Unsigned</span>' in line
 
@@ -846,7 +848,7 @@ def test_build_app_click_details_includes_verification_status_note() -> None:
     """The verification-status disclaimer is always present."""
     entries = [_app_entry(app_name="App A")]
 
-    details = CacheViewBuilder()._build_app_click_details(
+    details = ServicePointViewBuilder()._build_app_click_details(
         place="Somewhere", country_code=None, entries=entries
     )
 
@@ -872,7 +874,7 @@ def test_build_app_click_details_never_shows_process_pid_ip_or_port() -> None:
         }
     ]
 
-    details = CacheViewBuilder()._build_app_click_details(
+    details = ServicePointViewBuilder()._build_app_click_details(
         place="Somewhere", country_code=None, entries=entries
     )
 
@@ -884,7 +886,7 @@ def test_build_app_click_details_never_shows_process_pid_ip_or_port() -> None:
 
 def test_build_view_from_cache_technical_details_off_uses_app_click_details() -> None:
     """technical_details_enabled=False routes click details through the new builder."""
-    builder = CacheViewBuilder()
+    builder = ServicePointViewBuilder()
 
     cache = ConnectionState().merge(
         [
@@ -910,7 +912,7 @@ def test_build_view_from_cache_technical_details_on_details_unchanged() -> None:
     The org header stays the bare organization name (no 'Network operator:'
     label), matching the Non-Technical view's own, differently-labeled section.
     """
-    builder = CacheViewBuilder()
+    builder = ServicePointViewBuilder()
 
     cache = ConnectionState().merge(
         [_candidate(app_name="Firefox", app_verification_status="verified")]
@@ -931,35 +933,35 @@ def test_display_verification_status_pending_for_real_exe() -> None:
     """A real application with no verification_status yet displays as pending."""
     app = {"app_name": "Firefox", "app_verification_status": None, "exe": "/firefox.exe"}
 
-    assert CacheViewBuilder._display_verification_status(app) == "pending"
+    assert ServicePointViewBuilder._display_verification_status(app) == "pending"
 
 
 def test_display_verification_status_unknown_bucket_stays_none() -> None:
     """The synthetic unknown-application bucket (no exe) is never treated as pending."""
     app = {"app_name": None, "app_verification_status": None, "exe": None}
 
-    assert CacheViewBuilder._display_verification_status(app) is None
+    assert ServicePointViewBuilder._display_verification_status(app) is None
 
 
 def test_display_verification_status_passes_through_resolved_values() -> None:
     """A resolved verification_status is returned unchanged, regardless of exe."""
     app = {"app_verification_status": "failed", "exe": "/malware.exe"}
 
-    assert CacheViewBuilder._display_verification_status(app) == "failed"
+    assert ServicePointViewBuilder._display_verification_status(app) == "failed"
 
 
 def test_verification_status_text_pending_shows_retrieving() -> None:
     """A pending real application shows 'Retrieving...' rather than 'Unknown'."""
     app = {"app_verification_status": None, "exe": "/opt/app.exe"}
 
-    assert CacheViewBuilder._verification_status_text(app) == "Retrieving..."
+    assert ServicePointViewBuilder._verification_status_text(app) == "Retrieving..."
 
 
 def test_verification_status_text_unknown_bucket_still_shows_unknown() -> None:
     """The synthetic unknown-application bucket is unaffected by pending handling."""
     app = {"app_verification_status": None, "exe": None}
 
-    assert CacheViewBuilder._verification_status_text(app) == "Unknown"
+    assert ServicePointViewBuilder._verification_status_text(app) == "Unknown"
 
 
 def test_format_app_line_pending_shows_white_bullet_and_retrieving_text() -> None:
@@ -973,7 +975,7 @@ def test_format_app_line_pending_shows_white_bullet_and_retrieving_text() -> Non
         "exe": "/opt/app.exe",
     }
 
-    line = CacheViewBuilder()._format_app_line(app)
+    line = ServicePointViewBuilder()._format_app_line(app)
 
     assert '<span style="color:#ffffff">Retrieving...</span>' in line
 
@@ -989,7 +991,7 @@ def test_format_app_line_pending_creator_shows_retrieving() -> None:
         "exe": "/opt/app.exe",
     }
 
-    line = CacheViewBuilder()._format_app_line(app)
+    line = ServicePointViewBuilder()._format_app_line(app)
 
     assert line.startswith("Firefox (Retrieving..., ")
 
@@ -1005,7 +1007,7 @@ def test_format_app_line_resolved_with_no_creator_shows_unknown_creator() -> Non
         "exe": "/opt/app.exe",
     }
 
-    line = CacheViewBuilder()._format_app_line(app)
+    line = ServicePointViewBuilder()._format_app_line(app)
 
     assert line.startswith("Some App (Unknown creator, ")
 
@@ -1014,7 +1016,7 @@ def test_build_app_summary_pending_app_shows_white_bullet() -> None:
     """A pending representative app renders a white bullet in the hover summary."""
     entries = [_entry(app_name="New App", app_verification_status=None)]
 
-    summary = CacheViewBuilder()._build_app_summary(
+    summary = ServicePointViewBuilder()._build_app_summary(
         place="Somewhere", country_code=None, entries=entries
     )
 
@@ -1030,7 +1032,7 @@ def test_app_verification_status_priority_orders_pending_between_unknown_and_ver
         _entry(app_name="Mystery App", app_verification_status="unknown"),
     ]
 
-    name, verification_status, _, _ = CacheViewBuilder._pick_representative_app(entries)
+    name, verification_status, _, _ = ServicePointViewBuilder._pick_representative_app(entries)
 
     assert name == "Mystery App"
     assert verification_status == "unknown"
@@ -1043,7 +1045,7 @@ def test_app_verification_status_priority_prefers_pending_over_verified() -> Non
         _entry(app_name="Pending App", app_verification_status=None),
     ]
 
-    name, verification_status, _, _ = CacheViewBuilder._pick_representative_app(entries)
+    name, verification_status, _, _ = ServicePointViewBuilder._pick_representative_app(entries)
 
     assert name == "Pending App"
     assert verification_status == "pending"
