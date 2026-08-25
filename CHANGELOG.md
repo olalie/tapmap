@@ -1,5 +1,16 @@
 ## Unreleased
 
+### Improvements
+
+- Align Insights with mapped public connections
+  - Include only mapped public connections in Insights and the Daily Activity Report
+  - Keep unmapped public connections eligible for Significant Connections
+  - Clarify connection and Insights state handling
+
+### Documentation
+
+- Update Help and architecture documentation for connection and Insights state
+
 ## 1.10.1 (2026-08-24)
 
 ### Packaging
