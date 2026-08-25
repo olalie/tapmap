@@ -3,4 +3,4 @@
 Exposes application entry point and package version.
 """
 
-__version__ = "1.9.0"
+__version__ = "1.10.1"

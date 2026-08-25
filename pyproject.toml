@@ -1,6 +1,6 @@
 [project]
 name = "tapmap"
-version = "1.9.0"
+version = "1.10.1"
 description = "Watch your computer connect across the internet in real time. Discover the world behind your apps."
 authors = [
     { name = "Ola Lie", email = "ola@tip.no" }

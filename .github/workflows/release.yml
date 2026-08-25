@@ -26,6 +26,7 @@ jobs:
     uses: ./.github/workflows/pipeline-windows.yml
     with:
       package: true
+    secrets: inherit
 
   macos-arm64:
     name: macOS (Apple Silicon)
@@ -61,7 +62,7 @@ jobs:
       - name: Download release assets
         uses: actions/download-artifact@v8
         with:
-          pattern: tapmap-*
+          pattern: "{tapmap-*,TapMap-*-windows-x64-Setup.exe}"
           path: release-assets
           merge-multiple: true
 
