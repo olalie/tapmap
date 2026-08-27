@@ -23,7 +23,7 @@ firefox 1070 user 176u IPv6 0x0 0t0 UDP *:52569
         ("1070", "args="): "/Applications/firefox",
     }
 
-    def fake_run(cmd, capture_output, text, check):
+    def fake_run(cmd, capture_output, text, check, timeout):
         if cmd[0] == "lsof":
             return SimpleNamespace(stdout=lsof_output)
 

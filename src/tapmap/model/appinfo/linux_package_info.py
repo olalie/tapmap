@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import subprocess
+from typing import Final
+
+_SUBPROCESS_TIMEOUT_S: Final[float] = 5.0
 
 _GENERIC_MAINTAINERS = frozenset(
     {
@@ -16,9 +19,13 @@ def find_owning_package(real_path: str) -> str | None:
     """Return the dpkg package owning real_path, or None if unowned/unavailable."""
     try:
         result = subprocess.run(
-            ["dpkg", "-S", real_path], capture_output=True, text=True, check=False
+            ["dpkg", "-S", real_path],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=_SUBPROCESS_TIMEOUT_S,
         )
-    except OSError:
+    except (OSError, subprocess.TimeoutExpired):
         return None
     if result.returncode != 0 or not result.stdout:
         return None
@@ -110,8 +117,9 @@ def find_creator(package: str) -> str | None:
             capture_output=True,
             text=True,
             check=False,
+            timeout=_SUBPROCESS_TIMEOUT_S,
         )
-    except OSError:
+    except (OSError, subprocess.TimeoutExpired):
         return None
     if result.returncode != 0:
         return None
@@ -126,9 +134,13 @@ def _package_desktop_files(package: str) -> list[str]:
     """Return package's installed .desktop file paths under /usr/share/applications."""
     try:
         result = subprocess.run(
-            ["dpkg", "-L", package], capture_output=True, text=True, check=False
+            ["dpkg", "-L", package],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=_SUBPROCESS_TIMEOUT_S,
         )
-    except OSError:
+    except (OSError, subprocess.TimeoutExpired):
         return []
     if result.returncode != 0:
         return []

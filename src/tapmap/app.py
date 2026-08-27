@@ -25,7 +25,6 @@ import argparse
 import contextlib
 import json
 import logging
-import os
 import platform
 import sys
 import threading
@@ -38,6 +37,7 @@ from typing import Any, ClassVar, Final, Literal, TypedDict
 import psutil
 from dash import ALL, Dash, Input, Output, State, ctx, dcc, html, no_update
 from dash.exceptions import PreventUpdate
+from werkzeug.serving import make_server
 
 from tapmap import __version__
 from tapmap.geodb import GeoDbService
@@ -90,6 +90,7 @@ from tapmap.ui.service_point_view import ServicePointViewBuilder
 
 from .app_dirs import open_folder, reveal_in_file_manager
 from .config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
+from .lifecycle import LifecycleCoordinator, start_server_thread
 from .logging_config import configure_logging
 from .runtime import AppMeta, RuntimeContext, build_runtime
 
@@ -135,13 +136,13 @@ class TapMap:
         {"menu_clear_cache", "menu_export_cache"}
     )
 
-    DASH_DEBUG = False
     MIN_FLASH_S = 3.0
 
     def __init__(self, runtime_ctx: RuntimeContext) -> None:
         """Build runtime state, wire Dash callbacks, and start from persisted history."""
         self.runtime = runtime_ctx
         self.logger = logging.getLogger(__name__)
+        self.lifecycle = LifecycleCoordinator()
         self._lock_path = self.runtime.app_data_dir / "tapmap.lock"
         self._acquire_lock()
 
@@ -1061,9 +1062,7 @@ class TapMap:
         def exit_app(key_action: Any) -> None:
             if not (isinstance(key_action, dict) and key_action.get("action") == "exit_confirmed"):
                 raise PreventUpdate
-            self.close()
-            logging.shutdown()
-            os._exit(0)
+            self.lifecycle.request_shutdown()
 
     def _register_modal_render_callbacks(self) -> None:
         @self.app.callback(
@@ -1314,7 +1313,7 @@ class TapMap:
             return render_insights_panel(data, selected_country=selected_country)
 
     def run(self) -> None:
-        """Start the Dash server and launch the local UI."""
+        """Bind the server, launch the local UI, and block until shutdown is requested."""
         host = self.runtime.server_host
         port = self.runtime.server_port
         url = f"http://{host}:{port}/"
@@ -1328,12 +1327,15 @@ class TapMap:
             url,
             extra={"section_break": True},
         )
-        self.app.run(
-            host=host,
-            port=port,
-            debug=self.DASH_DEBUG,
-            use_reloader=False,
-        )
+
+        server = make_server(host, port, self.app.server)
+        self.lifecycle.install_signal_handlers()
+        server_thread = start_server_thread(server, self.lifecycle)
+
+        self.lifecycle.wait_for_shutdown()
+
+        server.shutdown()
+        server_thread.join()
 
     @staticmethod
     def _empty_insights() -> dict[str, Any]:
@@ -1497,6 +1499,7 @@ def main(argv: list[str] | None = None) -> int:
         app.run()
     finally:
         app.close()
+        logging.shutdown()
 
     return 0
 

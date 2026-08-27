@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import shlex
 import subprocess
-from typing import Any
+from typing import Any, Final
 
 from .netinfo import ProcessInfo
+
+_SUBPROCESS_TIMEOUT_S: Final[float] = 5.0
 
 
 class LsofNetInfo:
@@ -21,6 +23,7 @@ class LsofNetInfo:
                 capture_output=True,
                 text=True,
                 check=True,
+                timeout=_SUBPROCESS_TIMEOUT_S,
             )
         except (subprocess.SubprocessError, FileNotFoundError):
             return []
@@ -161,6 +164,7 @@ class LsofNetInfo:
                 capture_output=True,
                 text=True,
                 check=True,
+                timeout=_SUBPROCESS_TIMEOUT_S,
             )
         except (subprocess.SubprocessError, FileNotFoundError):
             return None
