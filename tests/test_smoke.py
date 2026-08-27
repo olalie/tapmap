@@ -5,7 +5,7 @@ from typing import Any
 
 import tapmap
 from tapmap import app as app_module
-from tapmap.app import APP_META, TapMap
+from tapmap.app import APP_META, TapMap, _build_arg_parser
 from tapmap.runtime import RuntimeContext
 
 
@@ -71,6 +71,18 @@ def _component_exists(node: Any, component_id: str) -> bool:
 def test_tapmap_module_imports() -> None:
     """Import the application module."""
     assert tapmap is not None
+
+
+def test_no_browser_flag_defaults_to_false() -> None:
+    """--no-browser is off unless explicitly passed."""
+    args = _build_arg_parser().parse_args([])
+    assert args.no_browser is False
+
+
+def test_no_browser_flag_parses_true() -> None:
+    """--no-browser sets the flag when passed."""
+    args = _build_arg_parser().parse_args(["--no-browser"])
+    assert args.no_browser is True
 
 
 def test_tapmap_app_constructs(tmp_path: Path) -> None:

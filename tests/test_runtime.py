@@ -105,29 +105,39 @@ class TestGetLocationOverride:
 
 
 class TestGetLaunchBrowser:
-    """Test _get_launch_browser() env var parser."""
+    """Test _get_launch_browser() env var parser and --no-browser precedence."""
 
     def test_default_returns_config(self) -> None:
         """Missing env var returns config default."""
         with patch.dict(os.environ, {}, clear=True):
-            assert _get_launch_browser() is True
+            assert _get_launch_browser(no_browser=False) is True
 
     @pytest.mark.parametrize("value", ["1", "true", "yes", "on"])
     def test_true_values(self, value: str) -> None:
         """Accepted true values return True."""
         with patch.dict(os.environ, {"TAPMAP_LAUNCH_BROWSER": value}, clear=True):
-            assert _get_launch_browser() is True
+            assert _get_launch_browser(no_browser=False) is True
 
     @pytest.mark.parametrize("value", ["0", "false", "no", "off"])
     def test_false_values(self, value: str) -> None:
         """Accepted false values return False."""
         with patch.dict(os.environ, {"TAPMAP_LAUNCH_BROWSER": value}, clear=True):
-            assert _get_launch_browser() is False
+            assert _get_launch_browser(no_browser=False) is False
 
     def test_invalid_value_returns_config_default(self) -> None:
         """Invalid value falls back to config default."""
         with patch.dict(os.environ, {"TAPMAP_LAUNCH_BROWSER": "banana"}, clear=True):
-            assert _get_launch_browser() is True
+            assert _get_launch_browser(no_browser=False) is True
+
+    def test_no_browser_overrides_env_var_true(self) -> None:
+        """--no-browser wins even when TAPMAP_LAUNCH_BROWSER explicitly requests True."""
+        with patch.dict(os.environ, {"TAPMAP_LAUNCH_BROWSER": "1"}, clear=True):
+            assert _get_launch_browser(no_browser=True) is False
+
+    def test_no_browser_overrides_config_default(self) -> None:
+        """--no-browser wins with no env var set, over the config default of True."""
+        with patch.dict(os.environ, {}, clear=True):
+            assert _get_launch_browser(no_browser=True) is False
 
 
 class TestGetCacheRetentionMin:

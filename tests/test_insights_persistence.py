@@ -7,6 +7,7 @@ import json
 import logging
 import unittest.mock
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import psutil
@@ -91,6 +92,7 @@ def _bare_app(tmp_path: Path) -> TapMap:
     """Return a TapMap instance with only the attributes needed for method-level tests."""
     app = object.__new__(TapMap)
     app.logger = logging.getLogger("test")
+    app.runtime = SimpleNamespace(is_docker=False, server_host="127.0.0.1", server_port=8050)
     app.insights_state = InsightsState(
         version=CURRENT_SCHEMA_VERSION, insights={}, verification_failed={}
     )
@@ -257,7 +259,7 @@ def test_acquire_lock_without_existing_lock(tmp_path: Path) -> None:
 
 
 def test_acquire_lock_exits_when_same_process_running(tmp_path: Path) -> None:
-    """Exit when the lock belongs to a currently running TapMap instance."""
+    """Exit when the lock belongs to a currently running TapMap instance, opening its browser."""
     app = _bare_app(tmp_path)
 
     app._lock_path.write_text(
@@ -275,11 +277,41 @@ def test_acquire_lock_exits_when_same_process_running(tmp_path: Path) -> None:
 
     with (
         patch("psutil.Process", return_value=running),
+        patch("tapmap.app.webbrowser.open") as mock_open,
         pytest.raises(SystemExit) as exc_info,
     ):
         app._acquire_lock()
 
     assert exc_info.value.code == 1
+    mock_open.assert_called_once_with("http://127.0.0.1:8050/", new=2)
+
+
+def test_acquire_lock_does_not_open_browser_for_docker(tmp_path: Path) -> None:
+    """Docker never opens a browser, even when another instance is detected."""
+    app = _bare_app(tmp_path)
+    app.runtime = SimpleNamespace(is_docker=True, server_host="0.0.0.0", server_port=8050)
+
+    app._lock_path.write_text(
+        json.dumps(
+            {
+                "pid": 123,
+                "create_time": 1.23,
+            }
+        )
+    )
+
+    running = MagicMock()
+    running.pid = 123
+    running.create_time.return_value = 1.23
+
+    with (
+        patch("psutil.Process", return_value=running),
+        patch("tapmap.app.webbrowser.open") as mock_open,
+        pytest.raises(SystemExit),
+    ):
+        app._acquire_lock()
+
+    mock_open.assert_not_called()
 
 
 def test_acquire_lock_replaces_stale_lock(tmp_path: Path) -> None:

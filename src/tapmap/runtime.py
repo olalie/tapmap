@@ -95,8 +95,13 @@ def _get_server_port() -> int:
     """Return server port for the current runtime."""
     return int(os.environ.get("TAPMAP_PORT", str(SERVER_PORT)))
 
-def _get_launch_browser() -> bool:
+def _get_launch_browser(no_browser: bool) -> bool:
     """Return whether to launch the browser automatically."""
+    # Precedence: no_browser (--no-browser) overrides TAPMAP_LAUNCH_BROWSER
+    # overrides the config default.
+    if no_browser:
+        return False
+
     value = os.environ.get("TAPMAP_LAUNCH_BROWSER")
 
     if value is None:
@@ -154,7 +159,7 @@ def _get_location_override() -> tuple[float, float] | None:
 
     return None
 
-def build_runtime(meta: AppMeta) -> RuntimeContext:
+def build_runtime(meta: AppMeta, *, no_browser: bool = False) -> RuntimeContext:
     """Build the runtime context for the current OS and execution mode."""
     is_frozen = bool(getattr(sys, "frozen", False))
     run_dir = (
@@ -166,7 +171,7 @@ def build_runtime(meta: AppMeta) -> RuntimeContext:
     is_docker = _detect_docker()
     server_host = _get_server_host(is_docker)
     server_port = _get_server_port()
-    launch_browser = _get_launch_browser()
+    launch_browser = _get_launch_browser(no_browser)
     cache_retention_min = _get_cache_retention_min()
     location_override = _get_location_override()
     security_extensions_dir = _get_security_extensions_dir(is_frozen, run_dir)

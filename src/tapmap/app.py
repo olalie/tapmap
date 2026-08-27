@@ -561,6 +561,10 @@ class TapMap:
         self.connection_state.refresh_resolved_applications(fields)
         self.unmapped_state.refresh_resolved_applications(fields)
 
+    def _server_url(self) -> str:
+        """Return this instance's local web UI URL."""
+        return f"http://{self.runtime.server_host}:{self.runtime.server_port}/"
+
     def _open_browser(self, url: str, delay_s: float = 0.8) -> None:
         try:
             delay = float(delay_s)
@@ -576,6 +580,12 @@ class TapMap:
         timer = threading.Timer(delay, _worker)
         timer.daemon = True
         timer.start()
+
+    @staticmethod
+    def _open_browser_immediately(url: str) -> None:
+        """Open url in the default browser synchronously, without the startup delay."""
+        with contextlib.suppress(Exception):
+            webbrowser.open(url, new=2)
 
     @staticmethod
     def _as_children(value: Any) -> list[Any]:
@@ -1316,7 +1326,7 @@ class TapMap:
         """Bind the server, launch the local UI, and block until shutdown is requested."""
         host = self.runtime.server_host
         port = self.runtime.server_port
-        url = f"http://{host}:{port}/"
+        url = self._server_url()
         if self.runtime.launch_browser and not self.runtime.is_docker:
             self._open_browser(url)
 
@@ -1412,7 +1422,7 @@ class TapMap:
             )
 
     def _acquire_lock(self) -> None:
-        """Write a lock file, or exit if another instance is already running."""
+        """Write a lock file, or open the browser to the running instance and exit."""
         # Prevent multiple TapMap instances from accessing the same
         # application data files simultaneously. The lock file stores
         # the creator's PID and process start time. The PID locates the
@@ -1434,6 +1444,10 @@ class TapMap:
                             "Another TapMap instance is already running (PID %d). Exiting.",
                             running_process.pid,
                         )
+                        if not self.runtime.is_docker:
+                            # Open synchronously: a delayed, daemon-thread-backed
+                            # open would race the sys.exit() below and likely never run.
+                            self._open_browser_immediately(self._server_url())
                         sys.exit(1)
 
             except (
@@ -1486,13 +1500,18 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         version=f"%(prog)s {APP_META.version}",
         help="Show installed version and exit.",
     )
+    parser.add_argument(
+        "--no-browser",
+        action="store_true",
+        help="Do not open the web browser automatically at startup.",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     """Run application from the command line."""
-    _build_arg_parser().parse_args(argv)
-    runtime_ctx = build_runtime(APP_META)
+    args = _build_arg_parser().parse_args(argv)
+    runtime_ctx = build_runtime(APP_META, no_browser=args.no_browser)
     configure_logging(runtime_ctx)
     app = TapMap(runtime_ctx)
     try:
