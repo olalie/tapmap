@@ -28,7 +28,7 @@ class _FakeReader:
         self.closed = True
 
 
-def _runtime_ctx(tmp_path: Path) -> RuntimeContext:
+def _runtime_ctx(tmp_path: Path, *, is_docker: bool = False) -> RuntimeContext:
     """Build a minimal runtime context for app construction tests."""
     return RuntimeContext(
         meta=APP_META,
@@ -41,9 +41,10 @@ def _runtime_ctx(tmp_path: Path) -> RuntimeContext:
         server_port=8050,
         launch_browser=True,
         cache_retention_min=0,
-        is_docker=False,
+        is_docker=is_docker,
         location_override=None,
         security_extensions_dir=tmp_path,
+        tray_icon_path=tmp_path / "tapmap.ico",
     )
 
 
@@ -91,6 +92,61 @@ def test_tapmap_app_constructs(tmp_path: Path) -> None:
     app = TapMap(runtime_ctx)
     try:
         assert app.app is not None
+    finally:
+        app.close()
+
+
+def test_create_tray_icon_returns_none_for_docker(tmp_path: Path, monkeypatch) -> None:
+    """Docker never attempts tray construction at all."""
+    app = TapMap(_runtime_ctx(tmp_path, is_docker=True))
+    try:
+        called = False
+
+        def _fake_create_tray_icon(**_kwargs):
+            nonlocal called
+            called = True
+            return object()
+
+        monkeypatch.setattr(app_module, "create_tray_icon", _fake_create_tray_icon)
+
+        icon = app._create_tray_icon()
+
+        assert icon is None
+        assert called is False
+    finally:
+        app.close()
+
+
+def test_create_tray_icon_wires_open_and_quit_callbacks(tmp_path: Path, monkeypatch) -> None:
+    """_create_tray_icon() passes the right icon/tooltip and wires Open/Quit to real behavior."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        captured: dict[str, Any] = {}
+
+        def _fake_create_tray_icon(*, icon_path, tooltip, on_open, on_quit):
+            captured["icon_path"] = icon_path
+            captured["tooltip"] = tooltip
+            captured["on_open"] = on_open
+            captured["on_quit"] = on_quit
+            return object()
+
+        monkeypatch.setattr(app_module, "create_tray_icon", _fake_create_tray_icon)
+        opened_urls: list[str] = []
+        monkeypatch.setattr(
+            app_module.webbrowser, "open", lambda url, new=0: opened_urls.append(url)
+        )
+
+        icon = app._create_tray_icon()
+
+        assert icon is not None
+        assert captured["icon_path"] == app.runtime.tray_icon_path
+        assert captured["tooltip"] == app.runtime.meta.name
+
+        captured["on_open"]()
+        assert opened_urls == [app._server_url()]
+
+        captured["on_quit"]()
+        app.lifecycle.wait_for_shutdown()  # must not block: on_quit() already requested it
     finally:
         app.close()
 

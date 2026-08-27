@@ -27,6 +27,7 @@ def _runtime_ctx(tmp_path: Path) -> RuntimeContext:
         is_docker=False,
         location_override=None,
         security_extensions_dir=tmp_path,
+        tray_icon_path=tmp_path,
     )
 
 

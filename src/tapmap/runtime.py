@@ -36,6 +36,7 @@ class RuntimeContext:
         net_backend_version: Network backend version.
         security_extensions_dir: Directory containing the Microsoft Security
             Extensions wrapper DLLs (Windows only; may not exist on other OSes).
+        tray_icon_path: Path to the tray icon image asset.
     """
 
     meta: AppMeta
@@ -51,6 +52,7 @@ class RuntimeContext:
     is_docker: bool
     location_override: tuple[float, float] | None
     security_extensions_dir: Path
+    tray_icon_path: Path
 
     @property
     def geo_data_dir(self) -> Path:
@@ -79,6 +81,18 @@ def _get_security_extensions_dir(is_frozen: bool, run_dir: Path) -> Path:
         return bundle_dir / "third_party" / "microsoft_security_extensions"
 
     return run_dir.parent.parent / "third_party" / "microsoft_security_extensions"
+
+def _get_tray_icon_path(is_frozen: bool, run_dir: Path) -> Path:
+    """Return the path to the tray icon image asset.
+
+    Frozen: resolved relative to the PyInstaller bundle directory.
+    Source run: resolved relative to run_dir (src/tapmap/).
+    """
+    if is_frozen:
+        bundle_dir = Path(sys._MEIPASS)
+        return bundle_dir / "tapmap" / "assets" / "tapmap.ico"
+
+    return run_dir / "assets" / "tapmap.ico"
 
 def _get_server_host(is_docker: bool) -> str:
     """Return server bind host for the current runtime."""
@@ -175,6 +189,7 @@ def build_runtime(meta: AppMeta, *, no_browser: bool = False) -> RuntimeContext:
     cache_retention_min = _get_cache_retention_min()
     location_override = _get_location_override()
     security_extensions_dir = _get_security_extensions_dir(is_frozen, run_dir)
+    tray_icon_path = _get_tray_icon_path(is_frozen, run_dir)
 
     return RuntimeContext(
         meta=meta,
@@ -190,6 +205,7 @@ def build_runtime(meta: AppMeta, *, no_browser: bool = False) -> RuntimeContext:
         is_docker=is_docker,
         location_override=location_override,
         security_extensions_dir=security_extensions_dir,
+        tray_icon_path=tray_icon_path,
     )
 
 def _detect_network_backend() -> tuple[str, str]:

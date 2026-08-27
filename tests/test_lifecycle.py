@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import platform
 import subprocess
 import sys
 import textwrap
 import threading
 
+import pytest
+
+from tapmap import lifecycle
 from tapmap.lifecycle import LifecycleCoordinator, start_server_thread
 
 
@@ -26,6 +30,118 @@ def test_request_shutdown_unblocks_wait_for_shutdown() -> None:
     coordinator.request_shutdown()
     waiter.join(timeout=2)
     assert unblocked.is_set()
+
+
+def test_request_shutdown_stops_a_registered_tray_icon() -> None:
+    """request_shutdown() also stops the tray icon, so icon.run() can unblock the main thread."""
+    coordinator = LifecycleCoordinator()
+
+    class _FakeIcon:
+        def __init__(self) -> None:
+            self.stopped = False
+
+        def stop(self) -> None:
+            self.stopped = True
+
+    icon = _FakeIcon()
+    coordinator.set_tray_icon(icon)
+
+    coordinator.request_shutdown()
+
+    assert icon.stopped is True
+
+
+def test_run_tray_honors_a_shutdown_already_requested_before_the_icon_started() -> None:
+    """run_tray() must not block forever if shutdown was requested before the icon was running.
+
+    Regression test for a real lifecycle hole: pystray's Icon.stop() has no
+    effect if the icon isn't running yet (e.g. start_server_thread()'s
+    serve_forever() crashing immediately, before run_tray() gets called).
+    Without re-checking once the icon is actually running, that request
+    would be silently lost and the tray-only process would never exit.
+    """
+    coordinator = LifecycleCoordinator()
+
+    class _FakeIcon:
+        """Mimics pystray's stop()-before-run()-is-a-no-op contract."""
+
+        def __init__(self) -> None:
+            self._running = False
+            self._stopped_event = threading.Event()
+
+        def stop(self) -> None:
+            if self._running:
+                self._stopped_event.set()
+
+        def run(self, setup=None) -> None:
+            self._running = True
+            if setup is not None:
+                setup(self)
+            self._stopped_event.wait()
+
+    icon = _FakeIcon()
+    coordinator.set_tray_icon(icon)
+    coordinator.request_shutdown()  # arrives before the icon is running
+
+    finished = threading.Event()
+
+    def _run() -> None:
+        coordinator.run_tray(icon)
+        finished.set()
+
+    runner = threading.Thread(target=_run, daemon=True)
+    runner.start()
+    runner.join(timeout=2)
+
+    assert finished.is_set()
+
+
+def test_run_tray_always_stops_the_windows_message_loop_nudge(monkeypatch) -> None:
+    """The Windows Ctrl+C nudge timer is torn down even if icon.run() raises.
+
+    Regression test for a real Windows bug: pystray's Windows message loop
+    blocks in GetMessage() with no timeout, so a pending Ctrl+C/SIGTERM is
+    never dispatched until some unrelated window message happens to arrive.
+    run_tray() works around this with a periodic Win32 timer; this test
+    protects only that the timer is started before, and always stopped
+    after, icon.run() - not the timer mechanism itself.
+    """
+    coordinator = LifecycleCoordinator()
+    calls: list[object] = []
+
+    monkeypatch.setattr(
+        lifecycle, "_start_windows_message_loop_nudge", lambda: calls.append("start") or 42
+    )
+    monkeypatch.setattr(
+        lifecycle,
+        "_stop_windows_message_loop_nudge",
+        lambda timer_id: calls.append(("stop", timer_id)),
+    )
+
+    class _FakeIcon:
+        def run(self, setup=None) -> None:
+            calls.append("run")
+            raise RuntimeError("boom")
+
+    with pytest.raises(RuntimeError):
+        coordinator.run_tray(_FakeIcon())
+
+    assert calls == ["start", "run", ("stop", 42)]
+
+
+def test_start_windows_message_loop_nudge_is_a_noop_off_windows(monkeypatch) -> None:
+    """The Ctrl+C nudge timer is never attempted on non-Windows platforms."""
+    monkeypatch.setattr(lifecycle.platform, "system", lambda: "Linux")
+
+    assert lifecycle._start_windows_message_loop_nudge() is None
+
+
+@pytest.mark.skipif(platform.system() != "Windows", reason="Windows-only Ctrl+C nudge timer")
+def test_start_windows_message_loop_nudge_returns_none_when_settimer_fails(monkeypatch) -> None:
+    """A failed SetTimer() call (returns 0) degrades to no nudge rather than a bad timer id."""
+    monkeypatch.setattr(lifecycle.ctypes.windll.user32, "SetTimer", lambda *args: 0)
+
+    assert lifecycle._start_windows_message_loop_nudge() is None
 
 
 def test_wait_for_shutdown_is_interruptible_by_a_real_signal_on_the_main_thread() -> None:

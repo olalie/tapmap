@@ -32,7 +32,7 @@ import webbrowser
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
-from typing import Any, ClassVar, Final, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, TypedDict
 
 import psutil
 from dash import ALL, Dash, Input, Output, State, ctx, dcc, html, no_update
@@ -93,6 +93,10 @@ from .config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
 from .lifecycle import LifecycleCoordinator, start_server_thread
 from .logging_config import configure_logging
 from .runtime import AppMeta, RuntimeContext, build_runtime
+from .tray import create_tray_icon
+
+if TYPE_CHECKING:
+    from pystray import Icon
 
 LonLat = tuple[float, float]
 
@@ -1322,6 +1326,17 @@ class TapMap:
 
             return render_insights_panel(data, selected_country=selected_country)
 
+    def _create_tray_icon(self) -> Icon | None:
+        """Build this instance's tray icon, or None if unavailable (Docker always has none)."""
+        if self.runtime.is_docker:
+            return None
+        return create_tray_icon(
+            icon_path=self.runtime.tray_icon_path,
+            tooltip=self.runtime.meta.name,
+            on_open=lambda: self._open_browser_immediately(self._server_url()),
+            on_quit=self.lifecycle.request_shutdown,
+        )
+
     def run(self) -> None:
         """Bind the server, launch the local UI, and block until shutdown is requested."""
         host = self.runtime.server_host
@@ -1339,10 +1354,18 @@ class TapMap:
         )
 
         server = make_server(host, port, self.app.server)
+
+        icon = self._create_tray_icon()
+        if icon is not None:
+            self.lifecycle.set_tray_icon(icon)
+
         self.lifecycle.install_signal_handlers()
         server_thread = start_server_thread(server, self.lifecycle)
 
-        self.lifecycle.wait_for_shutdown()
+        if icon is not None:
+            self.lifecycle.run_tray(icon)
+        else:
+            self.lifecycle.wait_for_shutdown()
 
         server.shutdown()
         server_thread.join()
