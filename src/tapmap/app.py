@@ -1092,15 +1092,12 @@ class TapMap:
             self.lifecycle.request_shutdown()
 
     def _autostart_supported(self) -> bool:
-        """Return True when the "Run TapMap automatically" control has a backend on this OS."""
+        """Return whether autostart is supported."""
         return platform.system() == "Windows" and not self.runtime.is_docker
 
     def _run_autostart_startup_setup(self) -> None:
-        """Run the marker-absent Windows autostart startup state machine.
-
-        Never raises.
-        """
-        if platform.system() != "Windows" or self.runtime.is_docker:
+        """Set up Windows autostart on first launch when needed."""
+        if not self._autostart_supported():
             return
 
         from .autostart import windows_autostart
@@ -1115,7 +1112,7 @@ class TapMap:
             self.logger.exception("Autostart initial setup failed unexpectedly.")
 
     def _autostart_exe_path(self) -> str:
-        """Return the installed/frozen TapMap executable path, or "" for a source run."""
+        """Return the installed TapMap executable path."""
         if not self.runtime.is_frozen:
             return ""
         return str(Path(sys.executable).resolve())

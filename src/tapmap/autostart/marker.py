@@ -1,7 +1,4 @@
-"""The one-time autostart setup marker.
-
-Not current autostart state - only the native OS mechanism is.
-"""
+"""Track whether the initial autostart setup has been completed."""
 
 from __future__ import annotations
 

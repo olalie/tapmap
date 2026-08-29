@@ -77,9 +77,8 @@ Filename: "{app}\{#MyAppExeName}"; \
 
 [Code]
 
-// The installer never creates or manages the "TapMap" task - the app owns
-// Task Scheduler via COM at runtime. Uninstall deletes the task only if it
-// recognizes it as TapMap's own (same identity fields as the runtime).
+// TapMap manages autostart at runtime.
+// The installer only removes recognized tasks during migration and uninstall.
 //
 // "Type" is a reserved word in Pascal Script and can't be read as a COM
 // property name here. Trigger.UserId and Action.Path are checked instead.
@@ -238,9 +237,7 @@ begin
 
       ActionPath := Action.Path;
 
-      // Both must be empty (stricter than TapMapDeleteTaskIfRecognized) -
-      // a COM-created task always sets them, so this never matches an
-      // already-migrated task on a later upgrade.
+      // The legacy installer task has no Trigger.UserId or arguments.
       if (TriggerUserId = '') and (ActionArguments = '') and
          (TapMapNormalizeUserId(PrincipalUserId) = CurrentUser) and
          (TapMapNormalizePath(ActionPath) = ExePath) then
@@ -275,7 +272,7 @@ begin
   begin
     TapMapDeleteTaskIfRecognized();
 
-    // Ends the autostart lifecycle; a reinstall starts fresh and defaults ON.
+    // Remove the setup marker so a reinstall enables autostart by default.
     MarkerPath := ExpandConstant('{userappdata}\TapMap\autostart_setup_completed.marker');
     if FileExists(MarkerPath) then
       DeleteFile(MarkerPath);

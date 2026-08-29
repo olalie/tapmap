@@ -1,7 +1,4 @@
-"""Pure decision logic for the "Run TapMap automatically" control.
-
-Native OS state is the source of truth; nothing here is cached.
-"""
+"""Decide how the autostart control should behave."""
 
 from __future__ import annotations
 
@@ -11,16 +8,14 @@ from typing import NamedTuple
 
 
 class DisplayState(Enum):
-    """What the "Run TapMap automatically" control should show."""
-
+    """State shown by the autostart control."""
     ON = "on"
     OFF = "off"
     UNAVAILABLE = "unavailable"
 
 
 class ClickAction(Enum):
-    """What a click on the control should do, given its current decision."""
-
+    """Action to perform when the autostart control is clicked."""
     NONE = "none"
     DISABLE = "disable"
     ENABLE = "enable"
@@ -30,11 +25,7 @@ class ClickAction(Enum):
 
 
 class ElevationStatus(Enum):
-    """Whether the current process is running elevated.
-
-    UNKNOWN is never treated as NOT_ELEVATED.
-    """
-
+    """Whether TapMap is running with administrator privileges."""
     NOT_ELEVATED = "not_elevated"
     ELEVATED = "elevated"
     UNKNOWN = "unknown"
@@ -42,7 +33,6 @@ class ElevationStatus(Enum):
 
 class WriteOutcome(Enum):
     """Result of an autostart write attempt."""
-
     OK = "ok"
     CONFLICT = "conflict"
     ERROR = "error"
@@ -50,9 +40,9 @@ class WriteOutcome(Enum):
 
 @dataclass(frozen=True)
 class NativeAutostartStatus:
-    """Snapshot of the native autostart mechanism.
+    """Current state of the operating system's autostart entry.
 
-    Other fields are meaningless when queryable is False.
+    Other fields are ignored when the state cannot be queried.
     """
 
     queryable: bool
@@ -63,8 +53,7 @@ class NativeAutostartStatus:
 
 
 class AutostartDecision(NamedTuple):
-    """Display state and click action for the autostart control."""
-
+    """State to display and action to perform when clicked."""
     display_state: DisplayState
     click_action: ClickAction
 
@@ -93,7 +82,7 @@ def decide_autostart_display(
     )
 
     if elevation == ElevationStatus.ELEVATED:
-        # Elevated may read and display live state, but never write.
+        # Administrator mode may read autostart state but must not change it.
         return AutostartDecision(
             DisplayState.ON if is_on else DisplayState.OFF, ClickAction.NONE
         )

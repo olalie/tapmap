@@ -1,4 +1,4 @@
-"""Windows autostart orchestration: Task Scheduler backend, identity rules, and the setup marker."""
+"""Manage TapMap autostart on Windows."""
 
 from __future__ import annotations
 
@@ -36,10 +36,7 @@ _UNREADABLE_STATUS = NativeAutostartStatus(
 
 
 def is_elevated() -> ElevationStatus:
-    """Return whether the current process is running elevated.
-
-    Returns UNKNOWN, never NOT_ELEVATED, if the check fails.
-    """
+    """Return whether TapMap is running with administrator privileges."""
     try:
         return (
             ElevationStatus.ELEVATED
@@ -51,12 +48,12 @@ def is_elevated() -> ElevationStatus:
 
 
 def _current_username() -> str:
-    """Return the current OS username."""
+    """Return the current Windows username."""
     return getpass.getuser()
 
 
 def _classify(task: TaskInfo | None, *, exe_path: str) -> NativeAutostartStatus:
-    """Classify a task into a NativeAutostartStatus."""
+    """Convert a Task Scheduler task to TapMap's autostart state."""
     if task is None:
         return NativeAutostartStatus(
             queryable=True,
@@ -88,11 +85,9 @@ def _classify(task: TaskInfo | None, *, exe_path: str) -> NativeAutostartStatus:
 
 
 def query_display_state(*, exe_path: str, is_frozen: bool) -> AutostartDecision:
-    """Return the current display state and click action for the R control.
-
-    A source run (is_frozen False) never queries Task Scheduler at all.
-    """
+    """Return the state and action for the autostart control."""
     if not is_frozen:
+        # Source runs must not access the installed autostart task.
         return decide_autostart_display(
             status=_UNREADABLE_STATUS,
             elevation=ElevationStatus.NOT_ELEVATED,
@@ -109,10 +104,7 @@ def query_display_state(*, exe_path: str, is_frozen: bool) -> AutostartDecision:
 
 
 def enable(*, exe_path: str) -> tuple[WriteOutcome, str | None]:
-    """Enable the existing task, re-verifying ownership before the write.
-
-    error_message is only set for ERROR.
-    """
+    """Enable the TapMap autostart task."""
     try:
         scheduler.set_task_enabled_if_recognized(
             True, current_username=_current_username(), exe_path=exe_path
@@ -125,7 +117,7 @@ def enable(*, exe_path: str) -> tuple[WriteOutcome, str | None]:
 
 
 def disable(*, exe_path: str) -> tuple[WriteOutcome, str | None]:
-    """Disable the existing task, re-verifying ownership before the write."""
+    """Disable the TapMap autostart task."""
     try:
         scheduler.set_task_enabled_if_recognized(
             False, current_username=_current_username(), exe_path=exe_path
@@ -138,7 +130,7 @@ def disable(*, exe_path: str) -> tuple[WriteOutcome, str | None]:
 
 
 def create(*, exe_path: str) -> tuple[WriteOutcome, str | None]:
-    """Create the canonical enabled task, refusing if a non-recognized task now exists."""
+    """Create the TapMap autostart task."""
     try:
         scheduler.create_or_update_task_if_owned_or_absent(
             exe_path=exe_path,
@@ -153,14 +145,14 @@ def create(*, exe_path: str) -> tuple[WriteOutcome, str | None]:
 
 
 def repair_and_enable(*, exe_path: str) -> tuple[WriteOutcome, str | None]:
-    """Update a recognized-but-stale task in place, refusing if it's no longer recognized."""
+    """Repair and enable the TapMap autostart task."""
     return create(exe_path=exe_path)
 
 
 def run_startup_setup(*, app_data_dir: Path, exe_path: str, is_frozen: bool) -> None:
-    """Run the marker-absent startup state machine, if applicable.
+    """Set up autostart on first launch when needed.
 
-    Never raises: startup must continue regardless of outcome.
+    Failures are logged and must not prevent TapMap from starting.
     """
     if not is_frozen:
         return
@@ -179,7 +171,7 @@ def run_startup_setup(*, app_data_dir: Path, exe_path: str, is_frozen: bool) -> 
         return
 
     if is_elevated() != ElevationStatus.NOT_ELEVATED:
-        # Blocks both elevated and unknown status.
+        # Only a normal user process may create the task.
         return
 
     try:
@@ -207,7 +199,7 @@ def run_startup_setup(*, app_data_dir: Path, exe_path: str, is_frozen: bool) -> 
 
 
 def _verify_created_task(*, exe_path: str) -> bool:
-    """Read back the just-created task and confirm it matches the canonical definition."""
+    """Verify that the newly created task has the expected configuration."""
     try:
         task = scheduler.find_task()
     except scheduler.TaskQueryError:

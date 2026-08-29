@@ -1,8 +1,4 @@
-"""Task Scheduler 2.0 COM I/O via pythonnet reflection (no comtypes/win32com).
-
-clr and System.* are imported lazily inside functions, not at module load,
-so this module stays importable on non-Windows platforms.
-"""
+"""Read and modify TapMap's Windows Task Scheduler task."""
 
 from __future__ import annotations
 
@@ -32,15 +28,15 @@ _Type: Any = None
 
 
 class TaskQueryError(Exception):
-    """Native Task Scheduler state could not be read or written reliably."""
+    """Task Scheduler could not be read or changed."""
 
 
 class TaskOwnershipConflict(Exception):
-    """A task exists at TASK_NAME but was not recognized as ours; never written."""
+    """The TapMap task name is used by a task we do not recognize."""
 
 
 def _ensure_loaded() -> None:
-    """Load the pythonnet/.NET reflection surface used for late binding. Idempotent."""
+    """Load the .NET components needed to access Task Scheduler."""
     global _BindingFlags, _Missing, _Array, _Object, _Activator, _Type
 
     if _BindingFlags is not None:
@@ -61,7 +57,7 @@ def _ensure_loaded() -> None:
 
 
 def _object_array(args: list[Any]) -> Any:
-    """Build a .NET object array from a Python list."""
+    """Convert Python arguments to a .NET object array."""
     arr = _Array.CreateInstance(_Object, len(args))
     for i, value in enumerate(args):
         arr[i] = value
@@ -83,10 +79,9 @@ def _get(obj: Any, name: str) -> Any:
 
 
 def _get_indexed(obj: Any, name: str, index: int) -> Any:
-    """Read a COM indexed property (e.g. collection.Item[index]).
+    """Read an indexed COM property.
 
-    Item is a property getter, not a method - InvokeMethod fails with
-    DISP_E_MEMBERNOTFOUND. Use GetProperty instead.
+    Collection.Item is a property, not a method.
     """
     return obj.GetType().InvokeMember(
         name, _BindingFlags.GetProperty, None, obj, _object_array([index])
@@ -155,11 +150,7 @@ def _read_task_info(task: Any) -> TaskInfo:
 
 
 def find_task() -> TaskInfo | None:
-    """Return the current "TapMap" task's fields, or None if no such task exists.
-
-    Raises:
-        TaskQueryError: Task Scheduler could not be reached or queried reliably.
-    """
+    """Return the TapMap task, or None if it does not exist."""
     _ensure_loaded()
     try:
         service = _connect_service()
@@ -178,7 +169,7 @@ def find_task() -> TaskInfo | None:
 
 
 def _hresult_of(exc: Exception) -> int | None:
-    """Return the HRESULT of exc, unwrapping InvokeMember's TargetInvocationException."""
+    """Return the underlying HRESULT from a COM exception."""
     inner = getattr(exc, "InnerException", None)
     target = inner if inner is not None else exc
     hresult = getattr(target, "HResult", None)
@@ -209,13 +200,7 @@ def _build_task_definition(service: Any, *, exe_path: str, arguments: str, usern
 def create_or_update_task_if_owned_or_absent(
     *, exe_path: str, arguments: str, username: str
 ) -> None:
-    """Create the canonical task, or update it if still owned, in one COM session.
-
-    Raises:
-        TaskQueryError: Task Scheduler could not be reached or queried reliably.
-        TaskOwnershipConflict: A task now exists and is not recognized as
-            ours; never written.
-    """
+    """Create the TapMap task, or update it only if it is recognized as ours."""
     _ensure_loaded()
     try:
         service = _connect_service()
@@ -256,14 +241,7 @@ def create_or_update_task_if_owned_or_absent(
 def set_task_enabled_if_recognized(
     enabled: bool, *, current_username: str, exe_path: str
 ) -> None:
-    """Enable or disable the "TapMap" task in the same COM session used to verify it.
-
-    Raises:
-        TaskQueryError: Task Scheduler could not be reached, or the task no
-            longer exists.
-        TaskOwnershipConflict: The task exists but is not recognized as ours;
-            never written.
-    """
+    """Enable or disable the task only if it is recognized as ours."""
     _ensure_loaded()
     try:
         service = _connect_service()
