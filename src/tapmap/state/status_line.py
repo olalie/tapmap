@@ -35,12 +35,10 @@ def render_status_text(
     live_udp_bound = 0
     updated = "--:--:--"
     status = "WAIT"
-    note = ""
 
     if isinstance(snapshot, dict):
         if snapshot.get("error"):
             status = "ERROR"
-            note = " (see terminal)"
         else:
             stats = snapshot.get("stats")
             if isinstance(stats, dict):
@@ -53,7 +51,7 @@ def render_status_text(
                 updated = stats.get("updated") or updated
 
     return (
-        f"STATUS: {status}{note} | "
+        f"STATUS: {status} | "
         f"LIVE: TCP {live_tcp_total} EST {live_tcp_established} "
         f"LST {live_tcp_listen} UDP R {live_udp_remote} "
         f"B {live_udp_bound} | "

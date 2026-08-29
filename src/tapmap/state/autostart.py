@@ -21,7 +21,6 @@ class ClickAction(Enum):
     ENABLE = "enable"
     CREATE = "create"
     REPAIR_AND_ENABLE = "repair_and_enable"
-    SHOW_CONFLICT = "show_conflict"
 
 
 class ElevationStatus(Enum):
@@ -94,7 +93,7 @@ def decide_autostart_display(
         return AutostartDecision(DisplayState.OFF, ClickAction.CREATE)
 
     if not status.recognized:
-        return AutostartDecision(DisplayState.OFF, ClickAction.SHOW_CONFLICT)
+        return AutostartDecision(DisplayState.OFF, ClickAction.NONE)
 
     if status.matches_preferred_definition:
         return AutostartDecision(DisplayState.OFF, ClickAction.ENABLE)

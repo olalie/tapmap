@@ -1,9 +1,8 @@
 """Smoke tests for TapMap application bootstrap."""
 
+import dataclasses
 from pathlib import Path
 from typing import Any
-
-from dash import no_update
 
 import tapmap
 from tapmap import app as app_module
@@ -14,7 +13,6 @@ from tapmap.state.autostart import (
     AutostartDecision,
     ClickAction,
     DisplayState,
-    ElevationStatus,
     WriteOutcome,
 )
 
@@ -589,6 +587,32 @@ def test_autostart_button_disabled_for_a_source_run(tmp_path: Path, monkeypatch)
         app.close()
 
 
+def test_initial_autostart_disabled_reflects_click_action_not_is_frozen(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A frozen, elevated-ON initial render shows the real ON state but stays disabled.
+
+    is_frozen alone (the old formula for initial_autostart_disabled) would wrongly
+    show this case as clickable; only click_action == NONE gets it right.
+    """
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(
+        windows_autostart,
+        "query_display_state",
+        lambda **_kwargs: AutostartDecision(DisplayState.ON, ClickAction.NONE),
+    )
+
+    runtime_ctx = dataclasses.replace(_runtime_ctx(tmp_path), is_frozen=True)
+    app = TapMap(runtime_ctx)
+    try:
+        button = _find_component(app.app.layout, "menu_autostart")
+        assert button is not None
+        assert button.disabled is True
+        assert "is-checked" in button.className
+    finally:
+        app.close()
+
+
 def test_autostart_click_routes_to_disable_when_currently_on(tmp_path: Path, monkeypatch) -> None:
     """Clicking a live ON control calls windows_autostart.disable(), not create/enable."""
     monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
@@ -607,39 +631,69 @@ def test_autostart_click_routes_to_disable_when_currently_on(tmp_path: Path, mon
             lambda **_kwargs: calls.append("disable") or (WriteOutcome.OK, None),
         )
 
-        flash = app._handle_autostart_click()
-
+        assert app._handle_autostart_click() is None
         assert calls == ["disable"]
-        assert flash is no_update
     finally:
         app.close()
 
 
-def test_autostart_click_shows_conflict_flash_without_writing(tmp_path: Path, monkeypatch) -> None:
-    """A conflict shows the same flash whether found at classification or only at write time."""
+def test_autostart_disabled_returns_true_only_for_click_action_none() -> None:
+    """The HTML disabled property is derived from click_action, not display_state."""
+    assert TapMap._autostart_disabled(AutostartDecision(DisplayState.ON, ClickAction.NONE)) is True
+    assert (
+        TapMap._autostart_disabled(AutostartDecision(DisplayState.OFF, ClickAction.NONE)) is True
+    )
+    assert (
+        TapMap._autostart_disabled(AutostartDecision(DisplayState.ON, ClickAction.DISABLE))
+        is False
+    )
+    assert (
+        TapMap._autostart_disabled(AutostartDecision(DisplayState.OFF, ClickAction.CREATE))
+        is False
+    )
+
+
+def test_autostart_click_never_writes_when_click_action_is_none(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A disabled control's click_action is NONE regardless of why; no write is ever attempted.
+
+    Covers every current source of ClickAction.NONE: elevated, unknown elevation,
+    unqueryable state, source run, and a known foreign task.
+    """
     monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
 
     app = TapMap(_runtime_ctx(tmp_path))
     try:
-        # Conflict already known at classification time.
-        monkeypatch.setattr(
-            windows_autostart,
-            "query_display_state",
-            lambda **_kwargs: AutostartDecision(DisplayState.OFF, ClickAction.SHOW_CONFLICT),
-        )
 
         def _fail(**_kwargs):
-            raise AssertionError("must not write when the existing task is foreign")
+            raise AssertionError("must not write when click_action is NONE")
 
-        monkeypatch.setattr(windows_autostart, "create", _fail)
+        monkeypatch.setattr(windows_autostart, "disable", _fail)
         monkeypatch.setattr(windows_autostart, "enable", _fail)
+        monkeypatch.setattr(windows_autostart, "create", _fail)
+        monkeypatch.setattr(windows_autostart, "repair_and_enable", _fail)
 
-        flash = app._handle_autostart_click()
+        for display_state in (DisplayState.ON, DisplayState.OFF, DisplayState.UNAVAILABLE):
+            monkeypatch.setattr(
+                windows_autostart,
+                "query_display_state",
+                lambda ds=display_state, **_kwargs: AutostartDecision(ds, ClickAction.NONE),
+            )
 
-        assert isinstance(flash, dict)
-        assert "TapMap" in flash["message"]
+            assert app._handle_autostart_click() is None
+    finally:
+        app.close()
 
-        # Conflict discovered only at write time.
+
+def test_autostart_click_does_not_raise_on_write_time_conflict(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A foreign task discovered only at write time is handled without raising."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
         monkeypatch.setattr(
             windows_autostart,
             "query_display_state",
@@ -649,16 +703,13 @@ def test_autostart_click_shows_conflict_flash_without_writing(tmp_path: Path, mo
             windows_autostart, "disable", lambda **_kwargs: (WriteOutcome.CONFLICT, None)
         )
 
-        flash = app._handle_autostart_click()
-
-        assert isinstance(flash, dict)
-        assert "TapMap" in flash["message"]
+        assert app._handle_autostart_click() is None
     finally:
         app.close()
 
 
-def test_autostart_click_shows_elevated_flash_without_writing(tmp_path: Path, monkeypatch) -> None:
-    """Clicking while elevated shows the elevated explanation and performs no write."""
+def test_autostart_click_logs_warning_on_write_error(tmp_path: Path, monkeypatch) -> None:
+    """A write failure is still logged, even though no flash is shown for it."""
     monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
 
     app = TapMap(_runtime_ctx(tmp_path))
@@ -666,37 +717,17 @@ def test_autostart_click_shows_elevated_flash_without_writing(tmp_path: Path, mo
         monkeypatch.setattr(
             windows_autostart,
             "query_display_state",
-            lambda **_kwargs: AutostartDecision(DisplayState.ON, ClickAction.NONE),
+            lambda **_kwargs: AutostartDecision(DisplayState.ON, ClickAction.DISABLE),
         )
-        monkeypatch.setattr(windows_autostart, "is_elevated", lambda: ElevationStatus.ELEVATED)
-
-        flash = app._handle_autostart_click()
-
-        assert isinstance(flash, dict)
-        assert "administrator" in flash["message"]
-    finally:
-        app.close()
-
-
-def test_autostart_click_shows_unavailable_flash_when_elevation_is_unknown(
-    tmp_path: Path, monkeypatch
-) -> None:
-    """An undetermined elevation status shows the generic unavailable flash, not "administrator"."""
-    monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
-
-    app = TapMap(_runtime_ctx(tmp_path))
-    try:
         monkeypatch.setattr(
-            windows_autostart,
-            "query_display_state",
-            lambda **_kwargs: AutostartDecision(DisplayState.UNAVAILABLE, ClickAction.NONE),
+            windows_autostart, "disable", lambda **_kwargs: (WriteOutcome.ERROR, "access denied")
         )
-        monkeypatch.setattr(windows_autostart, "is_elevated", lambda: ElevationStatus.UNKNOWN)
+        warnings: list[str] = []
+        monkeypatch.setattr(
+            app.logger, "warning", lambda msg, *args: warnings.append(msg % args)
+        )
 
-        flash = app._handle_autostart_click()
-
-        assert isinstance(flash, dict)
-        assert "unavailable" in flash["message"].lower()
-        assert "administrator" not in flash["message"]
+        assert app._handle_autostart_click() is None
+        assert warnings == ["Autostart write failed: access denied"]
     finally:
         app.close()

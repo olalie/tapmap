@@ -263,8 +263,13 @@ class TapMap:
         initial_body_class = "modal-body"
         autostart_supported = self._autostart_supported()
         initial_autostart_display_state = "off"
+        initial_autostart_disabled = True
         if autostart_supported:
-            initial_autostart_display_state = self._current_autostart_decision().display_state.value
+            from tapmap.state.autostart import ClickAction
+
+            initial_decision = self._current_autostart_decision()
+            initial_autostart_display_state = initial_decision.display_state.value
+            initial_autostart_disabled = initial_decision.click_action == ClickAction.NONE
 
         if initial_modal_state is not None:
             geo_path = str(self.runtime.geo_data_dir)
@@ -294,7 +299,7 @@ class TapMap:
             initial_technical_details_on=self.settings.technical_details,
             autostart_supported=autostart_supported,
             initial_autostart_display_state=initial_autostart_display_state,
-            initial_autostart_disabled=not self.runtime.is_frozen,
+            initial_autostart_disabled=initial_autostart_disabled,
         )
 
     @staticmethod
@@ -516,8 +521,7 @@ class TapMap:
             view = self.view_builder.build_view_from_cache(
                 self.connection_state.cache, technical_details_enabled
             )
-            flash = self._flash("Model snapshot is invalid. See terminal.", self.MIN_FLASH_S)
-            return {"error": True}, status_cache.to_store(), view, flash, no_update
+            return {"error": True}, status_cache.to_store(), view, no_update, no_update
 
         snap["runtime_info"] = self._build_runtime_info()
 
@@ -1137,36 +1141,20 @@ class TapMap:
             return base + " is-unavailable"
         return base
 
-    def _autostart_conflict_flash(self) -> Any:
-        """Return the flash shown when a non-recognized "TapMap" task blocks a write."""
-        return self._flash(
-            'Another Scheduled Task named "TapMap" already exists and prevents '
-            "TapMap from creating its own autostart task. You can resolve this "
-            "manually in Task Scheduler.",
-            self.MIN_FLASH_S,
-        )
+    @staticmethod
+    def _autostart_disabled(decision: Any) -> bool:
+        """Return whether the autostart control should be HTML-disabled for decision."""
+        from tapmap.state.autostart import ClickAction
 
-    def _handle_autostart_click(self) -> Any:
-        """Perform the write a click on the R control implies, and return a flash or no_update."""
+        return decision.click_action == ClickAction.NONE
+
+    def _handle_autostart_click(self) -> None:
+        """Perform the write a click on the R control implies. A disabled control is a no-op."""
         from tapmap.autostart import windows_autostart
-        from tapmap.state.autostart import ClickAction, ElevationStatus, WriteOutcome
+        from tapmap.state.autostart import ClickAction, WriteOutcome
 
         decision = self._current_autostart_decision()
         exe_path = self._autostart_exe_path()
-
-        if decision.click_action == ClickAction.NONE:
-            if windows_autostart.is_elevated() == ElevationStatus.ELEVATED:
-                return self._flash(
-                    "Automatic startup can't be changed while TapMap is running as "
-                    "administrator. Run TapMap normally instead.",
-                    self.MIN_FLASH_S,
-                )
-            return self._flash(
-                "Automatic startup status is currently unavailable.", self.MIN_FLASH_S
-            )
-
-        if decision.click_action == ClickAction.SHOW_CONFLICT:
-            return self._autostart_conflict_flash()
 
         if decision.click_action == ClickAction.DISABLE:
             outcome, error = windows_autostart.disable(exe_path=exe_path)
@@ -1177,18 +1165,10 @@ class TapMap:
         elif decision.click_action == ClickAction.REPAIR_AND_ENABLE:
             outcome, error = windows_autostart.repair_and_enable(exe_path=exe_path)
         else:
-            return no_update
-
-        if outcome == WriteOutcome.CONFLICT:
-            return self._autostart_conflict_flash()
+            return
 
         if outcome == WriteOutcome.ERROR:
             self.logger.warning("Autostart write failed: %s", error)
-            return self._flash(
-                "Unable to change automatic startup. See terminal.", self.MIN_FLASH_S
-            )
-
-        return no_update
 
     @staticmethod
     def _autostart_trigger_kind(
@@ -1211,7 +1191,7 @@ class TapMap:
     def _register_autostart_callbacks(self) -> None:
         @self.app.callback(
             Output("menu_autostart", "className"),
-            Output("status_flash", "data", allow_duplicate=True),
+            Output("menu_autostart", "disabled"),
             Input("menu_open", "data"),
             Input("menu_autostart", "n_clicks"),
             Input("key_action", "data"),
@@ -1230,12 +1210,13 @@ class TapMap:
             if kind == "ignore":
                 raise PreventUpdate
 
-            flash: Any = no_update
             if kind == "act":
-                flash = self._handle_autostart_click()
+                self._handle_autostart_click()
 
             decision = self._current_autostart_decision()
-            return self._autostart_class_name(decision.display_state), flash
+            return self._autostart_class_name(decision.display_state), self._autostart_disabled(
+                decision
+            )
 
     def _register_modal_render_callbacks(self) -> None:
         @self.app.callback(

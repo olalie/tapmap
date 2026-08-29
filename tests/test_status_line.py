@@ -65,8 +65,8 @@ def test_render_status_text_returns_wait_status_when_snapshot_is_missing(
     )
 
 
-def test_render_status_text_returns_error_status_with_note(cache_chain_stub: str) -> None:
-    """Return ERROR status with terminal note when snapshot has error."""
+def test_render_status_text_returns_error_status(cache_chain_stub: str) -> None:
+    """Return ERROR status when snapshot has error."""
     result = status_line.render_status_text(
         snapshot={"error": "boom"},
         status_cache_data=None,
@@ -76,7 +76,7 @@ def test_render_status_text_returns_error_status_with_note(cache_chain_stub: str
     )
 
     assert result == (
-        "STATUS: ERROR (see terminal) | "
+        "STATUS: ERROR | "
         "LIVE: TCP 0 EST 0 LST 0 UDP R 0 B 0 | "
         f"CACHE: {cache_chain_stub} | "
         "UPDATED: --:--:-- | "

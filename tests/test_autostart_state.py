@@ -74,13 +74,13 @@ def test_absent_task_is_off_with_create_action() -> None:
     assert result == AutostartDecision(DisplayState.OFF, ClickAction.CREATE)
 
 
-def test_foreign_task_is_off_with_conflict_action() -> None:
-    """A present but non-recognized task never gets modified; a click surfaces the conflict."""
+def test_foreign_task_is_off_and_disabled() -> None:
+    """A present but non-recognized task is confidently OFF and never gets modified."""
     status = _status(present=True, recognized=False, enabled=True)
 
     result = decide_autostart_display(status=status, elevation=_NOT_ELEVATED, is_source_run=False)
 
-    assert result == AutostartDecision(DisplayState.OFF, ClickAction.SHOW_CONFLICT)
+    assert result == AutostartDecision(DisplayState.OFF, ClickAction.NONE)
 
 
 def test_recognized_disabled_current_definition_is_off_with_enable_action() -> None:
