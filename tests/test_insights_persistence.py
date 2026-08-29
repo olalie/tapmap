@@ -259,7 +259,7 @@ def test_acquire_lock_without_existing_lock(tmp_path: Path) -> None:
 
 
 def test_acquire_lock_exits_when_same_process_running(tmp_path: Path) -> None:
-    """Exit when the lock belongs to a currently running TapMap instance, opening its browser."""
+    """Open the existing TapMap instance and exit."""
     app = _bare_app(tmp_path)
 
     app._lock_path.write_text(
@@ -287,7 +287,7 @@ def test_acquire_lock_exits_when_same_process_running(tmp_path: Path) -> None:
 
 
 def test_acquire_lock_does_not_open_browser_for_docker(tmp_path: Path) -> None:
-    """Docker never opens a browser, even when another instance is detected."""
+    """Do not open a browser for an existing Docker instance."""
     app = _bare_app(tmp_path)
     app.runtime = SimpleNamespace(is_docker=True, server_host="0.0.0.0", server_port=8050)
 

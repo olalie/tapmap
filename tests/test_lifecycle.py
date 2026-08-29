@@ -1,4 +1,4 @@
-"""Test shutdown coordination and the server thread wrapper."""
+"""Test shutdown coordination and server lifecycle."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from tapmap.lifecycle import LifecycleCoordinator, start_server_thread
 
 
 def test_request_shutdown_unblocks_wait_for_shutdown() -> None:
-    """A thread blocked in wait_for_shutdown() unblocks once request_shutdown() is called."""
+    """Unblock a shutdown wait when shutdown is requested."""
     coordinator = LifecycleCoordinator()
     unblocked = threading.Event()
 
@@ -33,7 +33,7 @@ def test_request_shutdown_unblocks_wait_for_shutdown() -> None:
 
 
 def test_request_shutdown_stops_a_registered_tray_icon() -> None:
-    """request_shutdown() also stops the tray icon, so icon.run() can unblock the main thread."""
+    """Stop the tray icon when shutdown is requested."""
     coordinator = LifecycleCoordinator()
 
     class _FakeIcon:
@@ -52,18 +52,15 @@ def test_request_shutdown_stops_a_registered_tray_icon() -> None:
 
 
 def test_run_tray_honors_a_shutdown_already_requested_before_the_icon_started() -> None:
-    """run_tray() must not block forever if shutdown was requested before the icon was running.
+    """Handle shutdown requested before the tray starts.
 
-    Regression test for a real lifecycle hole: pystray's Icon.stop() has no
-    effect if the icon isn't running yet (e.g. start_server_thread()'s
-    serve_forever() crashing immediately, before run_tray() gets called).
-    Without re-checking once the icon is actually running, that request
-    would be silently lost and the tray-only process would never exit.
+    pystray ignores stop() before the icon is running. Recheck shutdown after
+    startup so the process can still exit.
     """
     coordinator = LifecycleCoordinator()
 
     class _FakeIcon:
-        """Mimics pystray's stop()-before-run()-is-a-no-op contract."""
+        """Simulate pystray ignoring stop() before run()."""
 
         def __init__(self) -> None:
             self._running = False
@@ -97,14 +94,10 @@ def test_run_tray_honors_a_shutdown_already_requested_before_the_icon_started() 
 
 
 def test_run_tray_always_stops_the_windows_message_loop_nudge(monkeypatch) -> None:
-    """The Windows Ctrl+C nudge timer is torn down even if icon.run() raises.
+    """Stop the Windows message-loop timer when the tray exits.
 
-    Regression test for a real Windows bug: pystray's Windows message loop
-    blocks in GetMessage() with no timeout, so a pending Ctrl+C/SIGTERM is
-    never dispatched until some unrelated window message happens to arrive.
-    run_tray() works around this with a periodic Win32 timer; this test
-    protects only that the timer is started before, and always stopped
-    after, icon.run() - not the timer mechanism itself.
+    The timer lets Windows process Ctrl+C and SIGTERM while pystray is blocked
+    in GetMessage().
     """
     coordinator = LifecycleCoordinator()
     calls: list[object] = []
@@ -130,7 +123,7 @@ def test_run_tray_always_stops_the_windows_message_loop_nudge(monkeypatch) -> No
 
 
 def test_start_windows_message_loop_nudge_is_a_noop_off_windows(monkeypatch) -> None:
-    """The Ctrl+C nudge timer is never attempted on non-Windows platforms."""
+    """Do not start the message-loop timer outside Windows."""
     monkeypatch.setattr(lifecycle.platform, "system", lambda: "Linux")
 
     assert lifecycle._start_windows_message_loop_nudge() is None
@@ -138,14 +131,14 @@ def test_start_windows_message_loop_nudge_is_a_noop_off_windows(monkeypatch) -> 
 
 @pytest.mark.skipif(platform.system() != "Windows", reason="Windows-only Ctrl+C nudge timer")
 def test_start_windows_message_loop_nudge_returns_none_when_settimer_fails(monkeypatch) -> None:
-    """A failed SetTimer() call (returns 0) degrades to no nudge rather than a bad timer id."""
+    """Return no timer when SetTimer() fails."""
     monkeypatch.setattr(lifecycle.ctypes.windll.user32, "SetTimer", lambda *args: 0)
 
     assert lifecycle._start_windows_message_loop_nudge() is None
 
 
 def test_wait_for_shutdown_is_interruptible_by_a_real_signal_on_the_main_thread() -> None:
-    """Regression test: wait_for_shutdown() must react to a real Ctrl+C (SIGINT)."""
+    """Handle a real SIGINT while waiting for shutdown."""
     # Must run as a real subprocess, not an in-process thread: CPython only
     # dispatches signal handlers on a process's actual main thread, so a
     # background thread standing in for it would not exercise this at all.
@@ -181,7 +174,7 @@ def test_wait_for_shutdown_is_interruptible_by_a_real_signal_on_the_main_thread(
 
 
 def test_start_server_thread_requests_shutdown_when_serve_forever_returns() -> None:
-    """Shutdown is requested once serve_forever() exits normally."""
+    """Request shutdown when the server stops normally."""
     coordinator = LifecycleCoordinator()
 
     class _FakeServer:
@@ -196,7 +189,7 @@ def test_start_server_thread_requests_shutdown_when_serve_forever_returns() -> N
 
 
 def test_start_server_thread_requests_shutdown_when_serve_forever_raises(monkeypatch) -> None:
-    """Shutdown is requested even when serve_forever() exits via an unhandled exception."""
+    """Request shutdown when the server raises an exception."""
     monkeypatch.setattr(threading, "excepthook", lambda args: None)
     coordinator = LifecycleCoordinator()
 

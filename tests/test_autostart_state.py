@@ -1,4 +1,4 @@
-"""Test the pure "Run TapMap automatically" display/click decision table."""
+"""Test autostart display and click decisions."""
 
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ def _status(
 
 
 def test_source_run_is_off_and_inert_regardless_of_status() -> None:
-    """A source run never queries native state, so it always shows OFF with no click action."""
+    """Show autostart as off and disabled for a source run."""
     status = _status(
         present=True, recognized=True, enabled=True, matches_preferred_definition=True
     )
@@ -46,7 +46,7 @@ def test_source_run_is_off_and_inert_regardless_of_status() -> None:
 
 
 def test_unqueryable_native_state_is_unavailable() -> None:
-    """Native state that can't be read reliably shows Unavailable and blocks writes."""
+    """Show autostart as unavailable when native state cannot be read."""
     status = _status(queryable=False)
 
     result = decide_autostart_display(status=status, elevation=_NOT_ELEVATED, is_source_run=False)
@@ -55,7 +55,7 @@ def test_unqueryable_native_state_is_unavailable() -> None:
 
 
 def test_recognized_current_enabled_is_on_with_disable_action() -> None:
-    """A recognized, enabled task matching the preferred definition displays ON."""
+    """Show an enabled current TapMap task as on."""
     status = _status(
         present=True, recognized=True, enabled=True, matches_preferred_definition=True
     )
@@ -66,7 +66,7 @@ def test_recognized_current_enabled_is_on_with_disable_action() -> None:
 
 
 def test_absent_task_is_off_with_create_action() -> None:
-    """No task at all displays OFF and a click should create the canonical task."""
+    """Show autostart as off when no task exists."""
     status = _status(present=False)
 
     result = decide_autostart_display(status=status, elevation=_NOT_ELEVATED, is_source_run=False)
@@ -75,7 +75,7 @@ def test_absent_task_is_off_with_create_action() -> None:
 
 
 def test_foreign_task_is_off_and_disabled() -> None:
-    """A present but non-recognized task is confidently OFF and never gets modified."""
+    """Show autostart as off and disabled for a foreign task."""
     status = _status(present=True, recognized=False, enabled=True)
 
     result = decide_autostart_display(status=status, elevation=_NOT_ELEVATED, is_source_run=False)
@@ -84,7 +84,7 @@ def test_foreign_task_is_off_and_disabled() -> None:
 
 
 def test_recognized_disabled_current_definition_is_off_with_enable_action() -> None:
-    """A recognized, disabled task already matching the preferred definition just needs enabling."""
+    """Allow a current disabled TapMap task to be enabled."""
     status = _status(
         present=True, recognized=True, enabled=False, matches_preferred_definition=True
     )
@@ -95,7 +95,7 @@ def test_recognized_disabled_current_definition_is_off_with_enable_action() -> N
 
 
 def test_stale_definition_is_off_with_repair_action() -> None:
-    """A recognized task with a stale definition needs the repair action, enabled or not."""
+    """Require repair when the TapMap task definition is outdated."""
     status = _status(
         present=True, recognized=True, enabled=True, matches_preferred_definition=False
     )
@@ -106,7 +106,7 @@ def test_stale_definition_is_off_with_repair_action() -> None:
 
 
 def test_elevated_recognized_current_enabled_shows_on_but_blocks_writes() -> None:
-    """Elevated may read and display live state, but a click never performs any write."""
+    """Show the current state but block changes when elevated."""
     status = _status(
         present=True, recognized=True, enabled=True, matches_preferred_definition=True
     )
@@ -117,7 +117,7 @@ def test_elevated_recognized_current_enabled_shows_on_but_blocks_writes() -> Non
 
 
 def test_elevated_off_state_also_blocks_writes() -> None:
-    """Elevated with no active task displays OFF, still with no click action."""
+    """Show autostart as off and disabled when elevated."""
     status = _status(present=False)
 
     result = decide_autostart_display(status=status, elevation=_ELEVATED, is_source_run=False)
@@ -126,7 +126,7 @@ def test_elevated_off_state_also_blocks_writes() -> None:
 
 
 def test_unknown_elevation_is_unavailable_even_when_native_state_is_on() -> None:
-    """An undetermined elevation status is unavailable/read-only, never treated as non-elevated."""
+    """Show autostart as unavailable when elevation cannot be determined."""
     status = _status(
         present=True, recognized=True, enabled=True, matches_preferred_definition=True
     )

@@ -105,7 +105,7 @@ class TestGetLocationOverride:
 
 
 class TestGetLaunchBrowser:
-    """Test _get_launch_browser() env var parser and --no-browser precedence."""
+    """Test browser launch settings and --no-browser precedence."""
 
     def test_default_returns_config(self) -> None:
         """Missing env var returns config default."""
@@ -130,12 +130,12 @@ class TestGetLaunchBrowser:
             assert _get_launch_browser(no_browser=False) is True
 
     def test_no_browser_overrides_env_var_true(self) -> None:
-        """--no-browser wins even when TAPMAP_LAUNCH_BROWSER explicitly requests True."""
+        """Let --no-browser override an enabled environment setting."""
         with patch.dict(os.environ, {"TAPMAP_LAUNCH_BROWSER": "1"}, clear=True):
             assert _get_launch_browser(no_browser=True) is False
 
     def test_no_browser_overrides_config_default(self) -> None:
-        """--no-browser wins with no env var set, over the config default of True."""
+        """Let --no-browser override the default browser setting."""
         with patch.dict(os.environ, {}, clear=True):
             assert _get_launch_browser(no_browser=True) is False
 

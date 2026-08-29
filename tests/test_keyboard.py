@@ -98,7 +98,7 @@ def test_build_key_action_maps_technical_details(monkeypatch) -> None:
 
 
 def test_build_key_action_maps_autostart(monkeypatch) -> None:
-    """Map R token to the Run TapMap automatically action."""
+    """Map the R key to the autostart action."""
     monkeypatch.setattr(keyboard, "datetime", DummyDatetime)
 
     result = keyboard.build_key_action("__r__")

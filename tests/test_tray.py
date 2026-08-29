@@ -1,4 +1,4 @@
-"""Test the tray icon's Open/Quit menu wiring (not pystray itself, not OS rendering)."""
+"""Test tray menu behavior."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ _ICON_PATH = Path(__file__).resolve().parent.parent / "src" / "tapmap" / "assets
 
 
 def test_create_tray_icon_menu_is_open_separator_quit() -> None:
-    """The tray menu is exactly Open TapMap, a separator, then Quit TapMap, in that order."""
+    """Create the tray menu with Open, separator, and Quit."""
     icon = create_tray_icon(
         icon_path=_ICON_PATH,
         tooltip="TapMap",
@@ -23,7 +23,7 @@ def test_create_tray_icon_menu_is_open_separator_quit() -> None:
 
 
 def test_create_tray_icon_open_item_is_the_default_action() -> None:
-    """Open TapMap is the default item (fires on a plain click where the platform supports it)."""
+    """Use Open TapMap as the default tray action."""
     icon = create_tray_icon(
         icon_path=_ICON_PATH,
         tooltip="TapMap",
@@ -36,7 +36,7 @@ def test_create_tray_icon_open_item_is_the_default_action() -> None:
 
 
 def test_create_tray_icon_open_item_calls_on_open() -> None:
-    """Selecting Open TapMap invokes the on_open callback."""
+    """Call the open callback from Open TapMap."""
     calls: list[str] = []
     icon = create_tray_icon(
         icon_path=_ICON_PATH,
@@ -53,7 +53,7 @@ def test_create_tray_icon_open_item_calls_on_open() -> None:
 
 
 def test_create_tray_icon_quit_item_calls_on_quit() -> None:
-    """Selecting Quit TapMap invokes the on_quit callback."""
+    """Call the quit callback from Quit TapMap."""
     calls: list[str] = []
     icon = create_tray_icon(
         icon_path=_ICON_PATH,
@@ -70,7 +70,7 @@ def test_create_tray_icon_quit_item_calls_on_quit() -> None:
 
 
 def test_create_tray_icon_returns_none_when_icon_file_is_missing(tmp_path: Path) -> None:
-    """A construction failure (e.g. a missing icon file) degrades to no tray, not an error."""
+    """Return no tray icon when tray creation fails."""
     icon = create_tray_icon(
         icon_path=tmp_path / "does-not-exist.ico",
         tooltip="TapMap",

@@ -1,8 +1,6 @@
-"""Test Windows autostart orchestration: startup state machine and live query/write actions.
+"""Test Windows autostart behavior.
 
-Task Scheduler I/O is mocked at the windows_task_scheduler module boundary
-(mirrors how test_appinfo_windows.py mocks windows_signature_info) so these
-tests never touch the real Task Scheduler.
+Task Scheduler I/O is mocked so tests never change real scheduled tasks.
 """
 
 from __future__ import annotations
@@ -26,7 +24,7 @@ def _recognized_task(
     arguments: str | None = "--no-browser",
     trigger_user_id: object = _CURRENT_USER,
 ) -> TaskInfo:
-    """Return a recognized TaskInfo for the current user and _EXE."""
+    """Return a recognized TapMap task for the current user."""
     if trigger_user_id is _CURRENT_USER:
         trigger_user_id = windows_autostart._current_username()
     return TaskInfo(
@@ -49,7 +47,7 @@ def _recognized_task(
 def test_query_display_state_is_off_for_a_source_run_and_never_queries_scheduler(
     monkeypatch,
 ) -> None:
-    """A source run never touches Task Scheduler at all."""
+    """Do not query Task Scheduler for a source run."""
     called = False
 
     def _fail(*_args, **_kwargs):
@@ -67,7 +65,7 @@ def test_query_display_state_is_off_for_a_source_run_and_never_queries_scheduler
 
 
 def test_query_display_state_on_for_recognized_current_enabled_task(monkeypatch) -> None:
-    """A frozen run with a recognized, enabled, current-definition task shows ON."""
+    """Show autostart as on for an enabled current TapMap task."""
     monkeypatch.setattr(scheduler, "find_task", lambda: _recognized_task())
     monkeypatch.setattr(windows_autostart, "is_elevated", lambda: ElevationStatus.NOT_ELEVATED)
 
@@ -78,7 +76,7 @@ def test_query_display_state_on_for_recognized_current_enabled_task(monkeypatch)
 
 
 def test_query_display_state_off_repair_for_legacy_installer_task(monkeypatch) -> None:
-    """The old installer's task (no Trigger.UserId, no Arguments) needs repair."""
+    """Require repair for the legacy installer task."""
     legacy_task = _recognized_task(arguments=None, trigger_user_id=None)
     monkeypatch.setattr(scheduler, "find_task", lambda: legacy_task)
     monkeypatch.setattr(windows_autostart, "is_elevated", lambda: ElevationStatus.NOT_ELEVATED)
@@ -90,7 +88,7 @@ def test_query_display_state_off_repair_for_legacy_installer_task(monkeypatch) -
 
 
 def test_query_display_state_off_for_absent_task(monkeypatch) -> None:
-    """No task at all shows OFF with a create action."""
+    """Show autostart as off when no task exists."""
     monkeypatch.setattr(scheduler, "find_task", lambda: None)
     monkeypatch.setattr(windows_autostart, "is_elevated", lambda: ElevationStatus.NOT_ELEVATED)
 
@@ -101,7 +99,7 @@ def test_query_display_state_off_for_absent_task(monkeypatch) -> None:
 
 
 def test_query_display_state_unavailable_when_scheduler_raises(monkeypatch) -> None:
-    """A query failure degrades to Unavailable, never an exception."""
+    """Show autostart as unavailable when Task Scheduler fails."""
 
     def _raise():
         raise scheduler.TaskQueryError("boom")
@@ -117,7 +115,7 @@ def test_query_display_state_unavailable_when_scheduler_raises(monkeypatch) -> N
 def test_query_display_state_unavailable_when_elevation_cannot_be_determined(
     monkeypatch,
 ) -> None:
-    """An undetermined elevation status is Unavailable, never treated as non-elevated."""
+    """Show autostart as unavailable when elevation cannot be determined."""
     monkeypatch.setattr(scheduler, "find_task", lambda: _recognized_task())
     monkeypatch.setattr(windows_autostart, "is_elevated", lambda: ElevationStatus.UNKNOWN)
 
@@ -133,7 +131,7 @@ def test_query_display_state_unavailable_when_elevation_cannot_be_determined(
 
 
 def test_enable_reports_scheduler_failure(monkeypatch) -> None:
-    """A failed write is reported as (ERROR, message), never raised."""
+    """Return an error when enabling the task fails."""
 
     def _raise(_enabled, **_kwargs):
         raise scheduler.TaskQueryError("access denied")
@@ -147,7 +145,7 @@ def test_enable_reports_scheduler_failure(monkeypatch) -> None:
 
 
 def test_disable_calls_set_task_enabled_if_recognized_false(monkeypatch) -> None:
-    """disable() flips the existing task off in place."""
+    """Disable a recognized TapMap task."""
     calls: list[tuple[bool, str, str]] = []
     monkeypatch.setattr(
         scheduler,
@@ -165,7 +163,7 @@ def test_disable_calls_set_task_enabled_if_recognized_false(monkeypatch) -> None
 
 
 def test_disable_reports_ownership_conflict_without_writing(monkeypatch) -> None:
-    """disable() surfaces a write-time conflict distinctly, without performing any write."""
+    """Do not modify a task when ownership conflicts."""
 
     def _raise(_enabled, **_kwargs):
         raise scheduler.TaskOwnershipConflict("not ours anymore")
@@ -179,7 +177,7 @@ def test_disable_reports_ownership_conflict_without_writing(monkeypatch) -> None
 
 
 def test_create_passes_preferred_arguments_and_current_username(monkeypatch) -> None:
-    """create() always uses the canonical --no-browser arguments."""
+    """Create the task with the preferred --no-browser arguments."""
     captured: dict[str, object] = {}
 
     def _create_or_update(*, exe_path, arguments, username):
@@ -196,7 +194,7 @@ def test_create_passes_preferred_arguments_and_current_username(monkeypatch) -> 
 
 
 def test_create_reports_ownership_conflict_without_writing(monkeypatch) -> None:
-    """create() surfaces a write-time conflict distinctly (a foreign task appeared)."""
+    """Do not create a task when a foreign task has appeared."""
 
     def _raise(**_kwargs):
         raise scheduler.TaskOwnershipConflict("a task now exists and is not ours")
@@ -213,7 +211,7 @@ def test_create_reports_ownership_conflict_without_writing(monkeypatch) -> None:
 
 
 def test_startup_setup_noop_for_source_run(tmp_path: Path, monkeypatch) -> None:
-    """A source run never queries Task Scheduler and never writes the marker."""
+    """Do not change autostart during a source run."""
     called = False
 
     def _fail():
@@ -230,7 +228,7 @@ def test_startup_setup_noop_for_source_run(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_startup_setup_noop_once_marker_exists(tmp_path: Path, monkeypatch) -> None:
-    """Once the marker exists, ordinary startup never touches Task Scheduler again."""
+    """Do not change autostart when the setup marker exists."""
     marker.mark_setup_completed(tmp_path)
     called = False
 
@@ -249,7 +247,7 @@ def test_startup_setup_noop_once_marker_exists(tmp_path: Path, monkeypatch) -> N
 def test_startup_setup_creates_task_and_writes_marker_when_absent(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """Marker absent + no task: create the canonical task, verify it, then write the marker."""
+    """Create and verify the task before writing the setup marker."""
     find_task_calls: list[None] = []
 
     def _find_task():
@@ -277,7 +275,7 @@ def test_startup_setup_creates_task_and_writes_marker_when_absent(
 def test_startup_setup_does_not_write_marker_when_post_create_readback_fails_verification(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """Creation succeeds but the read-back shows the task disabled: marker stays absent."""
+    """Keep the marker absent when the created task fails verification."""
     find_task_calls: list[None] = []
 
     def _find_task():
@@ -298,7 +296,7 @@ def test_startup_setup_does_not_write_marker_when_post_create_readback_fails_ver
 def test_startup_setup_does_not_write_marker_when_post_create_readback_is_ambiguous(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """Creation succeeds but the verification read-back itself fails: marker stays absent."""
+    """Keep the marker absent when task verification cannot be completed."""
     find_task_calls: list[None] = []
 
     def _find_task():
@@ -321,7 +319,7 @@ def test_startup_setup_does_not_write_marker_when_post_create_readback_is_ambigu
 def test_startup_setup_writes_marker_without_touching_an_existing_task(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """Marker absent + a task already exists: write the marker, never touch the task."""
+    """Write the marker without changing an existing task."""
     monkeypatch.setattr(scheduler, "find_task", lambda: _recognized_task())
 
     def _fail(**_kwargs):
@@ -337,7 +335,7 @@ def test_startup_setup_writes_marker_without_touching_an_existing_task(
 def test_startup_setup_writes_marker_when_write_time_ownership_conflict_occurs(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """A write-time conflict still completes initial setup, unlike an ambiguous query failure."""
+    """Write the marker when a task ownership conflict occurs during creation."""
     monkeypatch.setattr(scheduler, "find_task", lambda: None)
     monkeypatch.setattr(windows_autostart, "is_elevated", lambda: ElevationStatus.NOT_ELEVATED)
 
@@ -354,7 +352,7 @@ def test_startup_setup_writes_marker_when_write_time_ownership_conflict_occurs(
 def test_startup_setup_does_nothing_when_scheduler_is_unreadable(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """A query failure performs no write and does not write the marker."""
+    """Make no changes when Task Scheduler cannot be read."""
 
     def _raise():
         raise scheduler.TaskQueryError("boom")
@@ -369,7 +367,7 @@ def test_startup_setup_does_nothing_when_scheduler_is_unreadable(
 def test_startup_setup_does_not_create_task_or_marker_when_elevated(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """An elevated process with no task must not create one or write the marker."""
+    """Do not create the task or marker when elevated."""
     monkeypatch.setattr(scheduler, "find_task", lambda: None)
     monkeypatch.setattr(windows_autostart, "is_elevated", lambda: ElevationStatus.ELEVATED)
 
@@ -386,7 +384,7 @@ def test_startup_setup_does_not_create_task_or_marker_when_elevated(
 def test_startup_setup_does_not_create_task_or_marker_when_elevation_is_unknown(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """An undetermined elevation status must block creation exactly like confirmed elevation."""
+    """Do not create the task or marker when elevation is unknown."""
     monkeypatch.setattr(scheduler, "find_task", lambda: None)
     monkeypatch.setattr(windows_autostart, "is_elevated", lambda: ElevationStatus.UNKNOWN)
 
@@ -403,7 +401,7 @@ def test_startup_setup_does_not_create_task_or_marker_when_elevation_is_unknown(
 def test_startup_setup_does_not_write_marker_when_creation_fails(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """A failed create leaves the marker absent so a later launch retries."""
+    """Keep the marker absent when task creation fails."""
     monkeypatch.setattr(scheduler, "find_task", lambda: None)
     monkeypatch.setattr(windows_autostart, "is_elevated", lambda: ElevationStatus.NOT_ELEVATED)
 
@@ -421,7 +419,7 @@ def test_startup_setup_does_not_write_marker_when_creation_fails(
 
 
 def test_is_elevated_maps_true_and_false_correctly(monkeypatch) -> None:
-    """IsUserAnAdmin() True/False map to ELEVATED/NOT_ELEVATED."""
+    """Map the Windows admin state to the correct elevation state."""
     import ctypes
 
     if not hasattr(ctypes, "windll"):
@@ -435,7 +433,7 @@ def test_is_elevated_maps_true_and_false_correctly(monkeypatch) -> None:
 
 
 def test_is_elevated_returns_unknown_rather_than_raising_off_windows(monkeypatch) -> None:
-    """is_elevated() degrades to UNKNOWN, never NOT_ELEVATED, when the Win32 call is unavailable."""
+    """Return unknown when the Windows elevation check is unavailable."""
     import ctypes
 
     if hasattr(ctypes, "windll"):

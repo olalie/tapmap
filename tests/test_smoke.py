@@ -70,7 +70,7 @@ def _component_exists(node: Any, component_id: str) -> bool:
 
 
 def _find_component(node: Any, component_id: str) -> Any:
-    """Return the component with component_id in a Dash component tree, or None."""
+    """Find a component by ID in a Dash component tree."""
     if getattr(node, "id", None) == component_id:
         return node
 
@@ -92,13 +92,13 @@ def test_tapmap_module_imports() -> None:
 
 
 def test_no_browser_flag_defaults_to_false() -> None:
-    """--no-browser is off unless explicitly passed."""
+    """Keep browser launch enabled by default."""
     args = _build_arg_parser().parse_args([])
     assert args.no_browser is False
 
 
 def test_no_browser_flag_parses_true() -> None:
-    """--no-browser sets the flag when passed."""
+    """Disable browser launch with --no-browser."""
     args = _build_arg_parser().parse_args(["--no-browser"])
     assert args.no_browser is True
 
@@ -114,7 +114,7 @@ def test_tapmap_app_constructs(tmp_path: Path) -> None:
 
 
 def test_create_tray_icon_returns_none_for_docker(tmp_path: Path, monkeypatch) -> None:
-    """Docker never attempts tray construction at all."""
+    """Do not create a tray icon in Docker."""
     app = TapMap(_runtime_ctx(tmp_path, is_docker=True))
     try:
         called = False
@@ -135,7 +135,7 @@ def test_create_tray_icon_returns_none_for_docker(tmp_path: Path, monkeypatch) -
 
 
 def test_create_tray_icon_wires_open_and_quit_callbacks(tmp_path: Path, monkeypatch) -> None:
-    """_create_tray_icon() passes the right icon/tooltip and wires Open/Quit to real behavior."""
+    """Connect the tray Open and Quit actions to TapMap."""
     app = TapMap(_runtime_ctx(tmp_path))
     try:
         captured: dict[str, Any] = {}
@@ -485,7 +485,7 @@ def test_handle_geo_update_preserves_original_error(
 
 
 def test_autostart_trigger_kind_button_click_is_act() -> None:
-    """A real click acts; a stray rerender with no clicks yet is ignored."""
+    """Treat an autostart button click as an action."""
     assert (
         TapMap._autostart_trigger_kind(
             trigger="menu_autostart", menu_open=False, n_clicks=1, key_action=None
@@ -501,7 +501,7 @@ def test_autostart_trigger_kind_button_click_is_act() -> None:
 
 
 def test_autostart_trigger_kind_r_keyboard_mnemonic_is_act() -> None:
-    """The R keyboard mnemonic performs exactly the same action as a click."""
+    """Treat the R shortcut as an autostart action."""
     kind = TapMap._autostart_trigger_kind(
         trigger="key_action",
         menu_open=False,
@@ -512,7 +512,7 @@ def test_autostart_trigger_kind_r_keyboard_mnemonic_is_act() -> None:
 
 
 def test_autostart_trigger_kind_unrelated_key_action_is_ignored() -> None:
-    """A different key_action (e.g. H for Help) must not re-query Task Scheduler."""
+    """Ignore unrelated keyboard actions."""
     kind = TapMap._autostart_trigger_kind(
         trigger="key_action",
         menu_open=False,
@@ -523,7 +523,7 @@ def test_autostart_trigger_kind_unrelated_key_action_is_ignored() -> None:
 
 
 def test_autostart_trigger_kind_menu_opening_is_refresh() -> None:
-    """Opening the menu refreshes the live display; closing it does nothing."""
+    """Refresh autostart state when the menu opens."""
     assert (
         TapMap._autostart_trigger_kind(
             trigger="menu_open", menu_open=True, n_clicks=None, key_action=None
@@ -542,7 +542,7 @@ def test_autostart_trigger_kind_menu_opening_is_refresh() -> None:
 
 
 def test_autostart_button_present_on_windows_desktop(tmp_path: Path, monkeypatch) -> None:
-    """The R control is included in the Tools menu on a non-Docker Windows runtime."""
+    """Show the autostart control on Windows desktop."""
     monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
 
     app = TapMap(_runtime_ctx(tmp_path))
@@ -553,7 +553,7 @@ def test_autostart_button_present_on_windows_desktop(tmp_path: Path, monkeypatch
 
 
 def test_autostart_button_absent_off_windows(tmp_path: Path, monkeypatch) -> None:
-    """The R control does not exist at all on a platform with no backend yet."""
+    """Hide the autostart control on unsupported platforms."""
     monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
 
     app = TapMap(_runtime_ctx(tmp_path))
@@ -564,7 +564,7 @@ def test_autostart_button_absent_off_windows(tmp_path: Path, monkeypatch) -> Non
 
 
 def test_autostart_button_absent_for_docker(tmp_path: Path, monkeypatch) -> None:
-    """Docker has no desktop autostart concept, so the control is omitted even on Windows."""
+    """Hide the autostart control in Docker."""
     monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
 
     app = TapMap(_runtime_ctx(tmp_path, is_docker=True))
@@ -575,7 +575,7 @@ def test_autostart_button_absent_for_docker(tmp_path: Path, monkeypatch) -> None
 
 
 def test_autostart_button_disabled_for_a_source_run(tmp_path: Path, monkeypatch) -> None:
-    """A source run (is_frozen False) shows the control but never lets it be clicked."""
+    """Disable the autostart control for a source run."""
     monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
 
     app = TapMap(_runtime_ctx(tmp_path))
@@ -590,11 +590,7 @@ def test_autostart_button_disabled_for_a_source_run(tmp_path: Path, monkeypatch)
 def test_initial_autostart_disabled_reflects_click_action_not_is_frozen(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """A frozen, elevated-ON initial render shows the real ON state but stays disabled.
-
-    is_frozen alone (the old formula for initial_autostart_disabled) would wrongly
-    show this case as clickable; only click_action == NONE gets it right.
-    """
+    """Disable the autostart control when no click action is available."""
     monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
     monkeypatch.setattr(
         windows_autostart,
@@ -614,7 +610,7 @@ def test_initial_autostart_disabled_reflects_click_action_not_is_frozen(
 
 
 def test_autostart_click_routes_to_disable_when_currently_on(tmp_path: Path, monkeypatch) -> None:
-    """Clicking a live ON control calls windows_autostart.disable(), not create/enable."""
+    """Disable autostart when the current state is on."""
     monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
 
     app = TapMap(_runtime_ctx(tmp_path))
@@ -638,7 +634,7 @@ def test_autostart_click_routes_to_disable_when_currently_on(tmp_path: Path, mon
 
 
 def test_autostart_disabled_returns_true_only_for_click_action_none() -> None:
-    """The HTML disabled property is derived from click_action, not display_state."""
+    """Disable the control only when the click action is NONE."""
     assert TapMap._autostart_disabled(AutostartDecision(DisplayState.ON, ClickAction.NONE)) is True
     assert (
         TapMap._autostart_disabled(AutostartDecision(DisplayState.OFF, ClickAction.NONE)) is True
@@ -656,11 +652,7 @@ def test_autostart_disabled_returns_true_only_for_click_action_none() -> None:
 def test_autostart_click_never_writes_when_click_action_is_none(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """A disabled control's click_action is NONE regardless of why; no write is ever attempted.
-
-    Covers every current source of ClickAction.NONE: elevated, unknown elevation,
-    unqueryable state, source run, and a known foreign task.
-    """
+    """Do not write when the click action is NONE."""
     monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
 
     app = TapMap(_runtime_ctx(tmp_path))
@@ -689,7 +681,7 @@ def test_autostart_click_never_writes_when_click_action_is_none(
 def test_autostart_click_does_not_raise_on_write_time_conflict(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """A foreign task discovered only at write time is handled without raising."""
+    """Handle a task ownership conflict without raising."""
     monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
 
     app = TapMap(_runtime_ctx(tmp_path))
@@ -709,7 +701,7 @@ def test_autostart_click_does_not_raise_on_write_time_conflict(
 
 
 def test_autostart_click_logs_warning_on_write_error(tmp_path: Path, monkeypatch) -> None:
-    """A write failure is still logged, even though no flash is shown for it."""
+    """Log a warning when an autostart write fails."""
     monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
 
     app = TapMap(_runtime_ctx(tmp_path))
