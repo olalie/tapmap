@@ -179,6 +179,94 @@ begin
   end;
 end;
 
+function TapMapDeleteLegacyInstallerTaskIfRecognized(): Boolean;
+var
+  Service, Folder, Task, Definition, Principal, Triggers, Trigger, Actions, Action: Variant;
+  TriggerUserIdVar, ActionArgumentsVar: Variant;
+  CurrentUser, ExePath, TriggerUserId, PrincipalUserId, ActionPath, ActionArguments: String;
+  LogonType, RunLevel, TriggerCount, ActionCount: Integer;
+  Recognized: Boolean;
+begin
+  Result := False;
+
+  try
+    Service := CreateOleObject('Schedule.Service');
+    Service.Connect();
+    Folder := Service.GetFolder('\');
+  except
+    Exit; // Can't reach Task Scheduler; do nothing.
+  end;
+
+  try
+    Task := Folder.GetTask('TapMap');
+  except
+    Exit;
+  end;
+
+  CurrentUser := TapMapNormalizeUserId(GetUserNameString());
+  ExePath := TapMapNormalizePath(ExpandConstant('{app}\{#MyAppExeName}'));
+  Recognized := False;
+
+  try
+    Definition := Task.Definition;
+    Principal := Definition.Principal;
+    Triggers := Definition.Triggers;
+    Actions := Definition.Actions;
+
+    LogonType := Principal.LogonType;
+    RunLevel := Principal.RunLevel;
+    TriggerCount := Triggers.Count;
+    ActionCount := Actions.Count;
+    PrincipalUserId := Principal.UserId;
+
+    if (LogonType = 3) and (RunLevel = 0) and (TriggerCount = 1) and (ActionCount = 1) then
+    begin
+      Trigger := Triggers.Item(1);
+      Action := Actions.Item(1);
+
+      TriggerUserIdVar := Trigger.UserId;
+      if VarIsNull(TriggerUserIdVar) or VarIsEmpty(TriggerUserIdVar) then
+        TriggerUserId := ''
+      else
+        TriggerUserId := TriggerUserIdVar;
+
+      ActionArgumentsVar := Action.Arguments;
+      if VarIsNull(ActionArgumentsVar) or VarIsEmpty(ActionArgumentsVar) then
+        ActionArguments := ''
+      else
+        ActionArguments := ActionArgumentsVar;
+
+      ActionPath := Action.Path;
+
+      // Both must be empty (stricter than TapMapDeleteTaskIfRecognized) -
+      // a COM-created task always sets them, so this never matches an
+      // already-migrated task on a later upgrade.
+      if (TriggerUserId = '') and (ActionArguments = '') and
+         (TapMapNormalizeUserId(PrincipalUserId) = CurrentUser) and
+         (TapMapNormalizePath(ActionPath) = ExePath) then
+        Recognized := True;
+    end;
+  except
+    Recognized := False; // Unreadable fields: assume not ours.
+  end;
+
+  if not Recognized then
+    Exit;
+
+  try
+    Folder.DeleteTask('TapMap', 0);
+    Result := True;
+  except
+    // Ignore delete failures; installation continues.
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssPostInstall then
+    TapMapDeleteLegacyInstallerTaskIfRecognized();
+end;
+
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   MarkerPath: String;
