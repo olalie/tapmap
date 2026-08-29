@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import re
 import subprocess
+from typing import Final
+
+_SUBPROCESS_TIMEOUT_S: Final[float] = 5.0
 
 _MACHO_MAGIC = {
     b"\xfe\xed\xfa\xce",  # 32-bit
@@ -59,9 +62,13 @@ def check_signature(path: str) -> tuple[str | None, str | None, str | None]:
     """
     try:
         display = subprocess.run(
-            ["codesign", "-dvv", path], capture_output=True, text=True, check=False
+            ["codesign", "-dvv", path],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=_SUBPROCESS_TIMEOUT_S,
         )
-    except (OSError, UnicodeDecodeError):
+    except (OSError, UnicodeDecodeError, subprocess.TimeoutExpired):
         return None, None, None
 
     if display.returncode != 0:
@@ -71,9 +78,13 @@ def check_signature(path: str) -> tuple[str | None, str | None, str | None]:
 
     try:
         verify = subprocess.run(
-            ["codesign", "--verify", path], capture_output=True, text=True, check=False
+            ["codesign", "--verify", path],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=_SUBPROCESS_TIMEOUT_S,
         )
-    except (OSError, UnicodeDecodeError):
+    except (OSError, UnicodeDecodeError, subprocess.TimeoutExpired):
         return None, None, None
 
     if verify.returncode != 0:
@@ -109,8 +120,9 @@ def check_notarized(path: str) -> bool:
             capture_output=True,
             text=True,
             check=False,
+            timeout=_SUBPROCESS_TIMEOUT_S,
         )
-    except (OSError, UnicodeDecodeError):
+    except (OSError, UnicodeDecodeError, subprocess.TimeoutExpired):
         return False
 
     return "source=Notarized Developer ID" in cp.stderr

@@ -211,7 +211,8 @@ def render_help() -> list[Any]:
                             [
                                 html.Td("TOOLS"),
                                 html.Td(
-                                    "GeoIP Database Management and cache actions."
+                                    "GeoIP Database Management, cache actions, and "
+                                    "(Windows) Run TapMap automatically."
                                 ),
                             ]
                         ),
@@ -296,6 +297,13 @@ def render_help() -> list[Any]:
                                 html.Td("G"),
                                 html.Td("Open GeoIP Database Management"),
                                 html.Td("Window"),
+                            ]
+                        ),
+                        html.Tr(
+                            [
+                                html.Td("R"),
+                                html.Td("Toggle Run TapMap automatically (Windows)"),
+                                html.Td("Option"),
                             ]
                         ),
                         html.Tr([html.Td("E"), html.Td("Export cache"), html.Td("Download")]),

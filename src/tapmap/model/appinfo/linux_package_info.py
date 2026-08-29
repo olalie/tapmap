@@ -67,9 +67,13 @@ def verify_package_integrity(package: str, real_path: str) -> bool:
     """
     try:
         result = subprocess.run(
-            ["dpkg", "-V", package], capture_output=True, text=True, check=False
+            ["dpkg", "-V", package],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=_SUBPROCESS_TIMEOUT_S,
         )
-    except OSError:
+    except (OSError, subprocess.TimeoutExpired):
         return False
 
     if result.returncode != 0:
@@ -100,9 +104,13 @@ def is_repo_backed(package: str) -> bool:
     """Return True if package's installed version is available from a configured APT repo."""
     try:
         result = subprocess.run(
-            ["apt-cache", "policy", package], capture_output=True, text=True, check=False
+            ["apt-cache", "policy", package],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=_SUBPROCESS_TIMEOUT_S,
         )
-    except OSError:
+    except (OSError, subprocess.TimeoutExpired):
         return False
     if result.returncode != 0:
         return False

@@ -156,6 +156,10 @@ body {
   content: "\2611";
 }
 
+.mx-btn--toggle.is-unavailable::before {
+  content: "\2612";
+}
+
 .mx-btn--primary {
   padding: 10px 16px;
   font-size: 14px;

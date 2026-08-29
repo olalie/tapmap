@@ -97,8 +97,13 @@ def test_build_key_action_maps_technical_details(monkeypatch) -> None:
     }
 
 
-def test_build_key_action_no_longer_maps_legacy_geo_recheck(monkeypatch) -> None:
-    """Return None for removed R token mapping."""
+def test_build_key_action_maps_autostart(monkeypatch) -> None:
+    """Map R token to the Run TapMap automatically action."""
     monkeypatch.setattr(keyboard, "datetime", DummyDatetime)
 
-    assert keyboard.build_key_action("__r__") is None
+    result = keyboard.build_key_action("__r__")
+
+    assert result == {
+        "action": "menu_autostart",
+        "t": "2026-01-01T00:00:00",
+    }

@@ -137,7 +137,7 @@ class TapMap:
         }
     )
     MENU_COMMANDS: ClassVar[frozenset[str]] = frozenset(
-        {"menu_clear_cache", "menu_export_cache"}
+        {"menu_clear_cache", "menu_export_cache", "menu_autostart"}
     )
 
     MIN_FLASH_S = 3.0
@@ -149,6 +149,7 @@ class TapMap:
         self.lifecycle = LifecycleCoordinator()
         self._lock_path = self.runtime.app_data_dir / "tapmap.lock"
         self._acquire_lock()
+        self._run_autostart_startup_setup()
 
         self.app = Dash(
             __name__,
@@ -260,6 +261,11 @@ class TapMap:
 
         initial_body_children: list[Any] = []
         initial_body_class = "modal-body"
+        autostart_supported = self._autostart_supported()
+        initial_autostart_display_state = "off"
+        if autostart_supported:
+            initial_autostart_display_state = self._current_autostart_decision().display_state.value
+
         if initial_modal_state is not None:
             geo_path = str(self.runtime.geo_data_dir)
             initial_body_children = self._as_children(
@@ -286,6 +292,9 @@ class TapMap:
             modal_overlay_class=self._modal_overlay_class(initial_modal_open),
             initial_insights_on=self.settings.insights_panel,
             initial_technical_details_on=self.settings.technical_details,
+            autostart_supported=autostart_supported,
+            initial_autostart_display_state=initial_autostart_display_state,
+            initial_autostart_disabled=not self.runtime.is_frozen,
         )
 
     @staticmethod
@@ -732,6 +741,8 @@ class TapMap:
         self._register_status_callbacks()
         self._register_insights_callbacks()
         self._register_os_callbacks()
+        if self._autostart_supported():
+            self._register_autostart_callbacks()
 
     def _register_keyboard_callbacks(self) -> None:
         @self.app.callback(
@@ -841,6 +852,7 @@ class TapMap:
             Input("menu_about", "n_clicks"),
             Input("menu_help", "n_clicks"),
             Input("menu_clear_cache", "n_clicks"),
+            Input("menu_autostart", "n_clicks", allow_optional=True),
             Input("menu_exit", "n_clicks"),
             State("menu_open", "data"),
             State("insights_on", "data"),
@@ -862,6 +874,7 @@ class TapMap:
             _info: int,
             _help: int,
             _clear: int,
+            _autostart: int | None,
             _exit: int,
             menu_open: Any,
             insights_on: Any,
@@ -1077,6 +1090,155 @@ class TapMap:
             if not (isinstance(key_action, dict) and key_action.get("action") == "exit_confirmed"):
                 raise PreventUpdate
             self.lifecycle.request_shutdown()
+
+    def _autostart_supported(self) -> bool:
+        """Return True when the "Run TapMap automatically" control has a backend on this OS."""
+        return platform.system() == "Windows" and not self.runtime.is_docker
+
+    def _run_autostart_startup_setup(self) -> None:
+        """Run the marker-absent Windows autostart startup state machine.
+
+        Never raises.
+        """
+        if platform.system() != "Windows" or self.runtime.is_docker:
+            return
+
+        from .autostart import windows_autostart
+
+        try:
+            windows_autostart.run_startup_setup(
+                app_data_dir=self.runtime.app_data_dir,
+                exe_path=self._autostart_exe_path(),
+                is_frozen=self.runtime.is_frozen,
+            )
+        except Exception:
+            self.logger.exception("Autostart initial setup failed unexpectedly.")
+
+    def _autostart_exe_path(self) -> str:
+        """Return the installed/frozen TapMap executable path, or "" for a source run."""
+        if not self.runtime.is_frozen:
+            return ""
+        return str(Path(sys.executable).resolve())
+
+    def _current_autostart_decision(self):
+        """Return the current autostart display decision."""
+        from tapmap.autostart.windows_autostart import query_display_state
+
+        return query_display_state(
+            exe_path=self._autostart_exe_path(), is_frozen=self.runtime.is_frozen
+        )
+
+    @staticmethod
+    def _autostart_class_name(display_state: Any) -> str:
+        """Return the CSS class for an autostart display state."""
+        from tapmap.state.autostart import DisplayState
+
+        base = "mx-btn mx-btn--menu mx-btn--toggle"
+        if display_state == DisplayState.ON:
+            return base + " is-checked"
+        if display_state == DisplayState.UNAVAILABLE:
+            return base + " is-unavailable"
+        return base
+
+    def _autostart_conflict_flash(self) -> Any:
+        """Return the flash shown when a non-recognized "TapMap" task blocks a write."""
+        return self._flash(
+            'Another Scheduled Task named "TapMap" already exists and prevents '
+            "TapMap from creating its own autostart task. You can resolve this "
+            "manually in Task Scheduler.",
+            self.MIN_FLASH_S,
+        )
+
+    def _handle_autostart_click(self) -> Any:
+        """Perform the write a click on the R control implies, and return a flash or no_update."""
+        from tapmap.autostart import windows_autostart
+        from tapmap.state.autostart import ClickAction, ElevationStatus, WriteOutcome
+
+        decision = self._current_autostart_decision()
+        exe_path = self._autostart_exe_path()
+
+        if decision.click_action == ClickAction.NONE:
+            if windows_autostart.is_elevated() == ElevationStatus.ELEVATED:
+                return self._flash(
+                    "Automatic startup can't be changed while TapMap is running as "
+                    "administrator. Run TapMap normally instead.",
+                    self.MIN_FLASH_S,
+                )
+            return self._flash(
+                "Automatic startup status is currently unavailable.", self.MIN_FLASH_S
+            )
+
+        if decision.click_action == ClickAction.SHOW_CONFLICT:
+            return self._autostart_conflict_flash()
+
+        if decision.click_action == ClickAction.DISABLE:
+            outcome, error = windows_autostart.disable(exe_path=exe_path)
+        elif decision.click_action == ClickAction.ENABLE:
+            outcome, error = windows_autostart.enable(exe_path=exe_path)
+        elif decision.click_action == ClickAction.CREATE:
+            outcome, error = windows_autostart.create(exe_path=exe_path)
+        elif decision.click_action == ClickAction.REPAIR_AND_ENABLE:
+            outcome, error = windows_autostart.repair_and_enable(exe_path=exe_path)
+        else:
+            return no_update
+
+        if outcome == WriteOutcome.CONFLICT:
+            return self._autostart_conflict_flash()
+
+        if outcome == WriteOutcome.ERROR:
+            self.logger.warning("Autostart write failed: %s", error)
+            return self._flash(
+                "Unable to change automatic startup. See terminal.", self.MIN_FLASH_S
+            )
+
+        return no_update
+
+    @staticmethod
+    def _autostart_trigger_kind(
+        *, trigger: Any, menu_open: Any, n_clicks: Any, key_action: Any
+    ) -> str:
+        """Classify an autostart trigger as act, refresh, or ignore."""
+        if trigger == "menu_open":
+            return "refresh" if menu_open else "ignore"
+
+        if trigger == "menu_autostart":
+            return "act" if n_clicks else "ignore"
+
+        if trigger == "key_action":
+            if isinstance(key_action, dict) and key_action.get("action") == "menu_autostart":
+                return "act"
+            return "ignore"
+
+        return "ignore"
+
+    def _register_autostart_callbacks(self) -> None:
+        @self.app.callback(
+            Output("menu_autostart", "className"),
+            Output("status_flash", "data", allow_duplicate=True),
+            Input("menu_open", "data"),
+            Input("menu_autostart", "n_clicks"),
+            Input("key_action", "data"),
+            prevent_initial_call=True,
+        )
+        def autostart_controller(
+            menu_open: Any, n_clicks: int | None, key_action: Any
+        ) -> tuple[Any, Any]:
+            kind = self._autostart_trigger_kind(
+                trigger=ctx.triggered_id,
+                menu_open=menu_open,
+                n_clicks=n_clicks,
+                key_action=key_action,
+            )
+
+            if kind == "ignore":
+                raise PreventUpdate
+
+            flash: Any = no_update
+            if kind == "act":
+                flash = self._handle_autostart_click()
+
+            decision = self._current_autostart_decision()
+            return self._autostart_class_name(decision.display_state), flash
 
     def _register_modal_render_callbacks(self) -> None:
         @self.app.callback(

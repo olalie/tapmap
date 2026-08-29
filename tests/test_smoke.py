@@ -3,10 +3,20 @@
 from pathlib import Path
 from typing import Any
 
+from dash import no_update
+
 import tapmap
 from tapmap import app as app_module
 from tapmap.app import APP_META, TapMap, _build_arg_parser
+from tapmap.autostart import windows_autostart
 from tapmap.runtime import RuntimeContext
+from tapmap.state.autostart import (
+    AutostartDecision,
+    ClickAction,
+    DisplayState,
+    ElevationStatus,
+    WriteOutcome,
+)
 
 
 class _FakeReader:
@@ -58,15 +68,24 @@ def _modal_state_store_data(app: TapMap):
 
 def _component_exists(node: Any, component_id: str) -> bool:
     """Return True when a component id exists in a Dash component tree."""
+    return _find_component(node, component_id) is not None
+
+
+def _find_component(node: Any, component_id: str) -> Any:
+    """Return the component with component_id in a Dash component tree, or None."""
     if getattr(node, "id", None) == component_id:
-        return True
+        return node
 
     children = getattr(node, "children", None)
     if isinstance(children, (list, tuple)):
-        return any(_component_exists(child, component_id) for child in children)
+        for child in children:
+            found = _find_component(child, component_id)
+            if found is not None:
+                return found
+        return None
     if children is None:
-        return False
-    return _component_exists(children, component_id)
+        return None
+    return _find_component(children, component_id)
 
 
 def test_tapmap_module_imports() -> None:
@@ -461,4 +480,223 @@ def test_handle_geo_update_preserves_original_error(
         assert result["message"] == "Unable to update databases"
 
     finally:
-        app.close()    
+        app.close()
+
+
+# --- "Run TapMap automatically" control: trigger classification ---
+
+
+def test_autostart_trigger_kind_button_click_is_act() -> None:
+    """A real click acts; a stray rerender with no clicks yet is ignored."""
+    assert (
+        TapMap._autostart_trigger_kind(
+            trigger="menu_autostart", menu_open=False, n_clicks=1, key_action=None
+        )
+        == "act"
+    )
+    assert (
+        TapMap._autostart_trigger_kind(
+            trigger="menu_autostart", menu_open=False, n_clicks=0, key_action=None
+        )
+        == "ignore"
+    )
+
+
+def test_autostart_trigger_kind_r_keyboard_mnemonic_is_act() -> None:
+    """The R keyboard mnemonic performs exactly the same action as a click."""
+    kind = TapMap._autostart_trigger_kind(
+        trigger="key_action",
+        menu_open=False,
+        n_clicks=None,
+        key_action={"action": "menu_autostart", "t": "2026-01-01T00:00:00"},
+    )
+    assert kind == "act"
+
+
+def test_autostart_trigger_kind_unrelated_key_action_is_ignored() -> None:
+    """A different key_action (e.g. H for Help) must not re-query Task Scheduler."""
+    kind = TapMap._autostart_trigger_kind(
+        trigger="key_action",
+        menu_open=False,
+        n_clicks=None,
+        key_action={"action": "menu_help", "t": "2026-01-01T00:00:00"},
+    )
+    assert kind == "ignore"
+
+
+def test_autostart_trigger_kind_menu_opening_is_refresh() -> None:
+    """Opening the menu refreshes the live display; closing it does nothing."""
+    assert (
+        TapMap._autostart_trigger_kind(
+            trigger="menu_open", menu_open=True, n_clicks=None, key_action=None
+        )
+        == "refresh"
+    )
+    assert (
+        TapMap._autostart_trigger_kind(
+            trigger="menu_open", menu_open=False, n_clicks=None, key_action=None
+        )
+        == "ignore"
+    )
+
+
+# --- "Run TapMap automatically" control: platform gating and wiring ---
+
+
+def test_autostart_button_present_on_windows_desktop(tmp_path: Path, monkeypatch) -> None:
+    """The R control is included in the Tools menu on a non-Docker Windows runtime."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        assert _component_exists(app.app.layout, "menu_autostart") is True
+    finally:
+        app.close()
+
+
+def test_autostart_button_absent_off_windows(tmp_path: Path, monkeypatch) -> None:
+    """The R control does not exist at all on a platform with no backend yet."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        assert _component_exists(app.app.layout, "menu_autostart") is False
+    finally:
+        app.close()
+
+
+def test_autostart_button_absent_for_docker(tmp_path: Path, monkeypatch) -> None:
+    """Docker has no desktop autostart concept, so the control is omitted even on Windows."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
+
+    app = TapMap(_runtime_ctx(tmp_path, is_docker=True))
+    try:
+        assert _component_exists(app.app.layout, "menu_autostart") is False
+    finally:
+        app.close()
+
+
+def test_autostart_button_disabled_for_a_source_run(tmp_path: Path, monkeypatch) -> None:
+    """A source run (is_frozen False) shows the control but never lets it be clicked."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        button = _find_component(app.app.layout, "menu_autostart")
+        assert button is not None
+        assert button.disabled is True
+    finally:
+        app.close()
+
+
+def test_autostart_click_routes_to_disable_when_currently_on(tmp_path: Path, monkeypatch) -> None:
+    """Clicking a live ON control calls windows_autostart.disable(), not create/enable."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        monkeypatch.setattr(
+            windows_autostart,
+            "query_display_state",
+            lambda **_kwargs: AutostartDecision(DisplayState.ON, ClickAction.DISABLE),
+        )
+        calls: list[str] = []
+        monkeypatch.setattr(
+            windows_autostart,
+            "disable",
+            lambda **_kwargs: calls.append("disable") or (WriteOutcome.OK, None),
+        )
+
+        flash = app._handle_autostart_click()
+
+        assert calls == ["disable"]
+        assert flash is no_update
+    finally:
+        app.close()
+
+
+def test_autostart_click_shows_conflict_flash_without_writing(tmp_path: Path, monkeypatch) -> None:
+    """A conflict shows the same flash whether found at classification or only at write time."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        # Conflict already known at classification time.
+        monkeypatch.setattr(
+            windows_autostart,
+            "query_display_state",
+            lambda **_kwargs: AutostartDecision(DisplayState.OFF, ClickAction.SHOW_CONFLICT),
+        )
+
+        def _fail(**_kwargs):
+            raise AssertionError("must not write when the existing task is foreign")
+
+        monkeypatch.setattr(windows_autostart, "create", _fail)
+        monkeypatch.setattr(windows_autostart, "enable", _fail)
+
+        flash = app._handle_autostart_click()
+
+        assert isinstance(flash, dict)
+        assert "TapMap" in flash["message"]
+
+        # Conflict discovered only at write time.
+        monkeypatch.setattr(
+            windows_autostart,
+            "query_display_state",
+            lambda **_kwargs: AutostartDecision(DisplayState.ON, ClickAction.DISABLE),
+        )
+        monkeypatch.setattr(
+            windows_autostart, "disable", lambda **_kwargs: (WriteOutcome.CONFLICT, None)
+        )
+
+        flash = app._handle_autostart_click()
+
+        assert isinstance(flash, dict)
+        assert "TapMap" in flash["message"]
+    finally:
+        app.close()
+
+
+def test_autostart_click_shows_elevated_flash_without_writing(tmp_path: Path, monkeypatch) -> None:
+    """Clicking while elevated shows the elevated explanation and performs no write."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        monkeypatch.setattr(
+            windows_autostart,
+            "query_display_state",
+            lambda **_kwargs: AutostartDecision(DisplayState.ON, ClickAction.NONE),
+        )
+        monkeypatch.setattr(windows_autostart, "is_elevated", lambda: ElevationStatus.ELEVATED)
+
+        flash = app._handle_autostart_click()
+
+        assert isinstance(flash, dict)
+        assert "administrator" in flash["message"]
+    finally:
+        app.close()
+
+
+def test_autostart_click_shows_unavailable_flash_when_elevation_is_unknown(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """An undetermined elevation status shows the generic unavailable flash, not "administrator"."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        monkeypatch.setattr(
+            windows_autostart,
+            "query_display_state",
+            lambda **_kwargs: AutostartDecision(DisplayState.UNAVAILABLE, ClickAction.NONE),
+        )
+        monkeypatch.setattr(windows_autostart, "is_elevated", lambda: ElevationStatus.UNKNOWN)
+
+        flash = app._handle_autostart_click()
+
+        assert isinstance(flash, dict)
+        assert "unavailable" in flash["message"].lower()
+        assert "administrator" not in flash["message"]
+    finally:
+        app.close()

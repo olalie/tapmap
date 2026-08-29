@@ -60,7 +60,6 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
-Name: "autostart"; Description: "Start TapMap automatically when I sign in (recommended to build your 30-day insights history)"; Flags: unchecked
 
 [Files]
 Source: "{#MyAppExePath}"; DestDir: "{app}"; Flags: ignoreversion
@@ -71,39 +70,126 @@ Source: "{#MyAppDir}\_internal\*"; DestDir: "{app}\_internal"; Flags: ignorevers
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
-[Code]
-
-procedure CreateTapMapTask;
-var
-  ResultCode: Integer;
-begin
-  Exec(
-    ExpandConstant('{sys}\schtasks.exe'),
-    '/Create /F /TN "TapMap" /SC ONLOGON /RL LIMITED /TR "\"' +
-      ExpandConstant('{app}\{#MyAppExeName}') + '\""',
-    '',
-    SW_HIDE,
-    ewWaitUntilTerminated,
-    ResultCode);
-
-  if ResultCode <> 0 then
-    MsgBox('Failed to create the TapMap scheduled task. Error code: ' +
-      IntToStr(ResultCode), mbError, MB_OK);
-end;
-
-procedure CurStepChanged(CurStep: TSetupStep);
-begin
-  if (CurStep = ssPostInstall) and WizardIsTaskSelected('autostart') then
-    CreateTapMapTask;
-end;
-
 [Run]
 Filename: "{app}\{#MyAppExeName}"; \
     Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; \
-    Flags: nowait postinstall skipifsilent
+    Flags: nowait postinstall skipifsilent runasoriginaluser
 
-[UninstallRun]
-Filename: "{sys}\schtasks.exe"; \
-    Parameters: "/Delete /TN ""TapMap"" /F"; \
-    RunOnceId: "DeleteTapMapTask"; \
-    Flags: runhidden  
+[Code]
+
+// The installer never creates or manages the "TapMap" task - the app owns
+// Task Scheduler via COM at runtime. Uninstall deletes the task only if it
+// recognizes it as TapMap's own (same identity fields as the runtime).
+//
+// "Type" is a reserved word in Pascal Script and can't be read as a COM
+// property name here. Trigger.UserId and Action.Path are checked instead.
+
+function TapMapNormalizeUserId(const Raw: String): String;
+var
+  SepPos: Integer;
+  Name: String;
+begin
+  Name := Raw;
+  SepPos := Pos('\', Name);
+  if SepPos > 0 then
+    Name := Copy(Name, SepPos + 1, MaxInt);
+  Result := Lowercase(Trim(Name));
+end;
+
+function TapMapNormalizePath(const Raw: String): String;
+var
+  Value: String;
+begin
+  Value := Trim(Raw);
+  if (Length(Value) >= 2) and (Value[1] = '"') and (Value[Length(Value)] = '"') then
+    Value := Copy(Value, 2, Length(Value) - 2);
+  Result := Lowercase(Value);
+end;
+
+function TapMapDeleteTaskIfRecognized(): Boolean;
+var
+  Service, Folder, Task, Definition, Principal, Triggers, Trigger, Actions, Action: Variant;
+  TriggerUserIdVar: Variant;
+  CurrentUser, ExePath, TriggerUserId, PrincipalUserId, ActionPath: String;
+  LogonType, RunLevel, TriggerCount, ActionCount: Integer;
+  Recognized: Boolean;
+begin
+  Result := False;
+
+  try
+    Service := CreateOleObject('Schedule.Service');
+    Service.Connect();
+    Folder := Service.GetFolder('\');
+  except
+    Exit; // Can't reach Task Scheduler; do nothing.
+  end;
+
+  try
+    Task := Folder.GetTask('TapMap');
+  except
+    Exit;
+  end;
+
+  CurrentUser := TapMapNormalizeUserId(GetUserNameString());
+  ExePath := TapMapNormalizePath(ExpandConstant('{app}\{#MyAppExeName}'));
+  Recognized := False;
+
+  try
+    Definition := Task.Definition;
+    Principal := Definition.Principal;
+    Triggers := Definition.Triggers;
+    Actions := Definition.Actions;
+
+    LogonType := Principal.LogonType;
+    RunLevel := Principal.RunLevel;
+    TriggerCount := Triggers.Count;
+    ActionCount := Actions.Count;
+    PrincipalUserId := Principal.UserId;
+
+    if (LogonType = 3) and (RunLevel = 0) and (TriggerCount = 1) and (ActionCount = 1) then
+    begin
+      Trigger := Triggers.Item(1);
+      Action := Actions.Item(1);
+      TriggerUserIdVar := Trigger.UserId;
+      if VarIsNull(TriggerUserIdVar) or VarIsEmpty(TriggerUserIdVar) then
+        TriggerUserId := ''
+      else
+        TriggerUserId := TriggerUserIdVar;
+      ActionPath := Action.Path;
+
+      // The old installer's task has no Trigger.UserId. Treat that as
+      // missing information, not a mismatch. A UserId that IS set must match.
+      if ((TriggerUserId = '') or (TapMapNormalizeUserId(TriggerUserId) = CurrentUser)) and
+         (TapMapNormalizeUserId(PrincipalUserId) = CurrentUser) and
+         (TapMapNormalizePath(ActionPath) = ExePath) then
+        Recognized := True;
+    end;
+  except
+    Recognized := False; // Unreadable fields: assume not ours.
+  end;
+
+  if not Recognized then
+    Exit;
+
+  try
+    Folder.DeleteTask('TapMap', 0);
+    Result := True;
+  except
+    // Ignore delete failures; uninstall continues.
+  end;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  MarkerPath: String;
+begin
+  if CurUninstallStep = usPostUninstall then
+  begin
+    TapMapDeleteTaskIfRecognized();
+
+    // Ends the autostart lifecycle; a reinstall starts fresh and defaults ON.
+    MarkerPath := ExpandConstant('{userappdata}\TapMap\autostart_setup_completed.marker');
+    if FileExists(MarkerPath) then
+      DeleteFile(MarkerPath);
+  end;
+end;

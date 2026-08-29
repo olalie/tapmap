@@ -27,8 +27,16 @@ def render_layout(
     modal_overlay_class: str,
     initial_insights_on: bool,
     initial_technical_details_on: bool,
+    autostart_supported: bool,
+    initial_autostart_display_state: str,
+    initial_autostart_disabled: bool,
 ) -> html.Div:
     """Render the application layout."""
+    autostart_button = _autostart_button(
+        supported=autostart_supported,
+        display_state=initial_autostart_display_state,
+        disabled=initial_autostart_disabled,
+    )
     return html.Div(
         className="app",
         children=[
@@ -138,6 +146,7 @@ def render_layout(
                                     ),
                                     _menu_button("Export cache (E)", "menu_export_cache"),
                                     _menu_button("Clear cache (C)", "menu_clear_cache"),
+                                    *([autostart_button] if autostart_button is not None else []),
                                 ],
                                 className="mx-acc-body",
                             ),
@@ -230,4 +239,27 @@ def _menu_toggle_button(label: str, btn_id: str, is_checked: bool) -> html.Butto
         n_clicks=0,
         className=class_name,
         type="button",
+    )
+
+
+def _autostart_button(
+    *, supported: bool, display_state: str, disabled: bool
+) -> html.Button | None:
+    """Render the "Run TapMap automatically" control."""
+    if not supported:
+        return None
+
+    class_name = "mx-btn mx-btn--menu mx-btn--toggle"
+    if display_state == "on":
+        class_name += " is-checked"
+    elif display_state == "unavailable":
+        class_name += " is-unavailable"
+
+    return html.Button(
+        "Run TapMap automatically (R)",
+        id="menu_autostart",
+        n_clicks=0,
+        className=class_name,
+        type="button",
+        disabled=disabled,
     )
