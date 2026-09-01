@@ -104,7 +104,7 @@ def decide_autostart_display(
 
 
 class MacosMainAppStatus(Enum):
-    """SMAppService.mainApp.status, decoupled from the framework."""
+    """Represent SMAppService.mainApp status."""
     NOT_REGISTERED = "not_registered"
     ENABLED = "enabled"
     REQUIRES_APPROVAL = "requires_approval"
@@ -113,9 +113,9 @@ class MacosMainAppStatus(Enum):
 
 @dataclass(frozen=True)
 class NativeMainAppStatus:
-    """Current SMAppService.mainApp registration status.
+    """Store the SMAppService.mainApp status.
 
-    status is ignored when the state cannot be queried.
+    Ignore status when queryable is False.
     """
 
     queryable: bool
@@ -144,9 +144,7 @@ def decide_macos_autostart_display(
         return AutostartDecision(DisplayState.OFF, ClickAction.OPEN_SETTINGS)
 
     if status.status == MacosMainAppStatus.NOT_FOUND:
-        # An error/recovery state, not OFF: shown as unavailable, but still
-        # clickable, since a defined one-shot recovery exists for it.
+        # NOT_FOUND is recoverable, not an OFF state.
         return AutostartDecision(DisplayState.UNAVAILABLE, ClickAction.RECOVER_AND_ENABLE)
 
-    # Unrecognized status value: genuinely unknown, and disabled.
     return AutostartDecision(DisplayState.UNAVAILABLE, ClickAction.NONE)

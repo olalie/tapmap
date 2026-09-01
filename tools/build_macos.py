@@ -14,18 +14,10 @@ Pipeline
 Implementation
 --------------
 - Entry point: python tools/build.py [--package]
-- Application signing is performed by PyInstaller using the signing
-  identity provided to tapmap.spec at build time, falling back to ad-hoc
-  signing when no Developer ID identity is available, so a local build
-  works without TIP's certificate.
-- Autostart uses SMAppService.mainApp, registered by TapMap itself at
-  runtime (see tapmap.autostart.macos_service_management); nothing is
-  bundled into the app at build time for it.
-- DMG signing, notarization and stapling are performed by create-dmg
-  during packaging; create-dmg signs and notarizes the DMG only, not
-  TapMap.app, which must already be validly signed before it runs. Unlike
-  the local build, packaging requires a real Developer ID identity and
-  fails immediately, before any build work runs, if one isn't available.
+- PyInstaller signs TapMap.app during the build.
+- Local builds may use ad-hoc signing.
+- Release packaging requires a Developer ID Application identity.
+- create-dmg signs, notarizes and staples the DMG.
 """
 
 import platform
@@ -69,9 +61,10 @@ def expected_output_file() -> Path:
 
 
 def require_signing_identity() -> None:
-    """Raise an error if no Developer ID Application identity is available.
+    """Require a Developer ID Application identity for release packaging.
 
-    Release packaging must not silently fall back to ad-hoc signing.
+    Raises:
+        RuntimeError: If no identity is available.
     """
     if get_signing_identity() is None:
         raise RuntimeError(

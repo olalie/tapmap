@@ -190,7 +190,7 @@ def test_macos_not_registered_is_off_with_create_action() -> None:
 
 
 def test_macos_not_found_is_unavailable_but_recoverable() -> None:
-    """Show notFound as unavailable, not plain OFF, but keep the control clickable to recover."""
+    """Show notFound as unavailable but still recoverable."""
     status = _macos_status(status=MacosMainAppStatus.NOT_FOUND)
 
     result = decide_macos_autostart_display(status=status, is_source_run=False)

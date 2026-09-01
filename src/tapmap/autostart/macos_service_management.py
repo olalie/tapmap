@@ -1,4 +1,4 @@
-"""Native SMAppService.mainApp status/register/unregister for macOS autostart."""
+"""Access SMAppService.mainApp for macOS autostart."""
 
 from __future__ import annotations
 
@@ -21,12 +21,7 @@ _STATUS_BY_RAW_VALUE: Final[dict[int, MacosMainAppStatus]] = {
 
 
 class ServiceManagementError(Exception):
-    """Raised when SMAppService.mainApp cannot be queried, registered, or unregistered.
-
-    code holds the underlying NSError's numeric code when available, so
-    callers can recognize specific documented failures (e.g. kSMErrorJobNotFound)
-    without parsing error text.
-    """
+    """Represent an SMAppService failure with its NSError code when available."""
 
     def __init__(self, message: str, *, code: int | None = None) -> None:
         super().__init__(message)
@@ -46,10 +41,10 @@ def _raw_status() -> int:
 
 
 def query_status() -> MacosMainAppStatus:
-    """Return SMAppService.mainApp's current status.
+    """Return the current SMAppService.mainApp status.
 
     Raises:
-        ServiceManagementError: the framework is unavailable, or the status is unrecognized.
+        ServiceManagementError: If the status cannot be read or recognized.
     """
     try:
         raw_status = _raw_status()
@@ -63,10 +58,10 @@ def query_status() -> MacosMainAppStatus:
 
 
 def register() -> None:
-    """Register TapMap with SMAppService.mainApp for login launch.
+    """Register TapMap for login launch.
 
     Raises:
-        ServiceManagementError: the framework is unavailable, or registration failed.
+        ServiceManagementError: If registration fails.
     """
     try:
         ok, error = _main_app().registerAndReturnError_(None)
@@ -80,10 +75,10 @@ def register() -> None:
 
 
 def unregister() -> None:
-    """Unregister TapMap from SMAppService.mainApp.
+    """Unregister TapMap from login launch.
 
     Raises:
-        ServiceManagementError: the framework is unavailable, or unregistration failed.
+        ServiceManagementError: If unregistration fails.
     """
     try:
         ok, error = _main_app().unregisterAndReturnError_(None)

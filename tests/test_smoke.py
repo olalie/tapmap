@@ -782,7 +782,7 @@ def test_current_autostart_decision_dispatches_to_macos_backend_on_darwin(
 def test_macos_autostart_click_routes_to_disable_when_currently_on(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """Delete the LaunchAgent plist when the current state is on."""
+    """Disable macOS autostart when the current state is on."""
     monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
 
     app = TapMap(_runtime_ctx(tmp_path))
@@ -951,49 +951,26 @@ def test_macos_browser_decision_is_deferred_when_all_conditions_met(
         app.close()
 
 
-def test_macos_browser_decision_not_deferred_for_a_source_run(
-    tmp_path: Path, monkeypatch
+@pytest.mark.parametrize(
+    ("system", "is_frozen", "launch_browser", "is_docker"),
+    [
+        pytest.param("Darwin", False, True, False, id="source_run"),
+        pytest.param("Darwin", True, False, False, id="browser_policy_already_off"),
+        pytest.param("Darwin", True, True, True, id="docker"),
+        # Keep is_frozen False to avoid invoking the Windows Task Scheduler backend.
+        pytest.param("Windows", False, True, False, id="non_darwin_platform"),
+    ],
+)
+def test_macos_browser_decision_not_deferred_when_a_condition_is_unmet(
+    tmp_path: Path, monkeypatch, system: str, is_frozen: bool, launch_browser: bool, is_docker: bool
 ) -> None:
-    """Do not defer the browser decision for a source run."""
-    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
-    runtime_ctx = dataclasses.replace(_runtime_ctx(tmp_path), is_frozen=False, launch_browser=True)
-    app = TapMap(runtime_ctx)
-    try:
-        assert app._macos_browser_decision_is_deferred() is False
-    finally:
-        app.close()
-
-
-def test_macos_browser_decision_not_deferred_when_browser_policy_already_suppresses_it(
-    tmp_path: Path, monkeypatch
-) -> None:
-    """Do not defer when existing browser policy already says not to open."""
-    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
-    runtime_ctx = dataclasses.replace(_runtime_ctx(tmp_path), is_frozen=True, launch_browser=False)
-    app = TapMap(runtime_ctx)
-    try:
-        assert app._macos_browser_decision_is_deferred() is False
-    finally:
-        app.close()
-
-
-def test_macos_browser_decision_not_deferred_in_docker(tmp_path: Path, monkeypatch) -> None:
-    """Do not defer the browser decision in Docker."""
-    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
+    """Do not defer the browser decision unless every deferral condition is met."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: system)
     runtime_ctx = dataclasses.replace(
-        _runtime_ctx(tmp_path, is_docker=True), is_frozen=True, launch_browser=True
+        _runtime_ctx(tmp_path, is_docker=is_docker),
+        is_frozen=is_frozen,
+        launch_browser=launch_browser,
     )
-    app = TapMap(runtime_ctx)
-    try:
-        assert app._macos_browser_decision_is_deferred() is False
-    finally:
-        app.close()
-
-
-def test_macos_browser_decision_not_deferred_on_windows(tmp_path: Path, monkeypatch) -> None:
-    """Never defer the browser decision on a non-Darwin platform."""
-    monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
-    runtime_ctx = dataclasses.replace(_runtime_ctx(tmp_path), launch_browser=True)
     app = TapMap(runtime_ctx)
     try:
         assert app._macos_browser_decision_is_deferred() is False
@@ -1104,10 +1081,7 @@ def test_decide_browser_open_falls_back_safely_when_install_fails(
         app.close()
 
 
-# --- "Run TapMap automatically" control: unsupported-platform dispatch safety ---
-#
-# These guard against an unsupported platform (e.g. a future Linux build before
-# Commit 6 lands) silently falling through to Windows-specific logic.
+# --- "Run TapMap automatically" control: unsupported-platform dispatch ---
 
 
 def test_current_autostart_decision_is_unavailable_on_an_unsupported_platform(

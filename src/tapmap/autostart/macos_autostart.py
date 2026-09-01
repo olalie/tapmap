@@ -42,11 +42,7 @@ def query_display_state(*, is_frozen: bool) -> AutostartDecision:
 
 
 def _register_and_confirm() -> tuple[WriteOutcome, str | None]:
-    """Call register(), then query status once and interpret the result.
-
-    Shared tail for create() and recover_and_enable(): both end with exactly
-    this step, differing only in what happens before it.
-    """
+    """Register autostart and confirm the resulting status."""
     try:
         service_management.register()
     except service_management.ServiceManagementError as exc:
@@ -67,21 +63,14 @@ def _register_and_confirm() -> tuple[WriteOutcome, str | None]:
 
 
 def create() -> tuple[WriteOutcome, str | None]:
-    """Enable autostart from NOT_REGISTERED by registering with SMAppService.mainApp.
-
-    Only reports success once the resulting status is confirmed enabled or
-    pending user approval.
-    """
+    """Register autostart and confirm it is enabled or requires approval."""
     return _register_and_confirm()
 
 
 def recover_and_enable() -> tuple[WriteOutcome, str | None]:
-    """Recover from NOT_FOUND and enable autostart: one unregister-then-register attempt.
+    """Recover autostart from NOT_FOUND.
 
-    The cleanup unregister() is best-effort: NOT_FOUND already means there is
-    nothing registered to clear, so its failure is expected and does not
-    abort recovery. register() and the resulting status query remain the
-    sole authority on success. Never retries beyond this one attempt.
+    Ignore cleanup errors, then register once and confirm the resulting status.
     """
     try:
         service_management.unregister()
@@ -92,11 +81,7 @@ def recover_and_enable() -> tuple[WriteOutcome, str | None]:
 
 
 def disable() -> tuple[WriteOutcome, str | None]:
-    """Disable autostart by unregistering TapMap from SMAppService.mainApp.
-
-    Only NOT_REGISTERED after unregister() is treated as confirmed success.
-    Never re-registers on this path.
-    """
+    """Unregister autostart and require NOT_REGISTERED to confirm success."""
     try:
         service_management.unregister()
     except service_management.ServiceManagementError as exc:
@@ -117,7 +102,7 @@ def disable() -> tuple[WriteOutcome, str | None]:
 
 
 def open_settings() -> None:
-    """Open System Settings to the Login Items panel for the user to approve autostart."""
+    """Open the Login Items settings."""
     try:
         service_management.open_system_settings_login_items()
     except Exception:
@@ -125,10 +110,7 @@ def open_settings() -> None:
 
 
 def run_startup_setup(*, app_data_dir: Path, is_frozen: bool) -> None:
-    """Set up autostart on first launch when needed.
-
-    Failures are logged and must not prevent TapMap from starting.
-    """
+    """Set up autostart on first launch without blocking TapMap startup on failure."""
     if not is_frozen:
         return
     if marker.has_completed_setup(app_data_dir):
@@ -141,7 +123,7 @@ def run_startup_setup(*, app_data_dir: Path, is_frozen: bool) -> None:
         return
 
     if status.status in (MacosMainAppStatus.ENABLED, MacosMainAppStatus.REQUIRES_APPROVAL):
-        # Already registered in some form; preserve it.
+        # Preserve existing registration.
         marker.mark_setup_completed(app_data_dir)
         return
 

@@ -1148,9 +1148,6 @@ class TapMap:
                 exe_path=self._autostart_exe_path(), is_frozen=self.runtime.is_frozen
             )
 
-        # _autostart_supported() only allows Windows and Darwin, so this is
-        # unreachable in normal operation; kept explicit rather than letting an
-        # unsupported platform silently fall through to Windows-specific logic.
         return AutostartDecision(DisplayState.UNAVAILABLE, ClickAction.NONE)
 
     @staticmethod
@@ -1181,7 +1178,7 @@ class TapMap:
             self._handle_windows_autostart_click()
 
     def _handle_windows_autostart_click(self) -> None:
-        """Perform the write a Windows click on the R control implies."""
+        """Handle the Windows autostart action."""
         from tapmap.autostart import windows_autostart
         from tapmap.state.autostart import ClickAction, WriteOutcome
 
@@ -1203,7 +1200,7 @@ class TapMap:
             self.logger.warning("Autostart write failed: %s", error)
 
     def _handle_macos_autostart_click(self) -> None:
-        """Perform the write a macOS click on the R control implies."""
+        """Handle the macOS autostart action."""
         from tapmap.autostart import macos_autostart
         from tapmap.state.autostart import ClickAction, WriteOutcome
 
@@ -1532,7 +1529,7 @@ class TapMap:
         )
 
     def _macos_browser_decision_is_deferred(self) -> bool:
-        """Return whether the browser-open decision should wait for the macOS login signal."""
+        """Return whether macOS login-launch detection is required."""
         return (
             platform.system() == "Darwin"
             and self.runtime.is_frozen
@@ -1541,22 +1538,16 @@ class TapMap:
         )
 
     def _macos_browser_decision(self, url: str, is_login_launch: bool) -> None:
-        """Open the browser for a manual macOS launch; suppress it for a login launch."""
+        """Open the browser unless macOS launched TapMap as a login item."""
         if is_login_launch:
             self.logger.info("Suppressing automatic browser launch: login-item launch detected.")
             return
         self._open_browser(url)
 
     def _decide_browser_open(self, url: str, icon: Icon | None) -> None:
-        """Open the browser now, defer it to the macOS login-launch signal, or fall back safely.
+        """Open or defer the browser according to the launch context.
 
-        Deferral needs a tray icon: the login-launch signal can only ever
-        arrive once pystray's AppKit event loop is actually running, which
-        only happens when run() goes on to call run_tray(icon) rather than
-        wait_for_shutdown(). Without a tray, or if installing the handler
-        itself fails, the safe fallback is not opening the browser - never
-        guessing the launch was manual, and never leaving TapMap waiting on
-        an event that can no longer be delivered.
+        Do not open the browser if macOS login-launch detection is unavailable.
         """
         if self._macos_browser_decision_is_deferred():
             if icon is None:

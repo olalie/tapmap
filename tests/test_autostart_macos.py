@@ -28,32 +28,25 @@ from tapmap.state.autostart import (
 # --- macos_service_management.query_status() ---
 
 
-def test_query_status_maps_not_registered(monkeypatch) -> None:
-    """Map raw status 0 to NOT_REGISTERED."""
-    monkeypatch.setattr(service_management, "_raw_status", lambda: 0)
-    assert service_management.query_status() == MacosMainAppStatus.NOT_REGISTERED
-
-
-def test_query_status_maps_enabled(monkeypatch) -> None:
-    """Map raw status 1 to ENABLED."""
-    monkeypatch.setattr(service_management, "_raw_status", lambda: 1)
-    assert service_management.query_status() == MacosMainAppStatus.ENABLED
-
-
-def test_query_status_maps_requires_approval(monkeypatch) -> None:
-    """Map raw status 2 to REQUIRES_APPROVAL."""
-    monkeypatch.setattr(service_management, "_raw_status", lambda: 2)
-    assert service_management.query_status() == MacosMainAppStatus.REQUIRES_APPROVAL
-
-
-def test_query_status_maps_not_found(monkeypatch) -> None:
-    """Map raw status 3 to NOT_FOUND."""
-    monkeypatch.setattr(service_management, "_raw_status", lambda: 3)
-    assert service_management.query_status() == MacosMainAppStatus.NOT_FOUND
+@pytest.mark.parametrize(
+    ("raw_status", "expected"),
+    [
+        pytest.param(0, MacosMainAppStatus.NOT_REGISTERED, id="not_registered"),
+        pytest.param(1, MacosMainAppStatus.ENABLED, id="enabled"),
+        pytest.param(2, MacosMainAppStatus.REQUIRES_APPROVAL, id="requires_approval"),
+        pytest.param(3, MacosMainAppStatus.NOT_FOUND, id="not_found"),
+    ],
+)
+def test_query_status_maps_raw_value(
+    monkeypatch, raw_status: int, expected: MacosMainAppStatus
+) -> None:
+    """Map SMAppService status values."""
+    monkeypatch.setattr(service_management, "_raw_status", lambda: raw_status)
+    assert service_management.query_status() == expected
 
 
 def test_query_status_raises_on_unexpected_value(monkeypatch) -> None:
-    """Raise ServiceManagementError for an unrecognized raw status."""
+    """Raise for an unknown SMAppService status."""
     monkeypatch.setattr(service_management, "_raw_status", lambda: 99)
 
     with pytest.raises(service_management.ServiceManagementError):
@@ -61,7 +54,7 @@ def test_query_status_raises_on_unexpected_value(monkeypatch) -> None:
 
 
 def test_query_status_raises_on_framework_failure(monkeypatch) -> None:
-    """Raise ServiceManagementError when the framework call itself fails."""
+    """Raise when SMAppService status cannot be read."""
 
     def _raise():
         raise RuntimeError("framework unavailable")
@@ -181,48 +174,14 @@ def test_query_display_state_is_off_for_a_source_run_and_never_queries(monkeypat
     assert decision.click_action == ClickAction.NONE
 
 
-def test_query_display_state_off_when_not_registered(monkeypatch) -> None:
-    """Show autostart as off with a create action when not registered."""
-    monkeypatch.setattr(
-        service_management, "query_status", lambda: MacosMainAppStatus.NOT_REGISTERED
-    )
-
-    decision = macos_autostart.query_display_state(is_frozen=True)
-
-    assert decision.display_state == DisplayState.OFF
-    assert decision.click_action == ClickAction.CREATE
-
-
 def test_query_display_state_on_when_enabled(monkeypatch) -> None:
-    """Show autostart as on with a disable action when enabled."""
+    """Show ENABLED as on with a disable action."""
     monkeypatch.setattr(service_management, "query_status", lambda: MacosMainAppStatus.ENABLED)
 
     decision = macos_autostart.query_display_state(is_frozen=True)
 
     assert decision.display_state == DisplayState.ON
     assert decision.click_action == ClickAction.DISABLE
-
-
-def test_query_display_state_unavailable_but_recoverable_when_not_found(monkeypatch) -> None:
-    """Show notFound as unavailable, not plain OFF, but keep the control clickable to recover."""
-    monkeypatch.setattr(service_management, "query_status", lambda: MacosMainAppStatus.NOT_FOUND)
-
-    decision = macos_autostart.query_display_state(is_frozen=True)
-
-    assert decision.display_state == DisplayState.UNAVAILABLE
-    assert decision.click_action == ClickAction.RECOVER_AND_ENABLE
-
-
-def test_query_display_state_off_with_open_settings_when_requires_approval(monkeypatch) -> None:
-    """Show requiresApproval as off, with a click that opens Login Items."""
-    monkeypatch.setattr(
-        service_management, "query_status", lambda: MacosMainAppStatus.REQUIRES_APPROVAL
-    )
-
-    decision = macos_autostart.query_display_state(is_frozen=True)
-
-    assert decision.display_state == DisplayState.OFF
-    assert decision.click_action == ClickAction.OPEN_SETTINGS
 
 
 def test_query_display_state_unavailable_when_query_raises(monkeypatch) -> None:
@@ -242,10 +201,19 @@ def test_query_display_state_unavailable_when_query_raises(monkeypatch) -> None:
 # --- macos_autostart.create() ---
 
 
-def test_create_succeeds_when_register_and_status_agree(monkeypatch) -> None:
-    """Report success when register() succeeds and status confirms enabled."""
+@pytest.mark.parametrize(
+    "confirmed_status",
+    [
+        pytest.param(MacosMainAppStatus.ENABLED, id="enabled"),
+        pytest.param(MacosMainAppStatus.REQUIRES_APPROVAL, id="requires_approval"),
+    ],
+)
+def test_create_succeeds_when_register_and_status_agree(
+    monkeypatch, confirmed_status: MacosMainAppStatus
+) -> None:
+    """Report success for ENABLED or REQUIRES_APPROVAL."""
     monkeypatch.setattr(service_management, "register", lambda: None)
-    monkeypatch.setattr(service_management, "query_status", lambda: MacosMainAppStatus.ENABLED)
+    monkeypatch.setattr(service_management, "query_status", lambda: confirmed_status)
 
     outcome, error = macos_autostart.create()
 
@@ -265,19 +233,6 @@ def test_create_reports_error_when_register_call_fails(monkeypatch) -> None:
 
     assert outcome == WriteOutcome.ERROR
     assert error == "boom"
-
-
-def test_create_succeeds_when_register_results_in_requires_approval(monkeypatch) -> None:
-    """Report success when register() results in requiresApproval: not a write failure."""
-    monkeypatch.setattr(service_management, "register", lambda: None)
-    monkeypatch.setattr(
-        service_management, "query_status", lambda: MacosMainAppStatus.REQUIRES_APPROVAL
-    )
-
-    outcome, error = macos_autostart.create()
-
-    assert outcome == WriteOutcome.OK
-    assert error is None
 
 
 def test_create_reports_error_when_post_register_status_is_not_confirmed(monkeypatch) -> None:
@@ -311,12 +266,21 @@ def test_create_reports_error_when_post_register_query_fails(monkeypatch) -> Non
 # --- macos_autostart.recover_and_enable(): NOT_FOUND recovery ---
 
 
-def test_recover_and_enable_succeeds_after_cleanup_unregister(monkeypatch) -> None:
-    """Unregister, then register, then confirm enabled."""
+@pytest.mark.parametrize(
+    "confirmed_status",
+    [
+        pytest.param(MacosMainAppStatus.ENABLED, id="enabled"),
+        pytest.param(MacosMainAppStatus.REQUIRES_APPROVAL, id="requires_approval"),
+    ],
+)
+def test_recover_and_enable_succeeds_after_cleanup_unregister(
+    monkeypatch, confirmed_status: MacosMainAppStatus
+) -> None:
+    """Report successful recovery for ENABLED or REQUIRES_APPROVAL."""
     calls: list[str] = []
     monkeypatch.setattr(service_management, "unregister", lambda: calls.append("unregister"))
     monkeypatch.setattr(service_management, "register", lambda: calls.append("register"))
-    monkeypatch.setattr(service_management, "query_status", lambda: MacosMainAppStatus.ENABLED)
+    monkeypatch.setattr(service_management, "query_status", lambda: confirmed_status)
 
     outcome, error = macos_autostart.recover_and_enable()
 
@@ -326,7 +290,7 @@ def test_recover_and_enable_succeeds_after_cleanup_unregister(monkeypatch) -> No
 
 
 def test_recover_and_enable_tolerates_any_cleanup_unregister_error(monkeypatch) -> None:
-    """Treat any cleanup unregister failure as expected, and continue to register()."""
+    """Continue recovery after cleanup errors."""
 
     def _raise():
         raise service_management.ServiceManagementError("operation not permitted", code=1)
@@ -360,32 +324,6 @@ def test_recover_and_enable_outcome_after_cleanup_failure_follows_register_and_c
     assert "not_found" in error
 
 
-def test_recover_and_enable_reports_error_when_still_not_found(monkeypatch) -> None:
-    """Report an error, with no further retry, when recovery leaves status notFound."""
-    monkeypatch.setattr(service_management, "unregister", lambda: None)
-    monkeypatch.setattr(service_management, "register", lambda: None)
-    monkeypatch.setattr(service_management, "query_status", lambda: MacosMainAppStatus.NOT_FOUND)
-
-    outcome, error = macos_autostart.recover_and_enable()
-
-    assert outcome == WriteOutcome.ERROR
-    assert "not_found" in error
-
-
-def test_recover_and_enable_succeeds_when_result_is_requires_approval(monkeypatch) -> None:
-    """Report success when recovery results in requiresApproval, same as create()."""
-    monkeypatch.setattr(service_management, "unregister", lambda: None)
-    monkeypatch.setattr(service_management, "register", lambda: None)
-    monkeypatch.setattr(
-        service_management, "query_status", lambda: MacosMainAppStatus.REQUIRES_APPROVAL
-    )
-
-    outcome, error = macos_autostart.recover_and_enable()
-
-    assert outcome == WriteOutcome.OK
-    assert error is None
-
-
 # --- macos_autostart.open_settings() ---
 
 
@@ -416,7 +354,7 @@ def test_open_settings_does_not_raise_when_the_native_call_fails(monkeypatch) ->
 
 
 def test_disable_succeeds_when_unregister_and_status_agree(monkeypatch) -> None:
-    """Report success when unregister() succeeds and status confirms not enabled."""
+    """Report success when unregister() succeeds and status is NOT_REGISTERED."""
     monkeypatch.setattr(service_management, "unregister", lambda: None)
     monkeypatch.setattr(
         service_management, "query_status", lambda: MacosMainAppStatus.NOT_REGISTERED
@@ -442,17 +380,6 @@ def test_disable_reports_error_when_unregister_call_fails(monkeypatch) -> None:
     assert error == "boom"
 
 
-def test_disable_reports_error_when_still_enabled_after_unregister(monkeypatch) -> None:
-    """Report an error rather than silently claiming success if disable never resolves."""
-    monkeypatch.setattr(service_management, "unregister", lambda: None)
-    monkeypatch.setattr(service_management, "query_status", lambda: MacosMainAppStatus.ENABLED)
-
-    outcome, error = macos_autostart.disable()
-
-    assert outcome == WriteOutcome.ERROR
-    assert error is not None
-
-
 def test_disable_reports_error_when_post_unregister_query_fails(monkeypatch) -> None:
     """Report an error when the post-unregister status query itself fails."""
     monkeypatch.setattr(service_management, "unregister", lambda: None)
@@ -468,23 +395,20 @@ def test_disable_reports_error_when_post_unregister_query_fails(monkeypatch) -> 
     assert error == "boom"
 
 
-def test_disable_does_not_treat_requires_approval_as_success(monkeypatch) -> None:
-    """Do not claim successful unregister when the service is still registered, pending approval."""
+@pytest.mark.parametrize(
+    "unresolved_status",
+    [
+        pytest.param(MacosMainAppStatus.ENABLED, id="still_enabled"),
+        pytest.param(MacosMainAppStatus.REQUIRES_APPROVAL, id="requires_approval"),
+        pytest.param(MacosMainAppStatus.NOT_FOUND, id="not_found"),
+    ],
+)
+def test_disable_does_not_treat_anything_but_not_registered_as_success(
+    monkeypatch, unresolved_status: MacosMainAppStatus
+) -> None:
+    """Require NOT_REGISTERED to confirm disable."""
     monkeypatch.setattr(service_management, "unregister", lambda: None)
-    monkeypatch.setattr(
-        service_management, "query_status", lambda: MacosMainAppStatus.REQUIRES_APPROVAL
-    )
-
-    outcome, error = macos_autostart.disable()
-
-    assert outcome == WriteOutcome.ERROR
-    assert error is not None
-
-
-def test_disable_does_not_treat_not_found_as_success(monkeypatch) -> None:
-    """Do not treat notFound after unregister as confirmed OFF."""
-    monkeypatch.setattr(service_management, "unregister", lambda: None)
-    monkeypatch.setattr(service_management, "query_status", lambda: MacosMainAppStatus.NOT_FOUND)
+    monkeypatch.setattr(service_management, "query_status", lambda: unresolved_status)
 
     outcome, error = macos_autostart.disable()
 
@@ -536,7 +460,7 @@ def test_startup_setup_noop_once_marker_exists(tmp_path: Path, monkeypatch) -> N
 def test_startup_setup_registers_and_writes_marker_when_not_registered(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """Register via create() and write the marker when confidently not registered."""
+    """Register autostart and write the marker when not registered."""
     calls: list[str] = []
     # First query (the initial check) reports NOT_REGISTERED; the second
     # (inside create()'s confirmation step) reports the post-register result.
@@ -595,31 +519,22 @@ def test_startup_setup_does_not_write_marker_when_not_found_recovery_fails(
         next(statuses)
 
 
-def test_startup_setup_preserves_enabled_and_writes_marker(tmp_path: Path, monkeypatch) -> None:
-    """Write the marker without registering again when already enabled."""
-
-    def _fail():
-        raise AssertionError("must not register when already enabled")
-
-    monkeypatch.setattr(service_management, "query_status", lambda: MacosMainAppStatus.ENABLED)
-    monkeypatch.setattr(service_management, "register", _fail)
-
-    macos_autostart.run_startup_setup(app_data_dir=tmp_path, is_frozen=True)
-
-    assert marker.has_completed_setup(tmp_path) is True
-
-
-def test_startup_setup_preserves_requires_approval_and_writes_marker(
-    tmp_path: Path, monkeypatch
+@pytest.mark.parametrize(
+    "existing_status",
+    [
+        pytest.param(MacosMainAppStatus.ENABLED, id="enabled"),
+        pytest.param(MacosMainAppStatus.REQUIRES_APPROVAL, id="requires_approval"),
+    ],
+)
+def test_startup_setup_preserves_existing_registration_and_writes_marker(
+    tmp_path: Path, monkeypatch, existing_status: MacosMainAppStatus
 ) -> None:
-    """Write the marker without registering again when requiresApproval."""
+    """Preserve existing registration and write the marker."""
 
     def _fail():
-        raise AssertionError("must not register when already requiresApproval")
+        raise AssertionError("must not register when already registered in some form")
 
-    monkeypatch.setattr(
-        service_management, "query_status", lambda: MacosMainAppStatus.REQUIRES_APPROVAL
-    )
+    monkeypatch.setattr(service_management, "query_status", lambda: existing_status)
     monkeypatch.setattr(service_management, "register", _fail)
 
     macos_autostart.run_startup_setup(app_data_dir=tmp_path, is_frozen=True)

@@ -1,11 +1,7 @@
-"""Detect whether the installed macOS app was launched as a login item.
+"""Detect macOS login-item launches from the kAEOpenApplication event.
 
-An AppKit delegate registers a handler for kAEOpenApplication in
-applicationWillFinishLaunching_, before NSApplication's own default Apple
-Event handling would otherwise consume it. When the event arrives during
-NSApplication.run()'s normal startup, keyAEPropData is inspected for
-keyAELaunchedAsLogInItem ('lgit'); its presence means SMAppService.mainApp
-launched this process at login rather than the user launching it manually.
+The keyAELaunchedAsLogInItem ('lgit') value distinguishes login-item
+launches from manual launches.
 """
 
 from __future__ import annotations
@@ -20,24 +16,21 @@ from Foundation import NSAppleEventManager, NSObject
 
 logger = logging.getLogger(__name__)
 
-# FourCharCode (OSType) constants from Apple's AE headers. PyObjC does not
-# export these; they are defined directly from their documented 4-character
-# codes (AppleEvents.h, AERegistry.h).
+# PyObjC does not export these Apple Event FourCharCode constants.
 _K_CORE_EVENT_CLASS: Final[int] = 0x61657674  # 'aevt'
 _K_AE_OPEN_APPLICATION: Final[int] = 0x6F617070  # 'oapp'
 _KEY_AE_PROP_DATA: Final[int] = 0x70726474  # 'prdt'
 _KEY_AE_LAUNCHED_AS_LOGIN_ITEM: Final[int] = 0x6C676974  # 'lgit'
 
-# NSApplication.delegate does not retain its delegate; this keeps the only
-# strong reference for the life of the process.
+# NSApplication does not retain its delegate.
 _delegate: _LoginLaunchDelegate | None = None
 
 
 class _LoginLaunchDelegate(NSObject):
-    """AppKit delegate that reports the login-launch decision exactly once."""
+    """Report the macOS login-launch decision once."""
 
     def initWithCallback_(self, callback: Callable[[bool], None]) -> _LoginLaunchDelegate | None:
-        """Store the callback to invoke once the launch event is inspected."""
+        """Store the launch-decision callback."""
         self = objc.super(_LoginLaunchDelegate, self).init()
         if self is None:
             return None
@@ -55,7 +48,7 @@ class _LoginLaunchDelegate(NSObject):
         )
 
     def handleAppleEvent_withReplyEvent_(self, event: object, reply: object) -> None:
-        """Inspect the launch event and report the login-launch decision once."""
+        """Report whether the launch event marks a login-item launch."""
         if self._decided:
             return
         self._decided = True
@@ -72,13 +65,9 @@ class _LoginLaunchDelegate(NSObject):
 
 
 def install(on_decision: Callable[[bool], None]) -> None:
-    """Install the AppKit delegate that reports the login-launch decision once.
+    """Install login-launch detection before NSApplication.run() starts.
 
-    Must be called before NSApplication.run() starts (before pystray's tray
-    icon enters the AppKit event loop), so applicationWillFinishLaunching_
-    can register the Apple Event handler in time to see the launch event.
-    on_decision is called at most once, from the main thread, with True if
-    the launch event carried keyAELaunchedAsLogInItem, False otherwise.
+    Call on_decision once on the main thread with the detected launch type.
     """
     global _delegate
     app = NSApplication.sharedApplication()
