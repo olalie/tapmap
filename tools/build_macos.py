@@ -5,8 +5,9 @@ Pipeline
 1. Clean previous build artifacts.
 2. Run automated tests.
 3. Build the application with PyInstaller.
-4. Verify the application.
-5. (Optional) Package the application as a DMG.
+4. Verify the application's signature.
+5. (Optional) Require a real Developer ID identity, then package the
+   application as a DMG.
 6. (Optional) Sign, notarize and staple the DMG during packaging.
 7. (Optional) Verify the packaged release.
 
@@ -14,9 +15,17 @@ Implementation
 --------------
 - Entry point: python tools/build.py [--package]
 - Application signing is performed by PyInstaller using the signing
-  identity provided to tapmap.spec at build time.
+  identity provided to tapmap.spec at build time, falling back to ad-hoc
+  signing when no Developer ID identity is available, so a local build
+  works without TIP's certificate.
+- Autostart uses SMAppService.mainApp, registered by TapMap itself at
+  runtime (see tapmap.autostart.macos_service_management); nothing is
+  bundled into the app at build time for it.
 - DMG signing, notarization and stapling are performed by create-dmg
-  during packaging.
+  during packaging; create-dmg signs and notarizes the DMG only, not
+  TapMap.app, which must already be validly signed before it runs. Unlike
+  the local build, packaging requires a real Developer ID identity and
+  fails immediately, before any build work runs, if one isn't available.
 """
 
 import platform
@@ -59,45 +68,36 @@ def expected_output_file() -> Path:
     return DIST_DIR / APP_NAME
 
 
-def sign_application() -> None:
-    """Sign the application bundle."""
-    app = expected_output_file()
+def require_signing_identity() -> None:
+    """Raise an error if no Developer ID Application identity is available.
 
-    run(
-        [
-            "codesign",
-            "--force",
-            "--options",
-            "runtime",
-            "--timestamp",
-            "--sign",
-            get_signing_identity(),
-            str(app),
-        ],
-        capture_output=True,
-    )
-
-    print(f"[OK] Signed application ({app.name})")
+    Release packaging must not silently fall back to ad-hoc signing.
+    """
+    if get_signing_identity() is None:
+        raise RuntimeError(
+            "No Developer ID Application identity found. Import TIP's Developer ID "
+            "certificate before running with --package; ordinary local builds "
+            "(without --package) don't need it."
+        )
 
 
-def verify_application(sign: bool = False) -> None:
-    """Verify the application bundle."""
+def verify_application() -> None:
+    """Verify the application bundle's code signature."""
     app = expected_output_file()
 
     if not app.exists():
         raise FileNotFoundError(f"Expected output not found: {app}")
 
-    if sign:
-        run(
-            [
-                "codesign",
-                "--verify",
-                "--deep",
-                "--strict",
-                # "--verbose=2",
-                str(app),
-            ]
-        )
+    run(
+        [
+            "codesign",
+            "--verify",
+            "--deep",
+            "--strict",
+            # "--verbose=2",
+            str(app),
+        ]
+    )
 
     print(f"[OK] Verified application ({app.name})")
 
@@ -200,6 +200,9 @@ def verify_package() -> None:
 
 def pipeline(package: bool = False) -> None:
     """Build the macOS application and optionally package it."""
+    if package:
+        require_signing_identity()
+
     setup()
     run_tests()
     build_application()

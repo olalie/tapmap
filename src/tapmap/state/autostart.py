@@ -21,6 +21,8 @@ class ClickAction(Enum):
     ENABLE = "enable"
     CREATE = "create"
     REPAIR_AND_ENABLE = "repair_and_enable"
+    OPEN_SETTINGS = "open_settings"
+    RECOVER_AND_ENABLE = "recover_and_enable"
 
 
 class ElevationStatus(Enum):
@@ -99,3 +101,52 @@ def decide_autostart_display(
         return AutostartDecision(DisplayState.OFF, ClickAction.ENABLE)
 
     return AutostartDecision(DisplayState.OFF, ClickAction.REPAIR_AND_ENABLE)
+
+
+class MacosMainAppStatus(Enum):
+    """SMAppService.mainApp.status, decoupled from the framework."""
+    NOT_REGISTERED = "not_registered"
+    ENABLED = "enabled"
+    REQUIRES_APPROVAL = "requires_approval"
+    NOT_FOUND = "not_found"
+
+
+@dataclass(frozen=True)
+class NativeMainAppStatus:
+    """Current SMAppService.mainApp registration status.
+
+    status is ignored when the state cannot be queried.
+    """
+
+    queryable: bool
+    status: MacosMainAppStatus | None
+
+
+def decide_macos_autostart_display(
+    *,
+    status: NativeMainAppStatus,
+    is_source_run: bool,
+) -> AutostartDecision:
+    """Return the macOS autostart display state and click action."""
+    if is_source_run:
+        return AutostartDecision(DisplayState.OFF, ClickAction.NONE)
+
+    if not status.queryable:
+        return AutostartDecision(DisplayState.UNAVAILABLE, ClickAction.NONE)
+
+    if status.status == MacosMainAppStatus.ENABLED:
+        return AutostartDecision(DisplayState.ON, ClickAction.DISABLE)
+
+    if status.status == MacosMainAppStatus.NOT_REGISTERED:
+        return AutostartDecision(DisplayState.OFF, ClickAction.CREATE)
+
+    if status.status == MacosMainAppStatus.REQUIRES_APPROVAL:
+        return AutostartDecision(DisplayState.OFF, ClickAction.OPEN_SETTINGS)
+
+    if status.status == MacosMainAppStatus.NOT_FOUND:
+        # An error/recovery state, not OFF: shown as unavailable, but still
+        # clickable, since a defined one-shot recovery exists for it.
+        return AutostartDecision(DisplayState.UNAVAILABLE, ClickAction.RECOVER_AND_ENABLE)
+
+    # Unrecognized status value: genuinely unknown, and disabled.
+    return AutostartDecision(DisplayState.UNAVAILABLE, ClickAction.NONE)

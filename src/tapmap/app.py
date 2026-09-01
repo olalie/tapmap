@@ -1097,21 +1097,30 @@ class TapMap:
 
     def _autostart_supported(self) -> bool:
         """Return whether autostart is supported."""
-        return platform.system() == "Windows" and not self.runtime.is_docker
+        return platform.system() in {"Windows", "Darwin"} and not self.runtime.is_docker
 
     def _run_autostart_startup_setup(self) -> None:
-        """Set up Windows autostart on first launch when needed."""
+        """Set up autostart on first launch when needed."""
         if not self._autostart_supported():
             return
 
-        from .autostart import windows_autostart
-
+        system = platform.system()
         try:
-            windows_autostart.run_startup_setup(
-                app_data_dir=self.runtime.app_data_dir,
-                exe_path=self._autostart_exe_path(),
-                is_frozen=self.runtime.is_frozen,
-            )
+            if system == "Darwin":
+                from .autostart import macos_autostart
+
+                macos_autostart.run_startup_setup(
+                    app_data_dir=self.runtime.app_data_dir,
+                    is_frozen=self.runtime.is_frozen,
+                )
+            elif system == "Windows":
+                from .autostart import windows_autostart
+
+                windows_autostart.run_startup_setup(
+                    app_data_dir=self.runtime.app_data_dir,
+                    exe_path=self._autostart_exe_path(),
+                    is_frozen=self.runtime.is_frozen,
+                )
         except Exception:
             self.logger.exception("Autostart initial setup failed unexpectedly.")
 
@@ -1123,11 +1132,26 @@ class TapMap:
 
     def _current_autostart_decision(self):
         """Return the current autostart display decision."""
-        from tapmap.autostart.windows_autostart import query_display_state
+        from tapmap.state.autostart import AutostartDecision, ClickAction, DisplayState
 
-        return query_display_state(
-            exe_path=self._autostart_exe_path(), is_frozen=self.runtime.is_frozen
-        )
+        system = platform.system()
+
+        if system == "Darwin":
+            from tapmap.autostart.macos_autostart import query_display_state
+
+            return query_display_state(is_frozen=self.runtime.is_frozen)
+
+        if system == "Windows":
+            from tapmap.autostart.windows_autostart import query_display_state
+
+            return query_display_state(
+                exe_path=self._autostart_exe_path(), is_frozen=self.runtime.is_frozen
+            )
+
+        # _autostart_supported() only allows Windows and Darwin, so this is
+        # unreachable in normal operation; kept explicit rather than letting an
+        # unsupported platform silently fall through to Windows-specific logic.
+        return AutostartDecision(DisplayState.UNAVAILABLE, ClickAction.NONE)
 
     @staticmethod
     def _autostart_class_name(display_state: Any) -> str:
@@ -1150,6 +1174,14 @@ class TapMap:
 
     def _handle_autostart_click(self) -> None:
         """Perform the write a click on the R control implies. A disabled control is a no-op."""
+        system = platform.system()
+        if system == "Darwin":
+            self._handle_macos_autostart_click()
+        elif system == "Windows":
+            self._handle_windows_autostart_click()
+
+    def _handle_windows_autostart_click(self) -> None:
+        """Perform the write a Windows click on the R control implies."""
         from tapmap.autostart import windows_autostart
         from tapmap.state.autostart import ClickAction, WriteOutcome
 
@@ -1164,6 +1196,28 @@ class TapMap:
             outcome, error = windows_autostart.create(exe_path=exe_path)
         elif decision.click_action == ClickAction.REPAIR_AND_ENABLE:
             outcome, error = windows_autostart.repair_and_enable(exe_path=exe_path)
+        else:
+            return
+
+        if outcome == WriteOutcome.ERROR:
+            self.logger.warning("Autostart write failed: %s", error)
+
+    def _handle_macos_autostart_click(self) -> None:
+        """Perform the write a macOS click on the R control implies."""
+        from tapmap.autostart import macos_autostart
+        from tapmap.state.autostart import ClickAction, WriteOutcome
+
+        decision = self._current_autostart_decision()
+
+        if decision.click_action == ClickAction.DISABLE:
+            outcome, error = macos_autostart.disable()
+        elif decision.click_action == ClickAction.CREATE:
+            outcome, error = macos_autostart.create()
+        elif decision.click_action == ClickAction.RECOVER_AND_ENABLE:
+            outcome, error = macos_autostart.recover_and_enable()
+        elif decision.click_action == ClickAction.OPEN_SETTINGS:
+            macos_autostart.open_settings()
+            return
         else:
             return
 
@@ -1477,13 +1531,65 @@ class TapMap:
             on_quit=self.lifecycle.request_shutdown,
         )
 
+    def _macos_browser_decision_is_deferred(self) -> bool:
+        """Return whether the browser-open decision should wait for the macOS login signal."""
+        return (
+            platform.system() == "Darwin"
+            and self.runtime.is_frozen
+            and not self.runtime.is_docker
+            and self.runtime.launch_browser
+        )
+
+    def _macos_browser_decision(self, url: str, is_login_launch: bool) -> None:
+        """Open the browser for a manual macOS launch; suppress it for a login launch."""
+        if is_login_launch:
+            self.logger.info("Suppressing automatic browser launch: login-item launch detected.")
+            return
+        self._open_browser(url)
+
+    def _decide_browser_open(self, url: str, icon: Icon | None) -> None:
+        """Open the browser now, defer it to the macOS login-launch signal, or fall back safely.
+
+        Deferral needs a tray icon: the login-launch signal can only ever
+        arrive once pystray's AppKit event loop is actually running, which
+        only happens when run() goes on to call run_tray(icon) rather than
+        wait_for_shutdown(). Without a tray, or if installing the handler
+        itself fails, the safe fallback is not opening the browser - never
+        guessing the launch was manual, and never leaving TapMap waiting on
+        an event that can no longer be delivered.
+        """
+        if self._macos_browser_decision_is_deferred():
+            if icon is None:
+                self.logger.warning(
+                    "Tray unavailable; cannot detect macOS login-launch status. "
+                    "Not opening the browser automatically."
+                )
+                return
+            try:
+                from .autostart import macos_login_launch
+
+                macos_login_launch.install(
+                    lambda is_login_launch: self._macos_browser_decision(url, is_login_launch)
+                )
+            except Exception:
+                self.logger.exception(
+                    "Unable to install macOS login-launch detection. "
+                    "Not opening the browser automatically."
+                )
+            return
+
+        if self.runtime.launch_browser and not self.runtime.is_docker:
+            self._open_browser(url)
+
     def run(self) -> None:
         """Bind the server, launch the local UI, and block until shutdown is requested."""
         host = self.runtime.server_host
         port = self.runtime.server_port
         url = self._server_url()
-        if self.runtime.launch_browser and not self.runtime.is_docker:
-            self._open_browser(url)
+
+        icon = self._create_tray_icon()
+
+        self._decide_browser_open(url, icon)
 
         self.logger.info(
             "Starting %s %s on %s",
@@ -1495,7 +1601,6 @@ class TapMap:
 
         server = make_server(host, port, self.app.server)
 
-        icon = self._create_tray_icon()
         if icon is not None:
             self.lifecycle.set_tray_icon(icon)
 

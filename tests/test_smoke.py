@@ -1,13 +1,16 @@
 """Smoke tests for TapMap application bootstrap."""
 
 import dataclasses
+import platform
 from pathlib import Path
 from typing import Any
+
+import pytest
 
 import tapmap
 from tapmap import app as app_module
 from tapmap.app import APP_META, TapMap, _build_arg_parser
-from tapmap.autostart import windows_autostart
+from tapmap.autostart import macos_autostart, windows_autostart
 from tapmap.runtime import RuntimeContext
 from tapmap.state.autostart import (
     AutostartDecision,
@@ -552,9 +555,9 @@ def test_autostart_button_present_on_windows_desktop(tmp_path: Path, monkeypatch
         app.close()
 
 
-def test_autostart_button_absent_off_windows(tmp_path: Path, monkeypatch) -> None:
+def test_autostart_button_absent_on_unsupported_platform(tmp_path: Path, monkeypatch) -> None:
     """Hide the autostart control on unsupported platforms."""
-    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Linux")
 
     app = TapMap(_runtime_ctx(tmp_path))
     try:
@@ -721,5 +724,429 @@ def test_autostart_click_logs_warning_on_write_error(tmp_path: Path, monkeypatch
 
         assert app._handle_autostart_click() is None
         assert warnings == ["Autostart write failed: access denied"]
+    finally:
+        app.close()
+
+
+# --- "Run TapMap automatically" control: Darwin dispatch ---
+
+
+def test_autostart_button_present_on_macos_desktop(tmp_path: Path, monkeypatch) -> None:
+    """Show the autostart control on macOS desktop."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        assert _component_exists(app.app.layout, "menu_autostart") is True
+    finally:
+        app.close()
+
+
+def test_startup_setup_dispatches_to_macos_backend_on_darwin(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Route initial autostart setup to the macOS backend on Darwin."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        macos_autostart, "run_startup_setup", lambda **kwargs: calls.append(kwargs)
+    )
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        assert calls == [{"app_data_dir": tmp_path, "is_frozen": False}]
+    finally:
+        app.close()
+
+
+def test_current_autostart_decision_dispatches_to_macos_backend_on_darwin(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Route the autostart decision query to the macOS backend on Darwin."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(
+        macos_autostart,
+        "query_display_state",
+        lambda **_kwargs: AutostartDecision(DisplayState.ON, ClickAction.DISABLE),
+    )
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        assert app._current_autostart_decision() == AutostartDecision(
+            DisplayState.ON, ClickAction.DISABLE
+        )
+    finally:
+        app.close()
+
+
+def test_macos_autostart_click_routes_to_disable_when_currently_on(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Delete the LaunchAgent plist when the current state is on."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        monkeypatch.setattr(
+            macos_autostart,
+            "query_display_state",
+            lambda **_kwargs: AutostartDecision(DisplayState.ON, ClickAction.DISABLE),
+        )
+        calls: list[str] = []
+        monkeypatch.setattr(
+            macos_autostart,
+            "disable",
+            lambda: calls.append("disable") or (WriteOutcome.OK, None),
+        )
+
+        assert app._handle_autostart_click() is None
+        assert calls == ["disable"]
+    finally:
+        app.close()
+
+
+def test_macos_autostart_click_routes_to_create_when_currently_off(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Register with SMAppService.mainApp when the current state is off."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        monkeypatch.setattr(
+            macos_autostart,
+            "query_display_state",
+            lambda **_kwargs: AutostartDecision(DisplayState.OFF, ClickAction.CREATE),
+        )
+        calls: list[str] = []
+        monkeypatch.setattr(
+            macos_autostart,
+            "create",
+            lambda: calls.append("create") or (WriteOutcome.OK, None),
+        )
+
+        assert app._handle_autostart_click() is None
+        assert calls == ["create"]
+    finally:
+        app.close()
+
+
+def test_macos_autostart_click_routes_to_recover_and_enable_when_not_found(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Run the notFound recovery sequence when the current state is notFound."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        monkeypatch.setattr(
+            macos_autostart,
+            "query_display_state",
+            lambda **_kwargs: AutostartDecision(
+                DisplayState.UNAVAILABLE, ClickAction.RECOVER_AND_ENABLE
+            ),
+        )
+        calls: list[str] = []
+        monkeypatch.setattr(
+            macos_autostart,
+            "recover_and_enable",
+            lambda: calls.append("recover_and_enable") or (WriteOutcome.OK, None),
+        )
+
+        assert app._handle_autostart_click() is None
+        assert calls == ["recover_and_enable"]
+    finally:
+        app.close()
+
+
+def test_macos_autostart_click_opens_settings_when_requires_approval(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Open System Settings, without a write outcome, when the current state is requiresApproval."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        monkeypatch.setattr(
+            macos_autostart,
+            "query_display_state",
+            lambda **_kwargs: AutostartDecision(DisplayState.OFF, ClickAction.OPEN_SETTINGS),
+        )
+        calls: list[str] = []
+        monkeypatch.setattr(
+            macos_autostart, "open_settings", lambda: calls.append("open_settings")
+        )
+
+        assert app._handle_autostart_click() is None
+        assert calls == ["open_settings"]
+    finally:
+        app.close()
+
+
+def test_macos_autostart_click_never_writes_when_click_action_is_none(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Do not write when the click action is NONE."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+
+        def _fail(**_kwargs):
+            raise AssertionError("must not write when click_action is NONE")
+
+        monkeypatch.setattr(macos_autostart, "disable", _fail)
+        monkeypatch.setattr(macos_autostart, "create", _fail)
+        monkeypatch.setattr(macos_autostart, "recover_and_enable", _fail)
+        monkeypatch.setattr(macos_autostart, "open_settings", _fail)
+
+        for display_state in (DisplayState.ON, DisplayState.OFF, DisplayState.UNAVAILABLE):
+            monkeypatch.setattr(
+                macos_autostart,
+                "query_display_state",
+                lambda ds=display_state, **_kwargs: AutostartDecision(ds, ClickAction.NONE),
+            )
+
+            assert app._handle_autostart_click() is None
+    finally:
+        app.close()
+
+
+def test_macos_autostart_click_logs_warning_on_write_error(tmp_path: Path, monkeypatch) -> None:
+    """Log a warning when a macOS autostart write fails."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        monkeypatch.setattr(
+            macos_autostart,
+            "query_display_state",
+            lambda **_kwargs: AutostartDecision(DisplayState.ON, ClickAction.DISABLE),
+        )
+        monkeypatch.setattr(
+            macos_autostart, "disable", lambda: (WriteOutcome.ERROR, "access denied")
+        )
+        warnings: list[str] = []
+        monkeypatch.setattr(app.logger, "warning", lambda msg, *args: warnings.append(msg % args))
+
+        assert app._handle_autostart_click() is None
+        assert warnings == ["Autostart write failed: access denied"]
+    finally:
+        app.close()
+
+
+# --- macOS post-start browser decision (login-launch Apple Event) ---
+
+
+def test_macos_browser_decision_is_deferred_when_all_conditions_met(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Defer the browser decision on a frozen, non-Docker Darwin build with browser launch on."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
+    runtime_ctx = dataclasses.replace(_runtime_ctx(tmp_path), is_frozen=True, launch_browser=True)
+    app = TapMap(runtime_ctx)
+    try:
+        assert app._macos_browser_decision_is_deferred() is True
+    finally:
+        app.close()
+
+
+def test_macos_browser_decision_not_deferred_for_a_source_run(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Do not defer the browser decision for a source run."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
+    runtime_ctx = dataclasses.replace(_runtime_ctx(tmp_path), is_frozen=False, launch_browser=True)
+    app = TapMap(runtime_ctx)
+    try:
+        assert app._macos_browser_decision_is_deferred() is False
+    finally:
+        app.close()
+
+
+def test_macos_browser_decision_not_deferred_when_browser_policy_already_suppresses_it(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Do not defer when existing browser policy already says not to open."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
+    runtime_ctx = dataclasses.replace(_runtime_ctx(tmp_path), is_frozen=True, launch_browser=False)
+    app = TapMap(runtime_ctx)
+    try:
+        assert app._macos_browser_decision_is_deferred() is False
+    finally:
+        app.close()
+
+
+def test_macos_browser_decision_not_deferred_in_docker(tmp_path: Path, monkeypatch) -> None:
+    """Do not defer the browser decision in Docker."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
+    runtime_ctx = dataclasses.replace(
+        _runtime_ctx(tmp_path, is_docker=True), is_frozen=True, launch_browser=True
+    )
+    app = TapMap(runtime_ctx)
+    try:
+        assert app._macos_browser_decision_is_deferred() is False
+    finally:
+        app.close()
+
+
+def test_macos_browser_decision_not_deferred_on_windows(tmp_path: Path, monkeypatch) -> None:
+    """Never defer the browser decision on a non-Darwin platform."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Windows")
+    runtime_ctx = dataclasses.replace(_runtime_ctx(tmp_path), launch_browser=True)
+    app = TapMap(runtime_ctx)
+    try:
+        assert app._macos_browser_decision_is_deferred() is False
+    finally:
+        app.close()
+
+
+def test_macos_browser_decision_opens_browser_for_manual_launch(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Open the browser when the launch event carries no login-item signal."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        calls: list[str] = []
+        monkeypatch.setattr(app, "_open_browser", lambda _url: calls.append("opened"))
+
+        app._macos_browser_decision("http://example.test/", is_login_launch=False)
+
+        assert calls == ["opened"]
+    finally:
+        app.close()
+
+
+def test_macos_browser_decision_suppresses_browser_for_login_launch(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Suppress the browser when the launch event carries the login-item signal."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+
+        def _fail(_url):
+            raise AssertionError("must not open the browser for a login launch")
+
+        monkeypatch.setattr(app, "_open_browser", _fail)
+
+        app._macos_browser_decision("http://example.test/", is_login_launch=True)
+    finally:
+        app.close()
+
+
+@pytest.mark.skipif(
+    platform.system() != "Darwin", reason="requires PyObjC to import macos_login_launch"
+)
+def test_decide_browser_open_installs_login_launch_handler_when_tray_available(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Defer to the macOS login-launch handler when a tray icon is available."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
+    runtime_ctx = dataclasses.replace(_runtime_ctx(tmp_path), is_frozen=True, launch_browser=True)
+    app = TapMap(runtime_ctx)
+    try:
+        calls: list[str] = []
+        monkeypatch.setattr(
+            "tapmap.autostart.macos_login_launch.install",
+            lambda _callback: calls.append("installed"),
+        )
+
+        app._decide_browser_open("http://example.test/", object())
+
+        assert calls == ["installed"]
+    finally:
+        app.close()
+
+
+def test_decide_browser_open_falls_back_safely_when_tray_unavailable(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Do not open the browser, and never attempt the handler, when no tray icon exists."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
+    runtime_ctx = dataclasses.replace(_runtime_ctx(tmp_path), is_frozen=True, launch_browser=True)
+    app = TapMap(runtime_ctx)
+    try:
+
+        def _fail(_url):
+            raise AssertionError("must not open the browser when the tray is unavailable")
+
+        monkeypatch.setattr(app, "_open_browser", _fail)
+
+        app._decide_browser_open("http://example.test/", None)
+    finally:
+        app.close()
+
+
+@pytest.mark.skipif(
+    platform.system() != "Darwin", reason="requires PyObjC to import macos_login_launch"
+)
+def test_decide_browser_open_falls_back_safely_when_install_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Do not open the browser, and do not raise, when installing the handler fails."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Darwin")
+    runtime_ctx = dataclasses.replace(_runtime_ctx(tmp_path), is_frozen=True, launch_browser=True)
+    app = TapMap(runtime_ctx)
+    try:
+
+        def _raise(_callback):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr("tapmap.autostart.macos_login_launch.install", _raise)
+
+        def _fail(_url):
+            raise AssertionError("must not open the browser when installation fails")
+
+        monkeypatch.setattr(app, "_open_browser", _fail)
+
+        app._decide_browser_open("http://example.test/", object())
+    finally:
+        app.close()
+
+
+# --- "Run TapMap automatically" control: unsupported-platform dispatch safety ---
+#
+# These guard against an unsupported platform (e.g. a future Linux build before
+# Commit 6 lands) silently falling through to Windows-specific logic.
+
+
+def test_current_autostart_decision_is_unavailable_on_an_unsupported_platform(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Report unavailable, rather than running Windows logic, on an unsupported platform."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Linux")
+
+    def _fail(**_kwargs):
+        raise AssertionError("must not call the Windows backend on an unsupported platform")
+
+    monkeypatch.setattr(windows_autostart, "query_display_state", _fail)
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        assert app._current_autostart_decision() == AutostartDecision(
+            DisplayState.UNAVAILABLE, ClickAction.NONE
+        )
+    finally:
+        app.close()
+
+
+def test_autostart_click_is_a_noop_on_an_unsupported_platform(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Do nothing, rather than running Windows logic, on an unsupported platform."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Linux")
+
+    def _fail(**_kwargs):
+        raise AssertionError("must not call the Windows backend on an unsupported platform")
+
+    monkeypatch.setattr(windows_autostart, "query_display_state", _fail)
+    monkeypatch.setattr(windows_autostart, "disable", _fail)
+    monkeypatch.setattr(windows_autostart, "enable", _fail)
+    monkeypatch.setattr(windows_autostart, "create", _fail)
+    monkeypatch.setattr(windows_autostart, "repair_and_enable", _fail)
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        assert app._handle_autostart_click() is None
     finally:
         app.close()
