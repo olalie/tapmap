@@ -6,6 +6,9 @@ and never via a filesystem walk that could reach a different
 environment's site-packages. Review the resulting change with
 `git diff requirements.txt` before committing.
 
+Linux desktop-only dependencies are maintained separately in
+requirements-linux-desktop.txt and are outside this tool's scope.
+
 Run from the project root:
     python tools/mkreq.py
 """

@@ -1,0 +1,3 @@
+# Linux desktop dependencies required by the system tray backend.
+pycairo==1.29.1; sys_platform == "linux"
+PyGObject==3.58.0; sys_platform == "linux"

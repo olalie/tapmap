@@ -313,6 +313,10 @@ Install dependencies:
     pip install -r requirements-tests.txt
     pip install -e .
 
+On Linux, also install the system tray dependencies:
+
+    pip install -r requirements-linux-desktop.txt
+
 Run:
 
     python -m tapmap

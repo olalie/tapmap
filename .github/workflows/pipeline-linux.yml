@@ -44,7 +44,7 @@ jobs:
             python3-dev
 
           python -m pip install --upgrade pip
-          pip install -r requirements-build.txt
+          pip install -r requirements-build.txt -r requirements-linux-desktop.txt
 
       - name: Build (same as local)
         shell: bash
