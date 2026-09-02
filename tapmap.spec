@@ -84,5 +84,6 @@ if sys.platform == "darwin":
         version=version,
         info_plist={
             "CFBundleVersion": version,
+            "LSUIElement": True,
         },
     )
