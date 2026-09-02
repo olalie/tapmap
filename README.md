@@ -295,6 +295,10 @@ Requirements:
 
 - Python 3.10+
 
+On Ubuntu/Debian, install the system dependencies required by PyGObject and the system tray:
+
+    sudo apt install pkg-config libcairo2-dev libgirepository-2.0-dev gcc python3-dev gir1.2-ayatanaappindicator3-0.1
+
 Create a virtual environment:
 
     python -m venv .venv

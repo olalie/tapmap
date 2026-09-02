@@ -10,7 +10,7 @@ import pytest
 import tapmap
 from tapmap import app as app_module
 from tapmap.app import APP_META, TapMap, _build_arg_parser
-from tapmap.autostart import macos_autostart, windows_autostart
+from tapmap.autostart import linux_autostart, macos_autostart, windows_autostart
 from tapmap.runtime import RuntimeContext
 from tapmap.state.autostart import (
     AutostartDecision,
@@ -56,6 +56,19 @@ def _runtime_ctx(tmp_path: Path, *, is_docker: bool = False) -> RuntimeContext:
         location_override=None,
         security_extensions_dir=tmp_path,
         tray_icon_path=tmp_path / "tapmap.ico",
+    )
+
+
+def _set_unsupported_platform(monkeypatch, name: str = "FreeBSD") -> None:
+    """Set an unsupported platform while keeping NetInfo usable."""
+    from tapmap.model.netinfo import NetInfo
+    from tapmap.model.netinfo_psutil import PsutilNetInfo
+
+    monkeypatch.setattr(app_module.platform, "system", lambda: name)
+    monkeypatch.setattr(
+        NetInfo,
+        "_select_backend",
+        lambda self: PsutilNetInfo(allowed_statuses=self.allowed_statuses),
     )
 
 
@@ -557,7 +570,7 @@ def test_autostart_button_present_on_windows_desktop(tmp_path: Path, monkeypatch
 
 def test_autostart_button_absent_on_unsupported_platform(tmp_path: Path, monkeypatch) -> None:
     """Hide the autostart control on unsupported platforms."""
-    monkeypatch.setattr(app_module.platform, "system", lambda: "Linux")
+    _set_unsupported_platform(monkeypatch)
 
     app = TapMap(_runtime_ctx(tmp_path))
     try:
@@ -1081,6 +1094,189 @@ def test_decide_browser_open_falls_back_safely_when_install_fails(
         app.close()
 
 
+# --- "Run TapMap automatically" control: Linux dispatch ---
+
+
+def test_autostart_button_present_on_linux_desktop(tmp_path: Path, monkeypatch) -> None:
+    """Show the autostart control on Linux desktop."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Linux")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        assert _component_exists(app.app.layout, "menu_autostart") is True
+    finally:
+        app.close()
+
+
+def test_startup_setup_dispatches_to_linux_backend_on_linux(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Route autostart setup to the Linux backend."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Linux")
+    calls: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        linux_autostart, "run_startup_setup", lambda **kwargs: calls.append(kwargs)
+    )
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        assert calls == [{"app_data_dir": tmp_path, "exe_path": "", "is_frozen": False}]
+    finally:
+        app.close()
+
+
+def test_current_autostart_decision_dispatches_to_linux_backend_on_linux(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Route autostart queries to the Linux backend."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        linux_autostart,
+        "query_display_state",
+        lambda **_kwargs: AutostartDecision(DisplayState.ON, ClickAction.DISABLE),
+    )
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        assert app._current_autostart_decision() == AutostartDecision(
+            DisplayState.ON, ClickAction.DISABLE
+        )
+    finally:
+        app.close()
+
+
+def test_linux_autostart_click_routes_to_disable_when_currently_on(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Disable Linux autostart when the current state is on."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Linux")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        monkeypatch.setattr(
+            linux_autostart,
+            "query_display_state",
+            lambda **_kwargs: AutostartDecision(DisplayState.ON, ClickAction.DISABLE),
+        )
+        calls: list[str] = []
+        monkeypatch.setattr(
+            linux_autostart,
+            "disable",
+            lambda: calls.append("disable") or (WriteOutcome.OK, None),
+        )
+
+        assert app._handle_autostart_click() is None
+        assert calls == ["disable"]
+    finally:
+        app.close()
+
+
+def test_linux_autostart_click_routes_to_enable_when_currently_off_and_disabled(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Enable Linux autostart when it is disabled."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Linux")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        monkeypatch.setattr(
+            linux_autostart,
+            "query_display_state",
+            lambda **_kwargs: AutostartDecision(DisplayState.OFF, ClickAction.ENABLE),
+        )
+        calls: list[str] = []
+        monkeypatch.setattr(
+            linux_autostart,
+            "enable",
+            lambda: calls.append("enable") or (WriteOutcome.OK, None),
+        )
+
+        assert app._handle_autostart_click() is None
+        assert calls == ["enable"]
+    finally:
+        app.close()
+
+
+def test_linux_autostart_click_routes_to_create_when_no_entry_exists(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Create the autostart entry when none exists."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Linux")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        monkeypatch.setattr(
+            linux_autostart,
+            "query_display_state",
+            lambda **_kwargs: AutostartDecision(DisplayState.OFF, ClickAction.CREATE),
+        )
+        calls: list[str] = []
+        monkeypatch.setattr(
+            linux_autostart,
+            "create",
+            lambda **kwargs: calls.append(kwargs) or (WriteOutcome.OK, None),
+        )
+
+        assert app._handle_autostart_click() is None
+        assert len(calls) == 1
+    finally:
+        app.close()
+
+
+def test_linux_autostart_click_never_writes_when_click_action_is_none(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Do not write when the click action is NONE."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Linux")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+
+        def _fail(**_kwargs):
+            """Fail the test if called."""
+            raise AssertionError("must not write when click_action is NONE")
+
+        monkeypatch.setattr(linux_autostart, "disable", _fail)
+        monkeypatch.setattr(linux_autostart, "enable", _fail)
+        monkeypatch.setattr(linux_autostart, "create", _fail)
+
+        for display_state in (DisplayState.ON, DisplayState.OFF, DisplayState.UNAVAILABLE):
+            monkeypatch.setattr(
+                linux_autostart,
+                "query_display_state",
+                lambda ds=display_state, **_kwargs: AutostartDecision(ds, ClickAction.NONE),
+            )
+
+            assert app._handle_autostart_click() is None
+    finally:
+        app.close()
+
+
+def test_linux_autostart_click_logs_warning_on_write_error(tmp_path: Path, monkeypatch) -> None:
+    """Log a warning when a Linux autostart write fails."""
+    monkeypatch.setattr(app_module.platform, "system", lambda: "Linux")
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        monkeypatch.setattr(
+            linux_autostart,
+            "query_display_state",
+            lambda **_kwargs: AutostartDecision(DisplayState.ON, ClickAction.DISABLE),
+        )
+        monkeypatch.setattr(
+            linux_autostart, "disable", lambda: (WriteOutcome.ERROR, "permission denied")
+        )
+        warnings: list[str] = []
+        monkeypatch.setattr(
+            app.logger, "warning", lambda msg, *args: warnings.append(msg % args)
+        )
+
+        assert app._handle_autostart_click() is None
+        assert warnings == ["Autostart write failed: permission denied"]
+    finally:
+        app.close()
+
+
 # --- "Run TapMap automatically" control: unsupported-platform dispatch ---
 
 
@@ -1088,7 +1284,7 @@ def test_current_autostart_decision_is_unavailable_on_an_unsupported_platform(
     tmp_path: Path, monkeypatch
 ) -> None:
     """Report unavailable, rather than running Windows logic, on an unsupported platform."""
-    monkeypatch.setattr(app_module.platform, "system", lambda: "Linux")
+    _set_unsupported_platform(monkeypatch)
 
     def _fail(**_kwargs):
         raise AssertionError("must not call the Windows backend on an unsupported platform")
@@ -1108,7 +1304,7 @@ def test_autostart_click_is_a_noop_on_an_unsupported_platform(
     tmp_path: Path, monkeypatch
 ) -> None:
     """Do nothing, rather than running Windows logic, on an unsupported platform."""
-    monkeypatch.setattr(app_module.platform, "system", lambda: "Linux")
+    _set_unsupported_platform(monkeypatch)
 
     def _fail(**_kwargs):
         raise AssertionError("must not call the Windows backend on an unsupported platform")

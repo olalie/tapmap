@@ -42,6 +42,9 @@ from build_common import (
 
 EXECUTABLE_NAME = "tapmap"
 
+# dpkg-shlibdeps cannot detect GI typelibs because they are loaded at runtime.
+APPINDICATOR_DEPENDS = "gir1.2-ayatanaappindicator3-0.1 | gir1.2-appindicator3-0.1"
+
 
 def clean() -> None:
     """Remove previous build artifacts."""
@@ -268,10 +271,11 @@ def package_release() -> None:
 
     executable = PACKAGE_DIR / "usr" / "lib" / "tapmap" / EXECUTABLE_NAME
 
-    depends = compute_linux_dependencies(
+    shlib_depends = compute_linux_dependencies(
         PACKAGE_DIR,
         executable,
     )
+    depends = f"{shlib_depends}, {APPINDICATOR_DEPENDS}"
 
     executable.chmod(0o755)
     write_debian_control(

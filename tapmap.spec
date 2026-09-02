@@ -21,12 +21,25 @@ if sys.platform == "win32":
         )
     )
 
+hiddenimports = []
+
+if sys.platform == "linux":
+    # gi.overrides.* supplies pystray's AppIndicator/GTK backend with
+    # convenience members (e.g. GObject.idle_add) through a dynamic
+    # mechanism PyInstaller's static import scanner cannot see.
+    hiddenimports += [
+        "gi.overrides.GLib",
+        "gi.overrides.GObject",
+        "gi.overrides.Gtk",
+        "gi.overrides.Gio",
+    ]
+
 a = Analysis(
     ["src/tapmap/__main__.py"],
     pathex=["src"],
     binaries=[],
     datas=datas,
-    hiddenimports=[],
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

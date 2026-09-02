@@ -1097,7 +1097,7 @@ class TapMap:
 
     def _autostart_supported(self) -> bool:
         """Return whether autostart is supported."""
-        return platform.system() in {"Windows", "Darwin"} and not self.runtime.is_docker
+        return platform.system() in {"Windows", "Darwin", "Linux"} and not self.runtime.is_docker
 
     def _run_autostart_startup_setup(self) -> None:
         """Set up autostart on first launch when needed."""
@@ -1117,6 +1117,14 @@ class TapMap:
                 from .autostart import windows_autostart
 
                 windows_autostart.run_startup_setup(
+                    app_data_dir=self.runtime.app_data_dir,
+                    exe_path=self._autostart_exe_path(),
+                    is_frozen=self.runtime.is_frozen,
+                )
+            elif system == "Linux":
+                from .autostart import linux_autostart
+
+                linux_autostart.run_startup_setup(
                     app_data_dir=self.runtime.app_data_dir,
                     exe_path=self._autostart_exe_path(),
                     is_frozen=self.runtime.is_frozen,
@@ -1148,6 +1156,11 @@ class TapMap:
                 exe_path=self._autostart_exe_path(), is_frozen=self.runtime.is_frozen
             )
 
+        if system == "Linux":
+            from tapmap.autostart.linux_autostart import query_display_state
+
+            return query_display_state(is_frozen=self.runtime.is_frozen)
+
         return AutostartDecision(DisplayState.UNAVAILABLE, ClickAction.NONE)
 
     @staticmethod
@@ -1176,6 +1189,8 @@ class TapMap:
             self._handle_macos_autostart_click()
         elif system == "Windows":
             self._handle_windows_autostart_click()
+        elif system == "Linux":
+            self._handle_linux_autostart_click()
 
     def _handle_windows_autostart_click(self) -> None:
         """Handle the Windows autostart action."""
@@ -1215,6 +1230,25 @@ class TapMap:
         elif decision.click_action == ClickAction.OPEN_SETTINGS:
             macos_autostart.open_settings()
             return
+        else:
+            return
+
+        if outcome == WriteOutcome.ERROR:
+            self.logger.warning("Autostart write failed: %s", error)
+
+    def _handle_linux_autostart_click(self) -> None:
+        """Handle the Linux autostart action."""
+        from tapmap.autostart import linux_autostart
+        from tapmap.state.autostart import ClickAction, WriteOutcome
+
+        decision = self._current_autostart_decision()
+
+        if decision.click_action == ClickAction.DISABLE:
+            outcome, error = linux_autostart.disable()
+        elif decision.click_action == ClickAction.ENABLE:
+            outcome, error = linux_autostart.enable()
+        elif decision.click_action == ClickAction.CREATE:
+            outcome, error = linux_autostart.create(exe_path=self._autostart_exe_path())
         else:
             return
 

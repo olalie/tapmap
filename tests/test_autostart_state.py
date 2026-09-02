@@ -7,10 +7,13 @@ from tapmap.state.autostart import (
     ClickAction,
     DisplayState,
     ElevationStatus,
+    LinuxAutostartState,
     MacosMainAppStatus,
     NativeAutostartStatus,
+    NativeLinuxAutostartStatus,
     NativeMainAppStatus,
     decide_autostart_display,
+    decide_linux_autostart_display,
     decide_macos_autostart_display,
 )
 
@@ -205,3 +208,69 @@ def test_macos_requires_approval_is_off_with_open_settings_action() -> None:
     result = decide_macos_autostart_display(status=status, is_source_run=False)
 
     assert result == AutostartDecision(DisplayState.OFF, ClickAction.OPEN_SETTINGS)
+
+
+# --- decide_linux_autostart_display() ---
+
+
+def _linux_status(
+    *,
+    queryable: bool = True,
+    state: LinuxAutostartState | None = None,
+) -> NativeLinuxAutostartStatus:
+    """Return a Linux autostart status for testing."""
+    return NativeLinuxAutostartStatus(queryable=queryable, state=state)
+
+
+def test_linux_source_run_is_off_and_inert_regardless_of_status() -> None:
+    """Show autostart as off for a source run."""
+    status = _linux_status(state=LinuxAutostartState.ENABLED)
+
+    result = decide_linux_autostart_display(status=status, is_source_run=True)
+
+    assert result == AutostartDecision(DisplayState.OFF, ClickAction.NONE)
+
+
+def test_linux_unqueryable_status_is_unavailable() -> None:
+    """Show autostart as unavailable when the entry could not be read."""
+    status = _linux_status(queryable=False)
+
+    result = decide_linux_autostart_display(status=status, is_source_run=False)
+
+    assert result == AutostartDecision(DisplayState.UNAVAILABLE, ClickAction.NONE)
+
+
+def test_linux_enabled_is_on_with_disable_action() -> None:
+    """Show enabled autostart as on with a disable action."""
+    status = _linux_status(state=LinuxAutostartState.ENABLED)
+
+    result = decide_linux_autostart_display(status=status, is_source_run=False)
+
+    assert result == AutostartDecision(DisplayState.ON, ClickAction.DISABLE)
+
+
+def test_linux_disabled_is_off_with_enable_action() -> None:
+    """Show disabled autostart as off with an enable action."""
+    status = _linux_status(state=LinuxAutostartState.DISABLED)
+
+    result = decide_linux_autostart_display(status=status, is_source_run=False)
+
+    assert result == AutostartDecision(DisplayState.OFF, ClickAction.ENABLE)
+
+
+def test_linux_absent_entry_is_off_with_create_action() -> None:
+    """Show autostart as off with a create action when no entry exists."""
+    status = _linux_status(state=LinuxAutostartState.ABSENT)
+
+    result = decide_linux_autostart_display(status=status, is_source_run=False)
+
+    assert result == AutostartDecision(DisplayState.OFF, ClickAction.CREATE)
+
+
+def test_linux_malformed_entry_is_unavailable_with_no_action() -> None:
+    """Show a malformed entry as unavailable with no click action."""
+    status = _linux_status(state=LinuxAutostartState.MALFORMED)
+
+    result = decide_linux_autostart_display(status=status, is_source_run=False)
+
+    assert result == AutostartDecision(DisplayState.UNAVAILABLE, ClickAction.NONE)

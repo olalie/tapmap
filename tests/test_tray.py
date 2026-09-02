@@ -78,3 +78,22 @@ def test_create_tray_icon_returns_none_when_icon_file_is_missing(tmp_path: Path)
         on_quit=lambda: None,
     )
     assert icon is None
+
+
+def test_create_tray_icon_returns_none_when_creation_raises_value_error(monkeypatch) -> None:
+    """Return None when tray icon creation raises ValueError."""
+    import pystray
+
+    def _raise(*args, **kwargs):
+        """Simulate the pystray/AppIndicator ValueError failure."""
+        raise ValueError("Namespace AppIndicator3 not available")
+
+    monkeypatch.setattr(pystray, "Icon", _raise)
+
+    icon = create_tray_icon(
+        icon_path=_ICON_PATH,
+        tooltip="TapMap",
+        on_open=lambda: None,
+        on_quit=lambda: None,
+    )
+    assert icon is None

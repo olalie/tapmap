@@ -148,3 +148,43 @@ def decide_macos_autostart_display(
         return AutostartDecision(DisplayState.UNAVAILABLE, ClickAction.RECOVER_AND_ENABLE)
 
     return AutostartDecision(DisplayState.UNAVAILABLE, ClickAction.NONE)
+
+
+class LinuxAutostartState(Enum):
+    """Represent the state of TapMap's XDG autostart entry."""
+    ABSENT = "absent"
+    ENABLED = "enabled"
+    DISABLED = "disabled"
+    MALFORMED = "malformed"
+
+
+@dataclass(frozen=True)
+class NativeLinuxAutostartStatus:
+    """Represent the current state of TapMap's Linux XDG autostart entry."""
+
+    queryable: bool
+    state: LinuxAutostartState | None
+
+
+def decide_linux_autostart_display(
+    *,
+    status: NativeLinuxAutostartStatus,
+    is_source_run: bool,
+) -> AutostartDecision:
+    """Return the Linux autostart display state and click action."""
+    if is_source_run:
+        return AutostartDecision(DisplayState.OFF, ClickAction.NONE)
+
+    if not status.queryable:
+        return AutostartDecision(DisplayState.UNAVAILABLE, ClickAction.NONE)
+
+    if status.state == LinuxAutostartState.ENABLED:
+        return AutostartDecision(DisplayState.ON, ClickAction.DISABLE)
+
+    if status.state == LinuxAutostartState.DISABLED:
+        return AutostartDecision(DisplayState.OFF, ClickAction.ENABLE)
+
+    if status.state == LinuxAutostartState.ABSENT:
+        return AutostartDecision(DisplayState.OFF, ClickAction.CREATE)
+
+    return AutostartDecision(DisplayState.UNAVAILABLE, ClickAction.NONE)

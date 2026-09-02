@@ -40,6 +40,7 @@ def create_tray_icon(
             title=tooltip,
             menu=menu,
         )
-    except (ImportError, OSError):
+    except (ImportError, OSError, ValueError):
+        # gi.require_version() raises ValueError when the AppIndicator typelib is missing.
         logger.warning("Tray icon unavailable; continuing without one.", exc_info=True)
         return None
