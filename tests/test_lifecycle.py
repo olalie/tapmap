@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import os
 import platform
 import subprocess
 import sys
 import textwrap
 import threading
+from pathlib import Path
 
 import pytest
 
@@ -163,11 +165,20 @@ def test_wait_for_shutdown_is_interruptible_by_a_real_signal_on_the_main_thread(
         """
     )
 
+    # Give the subprocess the same source import path used by pytest.
+    src_dir = str(Path(__file__).resolve().parent.parent / "src")
+    env = os.environ.copy()
+    existing_pythonpath = env.get("PYTHONPATH", "")
+    env["PYTHONPATH"] = (
+        os.pathsep.join([src_dir, existing_pythonpath]) if existing_pythonpath else src_dir
+    )
+
     result = subprocess.run(
         [sys.executable, "-c", script],
         capture_output=True,
         text=True,
         timeout=5,
+        env=env,
     )
 
     assert "SHUTDOWN_REQUESTED" in result.stdout

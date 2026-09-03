@@ -41,7 +41,8 @@ jobs:
             libcairo2-dev \
             libgirepository-2.0-dev \
             gcc \
-            python3-dev
+            python3-dev \
+            gir1.2-ayatanaappindicator3-0.1
 
           python -m pip install --upgrade pip
           pip install -r requirements-build.txt -r requirements-linux-desktop.txt
