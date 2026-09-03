@@ -4,9 +4,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from tapmap.tray import create_tray_icon
 
 _ICON_PATH = Path(__file__).resolve().parent.parent / "src" / "tapmap" / "assets" / "tapmap.ico"
+
+
+@pytest.fixture(autouse=True, scope="module")
+def _use_pystray_dummy_backend():
+    """Use pystray's display-independent backend for tray unit tests."""
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("PYSTRAY_BACKEND", "dummy")
+        yield
 
 
 def test_create_tray_icon_menu_is_open_separator_quit() -> None:
