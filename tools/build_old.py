@@ -30,11 +30,10 @@ import stat
 import subprocess
 import sys
 import time
+import tomllib
 from datetime import datetime
 from email.utils import format_datetime
 from pathlib import Path
-
-import tomllib
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 

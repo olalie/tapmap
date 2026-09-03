@@ -8,7 +8,7 @@
 
 ![TapMap demo](docs/images/demo.gif)
 
-Featured in: [How-To Geek](https://www.howtogeek.com/this-self-hosted-global-map-revealed-how-my-network-connects-to-the-outside-world/) • [MakeUseOf](https://www.makeuseof.com/i-put-my-computers-internet-traffic-on-map-didnt-expect-what-found/) • [kode24](https://www.kode24.no/artikkel/da-pc-en-min-begynte-a-tegne-linjer-til-kina/263807)
+Featured in: [How-To Geek](https://www.howtogeek.com/this-self-hosted-global-map-revealed-how-my-network-connects-to-the-outside-world/) • [MakeUseOf](https://www.makeuseof.com/i-put-my-computers-internet-traffic-on-map-didnt-expect-what-found/) • [kode24](https://www.kode24.no/artikkel/da-pc-en-min-begynte-a-tegne-linjer-til-kina/263807) • [AI Heartland](https://ai-heartland.com/tool/tapmap-network-visualizer/)
 
 **Watch your computer connect across the internet in real time. Discover the world behind your apps.**
 
@@ -150,6 +150,12 @@ http://127.0.0.1:8050/
 
 If it does not open automatically, enter the address manually.
 
+TapMap keeps running after you close the browser tab or window. Use the system tray icon (menu bar on macOS) to open or quit TapMap.
+
+**Run TapMap automatically** starts TapMap at login. It is enabled by default after a fresh installation and can be changed from the **TOOLS** menu. When started automatically, TapMap runs in the background without opening the browser.
+
+The system tray and autostart are available for desktop installations, not Docker.
+
 TapMap works with the default configuration.
 
 Runtime configuration through environment variables is documented in [Environment Variables](https://olalie.github.io/tapmap/environment-variables/).
@@ -230,6 +236,7 @@ Inspect connections that could not be geolocated and therefore do not appear on 
 | O   | Open ports |
 | T   | Toggle Technical details |
 | G   | GeoIP Database Management |
+| R   | Run TapMap automatically |
 | E   | Export cache |
 | C   | Clear cache |
 | H   | Help |
@@ -274,6 +281,8 @@ Command-line options:
     tapmap --version
     tapmap -v
 
+    tapmap --no-browser
+
 ---
 
 ## Windows SmartScreen
@@ -293,7 +302,7 @@ To continue:
 
 Requirements:
 
-- Python 3.10+
+- Python 3.12+
 
 On Ubuntu/Debian, install the system dependencies required by PyGObject and the system tray:
 

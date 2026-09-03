@@ -9,9 +9,8 @@ import stat
 import subprocess
 import sys
 import time
-from pathlib import Path
-
 import tomllib
+from pathlib import Path
 
 # Paths
 PROJECT_ROOT = Path(__file__).resolve().parents[1]

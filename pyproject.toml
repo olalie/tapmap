@@ -2,6 +2,7 @@
 name = "tapmap"
 version = "1.10.1"
 description = "Watch your computer connect across the internet in real time. Discover the world behind your apps."
+requires-python = ">=3.12"
 authors = [
     { name = "Ola Lie", email = "ola@tip.no" }
 ]
@@ -20,7 +21,6 @@ tapmap = ["assets/*"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py310"
 
 [tool.ruff.format]
 docstring-code-format = true

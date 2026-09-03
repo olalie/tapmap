@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 import math
-from typing import Final, TypeAlias
+from typing import Final
 
 import plotly.graph_objects as go
 import pycountry
 
 from .country_info import get_bounds
 
-LonLat: TypeAlias = tuple[float, float]
-PointSets: TypeAlias = tuple[list[LonLat], list[LonLat]]  # (geo_points, my_location)
-CustomData: TypeAlias = dict[str, object]
+type LonLat = tuple[float, float]
+type PointSets = tuple[list[LonLat], list[LonLat]]  # (geo_points, my_location)
+type CustomData = dict[str, object]
 
 
 class MapUI:

@@ -167,6 +167,34 @@ This separation isolates provider-specific concerns such as downloads, credentia
 
 ---
 
+## Lifecycle, Tray, and Autostart
+
+TapMap runs as a single desktop process with two threads: the main thread owns the tray icon and application lifecycle, and the local web server runs on one background thread. The tray/lifecycle code communicates with the rest of the application only through a narrow interface and never reaches into `Model` or state stores directly.
+
+All shutdown paths (tray Quit, the web UI Exit, process signals, and Docker container termination) go through the same coordinated shutdown sequence. Closing the browser tab does not stop TapMap; the browser and the TapMap process have independent lifetimes.
+
+If a tray backend is unavailable, TapMap continues running without one; the web UI remains the way to interact with and exit the application.
+
+Responsibilities:
+
+- `lifecycle.py` — shutdown request handling, the tray run loop, and signal handlers.
+- `tray.py` — tray icon and menu construction (Open TapMap / Quit TapMap).
+- `autostart/` — per-platform login autostart integration.
+
+### Autostart
+
+TapMap can register itself to launch automatically at login. Each platform's native mechanism is the sole source of truth for current autostart state; it is never duplicated into `settings.json`.
+
+- Windows: a per-user Scheduled Task, managed through Task Scheduler COM.
+- macOS: `SMAppService.mainApp`.
+- Linux: an XDG autostart desktop entry.
+
+A one-time marker records that initial autostart setup has been handled. It never represents current ON/OFF state.
+
+Docker/headless runs share the same lifecycle and shutdown model but have no tray and no autostart integration; container restart behavior is left to the container orchestration.
+
+---
+
 ## Data Flow
 
 Network activity enters the system through periodic snapshots.
@@ -373,6 +401,7 @@ The following boundaries should be preserved:
 - ui does not contain business logic
 - GeoIP database management remains isolated in geodb
 - historical state remains separate from session state
+- tray/lifecycle code does not directly access or manipulate model/state-owned application state
 
 ---
 
@@ -383,11 +412,14 @@ src/tapmap/
 ├── app.py          Controller and callback orchestration
 ├── config.py       Application configuration
 ├── runtime.py      Runtime initialization
+├── lifecycle.py    Shutdown coordination and the tray run loop
+├── tray.py         System tray icon and menu
 │
 ├── model/          Network collection and GeoIP enrichment
 ├── state/          Application state and decision logic
 ├── ui/             Dash and Plotly rendering
 ├── geodb/          GeoIP database management
+├── autostart/      Per-platform login autostart integration
 │
 └── assets/         Static Dash assets
 ```
@@ -416,7 +448,7 @@ During startup:
 2. GeoIP services are initialized.
 3. Historical insights are loaded from disk.
 4. Dash callbacks are registered.
-5. The local web application is started.
+5. The tray and browser launch are initialized, the web server starts on a background thread, and the main thread runs the application lifecycle.
 
 ---
 

@@ -29,14 +29,14 @@ from collections import OrderedDict
 from collections.abc import Iterable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol
 
 _DEFAULT_VERIFICATION_WORKERS = 2
 
 
-class VerificationStatus(str, Enum):
+class VerificationStatus(StrEnum):
     """Platform-independent verification result used internally by AppInfo.
 
     Windows and macOS derive the result from platform code-signing and
