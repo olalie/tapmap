@@ -212,7 +212,7 @@ def render_help() -> list[Any]:
                                 html.Td("TOOLS"),
                                 html.Td(
                                     "GeoIP Database Management, cache actions, and "
-                                    "(Windows) Run TapMap automatically."
+                                    "Run TapMap automatically."
                                 ),
                             ]
                         ),
@@ -302,7 +302,7 @@ def render_help() -> list[Any]:
                         html.Tr(
                             [
                                 html.Td("R"),
-                                html.Td("Toggle Run TapMap automatically (Windows)"),
+                                html.Td("Toggle Run TapMap automatically"),
                                 html.Td("Option"),
                             ]
                         ),
@@ -317,6 +317,26 @@ def render_help() -> list[Any]:
                     ]
                 ),
             ],
+        ),
+        html.H2("System tray and autostart"),
+        html.P(
+            [
+                "Closing the browser tab or window does not stop TapMap.",
+                html.Br(),
+                "Use the system tray icon (menu bar on macOS) to reopen TapMap in the browser, "
+                "or to quit it. Exit (X) also stops TapMap.",
+            ]
+        ),
+        html.P(
+            [
+                html.B("Run TapMap automatically"),
+                " starts TapMap at login without opening the browser. Change it from the TOOLS "
+                "menu or press R.",
+            ]
+        ),
+        html.P(
+            "The system tray and autostart are available for desktop installations, not "
+            "Docker."
         ),
         html.H2("Application information"),
         html.P(
@@ -334,6 +354,11 @@ def render_help() -> list[Any]:
                 " in the NETWORK section of the menu to display executable paths, "
                 "processes, PIDs, signatures, and other technical information.",
             ]
+        ),
+        html.P(
+            "TapMap identifies the process handling each connection. If an application uses "
+            "a separate helper, runtime, or interpreter, TapMap may identify that process "
+            "rather than the application that launched it."
         ),
         html.H3("Application verification"),
         html.Table(
@@ -437,8 +462,8 @@ def render_help() -> list[Any]:
             ]
         ),
         html.P(
-            "To build a complete 30-day history, keep TapMap running while your "
-            "system is in use. Running it at startup is recommended."
+            "To build a complete 30-day history, keep TapMap running while your system is in "
+            "use. Enable Run TapMap automatically (R) to start TapMap at login."
         ),
         html.H2("Unmapped public services (missing geolocation)"),
         html.P(
@@ -643,19 +668,29 @@ def render_help() -> list[Any]:
             "for example once a month."
         ),
         html.H2("Network and location notes"),
-        html.P("IP based geolocation is approximate."),
+        html.P(
+            "Locations are based on IP geolocation data and are approximate. TapMap does not "
+            "independently determine or verify the physical location of the network endpoint."
+        ),
         html.P(
             "ASN and ASN organization identify the network operator, not necessarily the "
             "service owner."
         ),
-        html.P("CDNs and hosting providers can make a service appear in another country."),
-        html.P("VPN and Tor can hide the true origin of a PUBLIC service location."),
+        html.P(
+            "For some network infrastructure, including anycast services, CDNs, proxies, and "
+            "VPNs, the displayed location may differ from the physical location of the "
+            "endpoint handling the connection."
+        ),
         html.H2("Privacy"),
         html.Ul(
             [
                 html.Li("TapMap runs locally."),
                 html.Li("No connection data is sent anywhere."),
                 html.Li("Geolocation uses local GeoIP databases."),
+                html.Li(
+                    "TapMap stores activity history and significant connection events locally. "
+                    "This data is never transmitted or shared by TapMap."
+                ),
                 html.Li(
                     "If automatic local geolocation is enabled, TapMap contacts a public "
                     "IP lookup service to determine your public IP address."

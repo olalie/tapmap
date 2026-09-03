@@ -128,7 +128,9 @@ Example:
 TAPMAP_LAUNCH_BROWSER=false tapmap
 ```
 
-This setting is useful when running TapMap as a service or starting it automatically without user interaction.
+The `--no-browser` command-line flag overrides this setting.
+
+TapMap's **Run TapMap automatically** feature already starts TapMap without opening the browser, so this setting is not required for desktop autostart.
 
 ## TAPMAP_CACHE_RETENTION_MIN
 

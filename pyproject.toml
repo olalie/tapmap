@@ -2,7 +2,7 @@
 name = "tapmap"
 version = "1.10.1"
 description = "Watch your computer connect across the internet in real time. Discover the world behind your apps."
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 authors = [
     { name = "Ola Lie", email = "ola@tip.no" }
 ]

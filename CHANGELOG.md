@@ -1,5 +1,17 @@
 ## Unreleased
 
+### Features
+
+- Add system tray support (Windows, macOS, Linux)
+  - Keep TapMap running after the browser tab or window is closed
+  - Open or quit TapMap from the tray icon (menu bar on macOS)
+
+- Add automatic startup at login (Windows, macOS, Linux)
+  - Add **Run TapMap automatically** in TOOLS and the `R` keyboard shortcut
+  - Enable automatic startup by default after a fresh installation
+  - Start TapMap without opening the browser when launched automatically at login
+  - Add `--no-browser` command-line option
+
 ### Improvements
 
 - Align Insights with mapped public connections
@@ -7,9 +19,13 @@
   - Keep unmapped public connections eligible for Significant Connections
   - Clarify connection and Insights state handling
 
+- Open the running TapMap instance in the browser when TapMap is launched again
+
 ### Documentation
 
 - Update Help and architecture documentation for connection and Insights state
+- Update README, Help, About and architecture documentation for the system tray, autostart and browser lifecycle
+- Update Privacy, Application Information and GeoDB Management documentation for local history and location accuracy
 
 ## 1.10.1 (2026-08-24)
 

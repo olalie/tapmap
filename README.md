@@ -302,7 +302,7 @@ To continue:
 
 Requirements:
 
-- Python 3.12+
+- Python 3.13+
 
 On Ubuntu/Debian, install the system dependencies required by PyGObject and the system tray:
 

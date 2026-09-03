@@ -472,6 +472,8 @@ An unknown application or yellow verification status should therefore not by its
 
 Application information depends on information made available by the operating system.
 
+Each network connection is attributed to the operating system process holding it. If an application uses a separate helper, runtime, or interpreter for the connection, such as Python, Node.js, or Bun, TapMap may identify that process rather than the application that launched it.
+
 TapMap does not maintain its own database of verified applications and does not decide whether software is safe or malicious.
 
 The displayed verification status describes the result of operating system verification and should be considered together with the other application information shown by TapMap.

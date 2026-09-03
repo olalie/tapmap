@@ -134,9 +134,10 @@ def render_about(
         kv_table(tapmap_rows),
         html.H2("Command line"),
         html.Pre(
-            "tapmap            Start application\n"
-            "tapmap --help     Show options\n"
-            "tapmap --version  Show version"
+            "tapmap                 Start application\n"
+            "tapmap --help          Show options\n"
+            "tapmap --version       Show version\n"
+            "tapmap --no-browser    Do not open the browser automatically"
         ),
         html.H2("Geolocation"),
         html.P(

@@ -234,3 +234,9 @@ Verify that:
 - The database folder is writable.
 
 Review the status message shown in **GeoIP Database Management** for additional details.
+
+## Limitations
+
+Locations are based on IP geolocation data and are approximate. TapMap uses the coordinates returned by the installed GeoIP database for the remote IP address and does not independently determine or verify the physical location of the network endpoint.
+
+For some network infrastructure, including anycast services, CDNs, proxies, and VPNs, the displayed location may therefore differ from the physical location of the endpoint handling the connection.
