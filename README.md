@@ -84,6 +84,7 @@ TapMap makes this visible so you can:
 - Operating system verification status for applications
 - Nearby locations highlighted when multiple connections overlap
 - Insights panel showing new and frequent activity over time
+- Significant Connections history of new applications, countries, network operators, ports, and failed verification
 - Daily Activity Report with application patterns, provider analysis, and activity timelines
 - Unmapped public services with missing geolocation
 - Established LAN and LOCAL services
@@ -100,6 +101,7 @@ All data is collected locally on your machine.
 - Enable **Technical details** in the **NETWORK** menu to display executable paths, processes, PIDs, signatures, and other technical information
 - Open the menu in the upper-left corner to access Insights and network tools
 - Open the Daily Activity Report with **D**
+- Open Significant Connections with **S**
 - Click countries in Insights to zoom to a country
 
 ---
@@ -231,6 +233,7 @@ Inspect connections that could not be geolocated and therefore do not appear on 
 |-----|--------|
 | D   | Daily Activity Report |
 | I   | Toggle Insights panel |
+| S   | Significant Connections |
 | U   | Unmapped public services |
 | L   | Established LAN/LOCAL services |
 | O   | Open ports |

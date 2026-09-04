@@ -1,5 +1,19 @@
 ## Unreleased
 
+### Features
+
+- Add Significant Connections history and detail view
+  - Add **Significant connections (S)** under INSIGHTS
+  - Show stored event, location, application, connection, process, and verification information
+
+### Improvements
+
+- Update persisted Significant Connections when deferred application verification completes
+
+### Documentation
+
+- Document the Significant Connections history and detail view
+
 ## 1.11.0 (2026-09-03)
 
 ### Features

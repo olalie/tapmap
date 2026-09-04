@@ -194,7 +194,8 @@ def render_help() -> list[Any]:
                             [
                                 html.Td("INSIGHTS"),
                                 html.Td(
-                                    "Daily Activity Report and Insights panel."
+                                    "Daily Activity Report, Insights panel, and "
+                                    "Significant Connections."
                                 ),
                             ]
                         ),
@@ -262,6 +263,13 @@ def render_help() -> list[Any]:
                                 html.Td("I"),
                                 html.Td("Toggle Insights panel"),
                                 html.Td("Panel"),
+                            ]
+                        ),
+                        html.Tr(
+                            [
+                                html.Td("S"),
+                                html.Td("Show Significant Connections history"),
+                                html.Td("Window"),
                             ]
                         ),
                         html.Tr(
@@ -465,6 +473,19 @@ def render_help() -> list[Any]:
             "To build a complete 30-day history, keep TapMap running while your system is in "
             "use. Enable Run TapMap automatically (R) to start TapMap at login."
         ),
+        html.H2("Significant Connections"),
+        html.P(
+            "Significant Connections lists connection events flagged for a new "
+            "application, country, network operator, port, or failed verification."
+        ),
+        html.P(
+            "Click a row to view location, application, connection, and process "
+            "details. Use Back to return to the list."
+        ),
+        html.P(
+            "Missing historical verification status is shown as Unknown."
+        ),
+        html.P("TapMap keeps the most recent 500 Significant Connections."),
         html.H2("Unmapped public services (missing geolocation)"),
         html.P(
             "The Unmapped window lists PUBLIC services that are not shown on the map because "

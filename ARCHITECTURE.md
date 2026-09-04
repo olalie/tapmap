@@ -273,10 +273,10 @@ Background verification
  normal poll
        │
        ▼
-ConnectionState / UnmappedState
+ConnectionState / UnmappedState / SignificantConnections
 ```
 
-Pending verification does not block snapshot creation or map updates. Completed verification information is merged into ConnectionState and UnmappedState independently during subsequent polling.
+Pending verification does not block snapshot creation or map updates. Completed verification information is merged into ConnectionState, UnmappedState, and SignificantConnections independently during subsequent polling.
 
 ### Historical Flow
 
@@ -366,6 +366,8 @@ Used by ConnectionAnalyzer to decide whether a connection is significant.
 Persistent historical state.
 
 A bounded, chronological event log (most recent 500) of PUBLIC connections judged significant against SignificanceHistory, covering both mapped and unmapped connections.
+
+Completed AppInfo verification results may update retained events during subsequent polling.
 
 Loaded at startup and periodically written to disk as significant_connections.json.
 
