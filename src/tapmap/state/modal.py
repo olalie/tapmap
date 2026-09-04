@@ -70,7 +70,7 @@ def _decide_screen_change(
             return None
         return {"screen": "menu_open_ports", "t": now_iso, "payload": {"show_system": show_system}}
 
-    if trigger in menu_screens:
+    if isinstance(trigger, str) and trigger in menu_screens:
         screen = str(trigger)
         payload: dict[str, Any] = {}
 
@@ -117,7 +117,36 @@ def _decide_internal_navigation(
             "payload": {},
         }
 
+    if trigger == "btn_sc_back":
+        return {
+            "screen": "menu_significant_connections",
+            "t": now_iso,
+            "payload": {},
+        }
+
     return None
+
+
+def _decide_row_click(
+    *,
+    trigger: Any,
+    now_iso: str,
+) -> dict[str, Any] | None:
+    """Return modal_state for a Significant Connections row click, or None if not applicable."""
+    if not isinstance(trigger, dict) or trigger.get("type") != "sc_row":
+        return None
+
+    return {
+        "screen": "menu_significant_connection_detail",
+        "t": now_iso,
+        "payload": {
+            "timestamp": trigger.get("timestamp"),
+            "pid": trigger.get("pid"),
+            "ip": trigger.get("ip"),
+            "port": trigger.get("port"),
+            "proto": trigger.get("proto"),
+        },
+    }
 
 def decide_modal_route(
     *,
@@ -164,7 +193,14 @@ def decide_modal_route(
         return ModalRoute(
             action="apply",
             modal_state=next_state,
-        )   
+        )
+
+    next_state = _decide_row_click(
+        trigger=trigger,
+        now_iso=now_iso,
+    )
+    if next_state is not None:
+        return ModalRoute(action="apply", modal_state=next_state)
 
     next_state = _decide_map_click(
         trigger=trigger,

@@ -87,7 +87,10 @@ from tapmap.ui.layout_view import render_layout
 from tapmap.ui.map_view import MapUI
 from tapmap.ui.modal_view import ModalTextBuilder
 from tapmap.ui.service_point_view import ServicePointViewBuilder
-from tapmap.ui.significant_connections_view import render_significant_connections
+from tapmap.ui.significant_connections_view import (
+    render_significant_connection_detail,
+    render_significant_connections,
+)
 
 from .app_dirs import open_folder, reveal_in_file_manager
 from .config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
@@ -135,6 +138,7 @@ class TapMap:
             "menu_daily_report",
             "menu_insights_log",
             "menu_significant_connections",
+            "menu_significant_connection_detail",
             "menu_exit",
         }
     )
@@ -703,6 +707,27 @@ class TapMap:
         if screen == "menu_significant_connections":
             return (
                 render_significant_connections(self.significant_connections.items),
+                self._class_for_modal_screen(screen),
+            )
+
+        if screen == "menu_significant_connection_detail":
+            event = self.significant_connections.find_by_identity(
+                timestamp=payload.get("timestamp"),
+                pid=payload.get("pid"),
+                ip=payload.get("ip"),
+                port=payload.get("port"),
+                proto=payload.get("proto"),
+            )
+            if event is None:
+                return (
+                    [
+                        html.H1("Significant Connection", className="mx-h1"),
+                        html.Pre("(this Significant Connection is no longer available)"),
+                    ],
+                    self._class_for_modal_screen(screen),
+                )
+            return (
+                render_significant_connection_detail(event),
                 self._class_for_modal_screen(screen),
             )
 
@@ -1371,6 +1396,18 @@ class TapMap:
             Input("map", "clickData"),
             Input("btn_view_log", "n_clicks", allow_optional=True),
             Input("btn_log_back", "n_clicks", allow_optional=True),
+            Input(
+                {
+                    "type": "sc_row",
+                    "timestamp": ALL,
+                    "pid": ALL,
+                    "ip": ALL,
+                    "port": ALL,
+                    "proto": ALL,
+                },
+                "n_clicks",
+            ),
+            Input("btn_sc_back", "n_clicks", allow_optional=True),
             Input("key_action", "data"),
             State("modal_state", "data"),
             State("open_ports_prefs", "data"),
@@ -1391,6 +1428,8 @@ class TapMap:
             click_data: Any,
             _view_log_clicks: int | None,
             _log_back_clicks: int | None,
+            _sc_row_clicks: list[int],
+            _sc_back_clicks: int | None,
             key_action: Any,
             modal_state_data: Any,
             open_ports_prefs_data: Any,

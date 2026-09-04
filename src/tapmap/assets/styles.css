@@ -870,6 +870,14 @@ summary.mx-acc-header:hover {
   word-break: break-word;
 }
 
+.mx-table.mx-significant-connections tbody tr {
+  cursor: pointer;
+}
+
+.mx-table.mx-significant-connections tbody tr:hover {
+  opacity: 0.8;
+}
+
 /* Status bar */
 
 .status-bar {

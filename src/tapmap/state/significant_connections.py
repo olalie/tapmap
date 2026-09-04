@@ -15,7 +15,6 @@ _DEFERRED_VERIFICATION_ATTRS = (
     "app_signature_state_details",
 )
 
-
 class SignificantConnections:
     """Own the Significant Connections event history, oldest first, bounded to MAX_ENTRIES."""
 
@@ -32,6 +31,21 @@ class SignificantConnections:
         self._items.append(event)
         if len(self._items) > MAX_ENTRIES:
             del self._items[: len(self._items) - MAX_ENTRIES]
+
+    def find_by_identity(
+        self, *, timestamp: Any, pid: Any, ip: Any, port: Any, proto: Any
+    ) -> dict[str, Any] | None:
+        """Return the persisted event matching these five identity fields, or None if not found."""
+        for event in self._items:
+            if (
+                event.get("timestamp") == timestamp
+                and event.get("pid") == pid
+                and event.get("ip") == ip
+                and event.get("port") == port
+                and event.get("proto") == proto
+            ):
+                return event
+        return None
 
     def pending_exe_paths(self) -> set[str]:
         """Return exe paths of persisted events whose deferred verification is still missing."""
