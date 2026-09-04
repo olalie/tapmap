@@ -14,6 +14,7 @@ from .formatting import (
     PENDING_VERIFICATION_STATUS,
     display_verification_status,
     safe_str,
+    verification_status_label,
     verification_status_priority,
 )
 from .tables import ColumnSpec, build_table, cell
@@ -142,16 +143,6 @@ def _build_technical_rows(cache: dict[str, Any]) -> list[Any]:
     return rows
 
 
-def _status_text(status: str | None) -> str:
-    """Return the display label for a verification status."""
-    return {
-        "verified": "Verified",
-        "failed": "Failed",
-        "unknown": "Unknown",
-        PENDING_VERIFICATION_STATUS: "Pending",
-    }.get(status, "Unknown")
-
-
 def _build_general_rows(cache: dict[str, Any]) -> list[Any]:
     """Build one row per distinct application, grouped across all unmapped services."""
     groups: dict[str | None, dict[str, Any]] = {}
@@ -201,7 +192,7 @@ def _build_general_rows(cache: dict[str, Any]) -> list[Any]:
                 [
                     cell(display_name),
                     cell(creator),
-                    cell(_status_text(status)),
+                    cell(verification_status_label(status)),
                     cell(str(len(group["services"]))),
                 ]
             )

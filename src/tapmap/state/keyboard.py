@@ -16,6 +16,7 @@ KEY_MAP = {
     "__u__": "menu_unmapped",
     "__l__": "menu_lan_local",
     "__o__": "menu_open_ports",
+    "__s__": "menu_significant_connections",
     "__g__": "menu_geodb_management",
     "__e__": "menu_export_cache",
     "__c__": "menu_clear_cache",

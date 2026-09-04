@@ -9,6 +9,7 @@ from tapmap.ui.formatting import (
     humanize_camel_case,
     verification_status_color,
     verification_status_glyph,
+    verification_status_label,
 )
 
 
@@ -28,6 +29,20 @@ def test_verification_status_glyph_pending_is_white_bullet() -> None:
     assert verification_status_glyph(PENDING_VERIFICATION_STATUS) == (
         '<span style="color:#ffffff">■</span>'
     )
+
+
+def test_verification_status_label_maps_all_known_statuses() -> None:
+    """Each known verification status maps to its user-facing label."""
+    assert verification_status_label("verified") == "Verified"
+    assert verification_status_label("failed") == "Failed"
+    assert verification_status_label("unknown") == "Unknown"
+    assert verification_status_label(PENDING_VERIFICATION_STATUS) == "Pending"
+
+
+def test_verification_status_label_defaults_to_unknown() -> None:
+    """An unrecognized or missing status label falls back to 'Unknown'."""
+    assert verification_status_label(None) == "Unknown"
+    assert verification_status_label("something-unexpected") == "Unknown"
 
 
 def test_display_verification_status_pending_for_real_exe() -> None:

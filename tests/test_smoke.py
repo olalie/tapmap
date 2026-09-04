@@ -207,6 +207,15 @@ def test_tapmap_layout_has_geodb_management_menu_entry_not_legacy_recheck(
         app.close()
 
 
+def test_tapmap_layout_has_significant_connections_menu_entry(tmp_path: Path) -> None:
+    """Menu includes the Significant connections screen entry."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        assert _component_exists(app.app.layout, "menu_significant_connections") is True
+    finally:
+        app.close()
+
+
 def test_tapmap_startup_skips_missing_geo_modal_when_dbip_pair_is_available(
     monkeypatch, tmp_path: Path
 ) -> None:

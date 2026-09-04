@@ -97,6 +97,18 @@ def test_build_key_action_maps_technical_details(monkeypatch) -> None:
     }
 
 
+def test_build_key_action_maps_significant_connections(monkeypatch) -> None:
+    """Map S token to the Significant Connections screen action."""
+    monkeypatch.setattr(keyboard, "datetime", DummyDatetime)
+
+    result = keyboard.build_key_action("__s__")
+
+    assert result == {
+        "action": "menu_significant_connections",
+        "t": "2026-01-01T00:00:00",
+    }
+
+
 def test_build_key_action_maps_autostart(monkeypatch) -> None:
     """Map the R key to the autostart action."""
     monkeypatch.setattr(keyboard, "datetime", DummyDatetime)

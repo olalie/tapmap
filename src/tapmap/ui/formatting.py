@@ -97,6 +97,19 @@ def verification_status_glyph(verification_status: str | None) -> str:
     return f'<span style="color:{verification_status_color(verification_status)}">■</span>'
 
 
+_VERIFICATION_STATUS_LABELS = {
+    "verified": "Verified",
+    "failed": "Failed",
+    "unknown": "Unknown",
+    PENDING_VERIFICATION_STATUS: "Pending",
+}
+
+
+def verification_status_label(verification_status: str | None) -> str:
+    """Return the display label for a verification status, defaulting to 'Unknown'."""
+    return _VERIFICATION_STATUS_LABELS.get(verification_status, "Unknown")
+
+
 _VERIFICATION_STATUS_PRIORITY = {
     "failed": 0,
     "unknown": 1,

@@ -109,6 +109,10 @@ def render_layout(
                                         "menu_insights",
                                         initial_insights_on,
                                     ),
+                                    _menu_button(
+                                        "Significant connections (S)",
+                                        "menu_significant_connections",
+                                    ),
                                 ],
                                 className="mx-acc-body",
                             ),

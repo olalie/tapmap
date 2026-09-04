@@ -87,6 +87,7 @@ from tapmap.ui.layout_view import render_layout
 from tapmap.ui.map_view import MapUI
 from tapmap.ui.modal_view import ModalTextBuilder
 from tapmap.ui.service_point_view import ServicePointViewBuilder
+from tapmap.ui.significant_connections_view import render_significant_connections
 
 from .app_dirs import open_folder, reveal_in_file_manager
 from .config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
@@ -133,6 +134,7 @@ class TapMap:
             "menu_about",
             "menu_daily_report",
             "menu_insights_log",
+            "menu_significant_connections",
             "menu_exit",
         }
     )
@@ -624,6 +626,7 @@ class TapMap:
             self.SCR_GEODB_MANAGEMENT,
             "menu_help",
             "menu_about",
+            "menu_significant_connections",
         }:
             return "modal-body mx-sticky-title"
         return "modal-body"
@@ -694,6 +697,12 @@ class TapMap:
             report = persist_build_daily_report(self.insights_state.insights)
             return (
                 render_daily_activity_report(report),
+                self._class_for_modal_screen(screen),
+            )
+
+        if screen == "menu_significant_connections":
+            return (
+                render_significant_connections(self.significant_connections.items),
                 self._class_for_modal_screen(screen),
             )
 
@@ -852,6 +861,7 @@ class TapMap:
             Input("menu_insights", "n_clicks"),
             Input("menu_technical_details", "n_clicks"),
             Input("menu_daily_report", "n_clicks"),
+            Input("menu_significant_connections", "n_clicks"),
             Input("menu_open_ports", "n_clicks"),
             Input("menu_unmapped", "n_clicks"),
             Input("menu_lan_local", "n_clicks"),
@@ -874,6 +884,7 @@ class TapMap:
             _insights: int,
             _technical_details: int,
             _daily_report: int,
+            _significant_connections: int,
             _open_ports: int,
             _unmapped: int,
             _lan_local: int,
@@ -1353,6 +1364,7 @@ class TapMap:
             Input("menu_about", "n_clicks"),
             Input("menu_help", "n_clicks"),
             Input("menu_daily_report", "n_clicks"),
+            Input("menu_significant_connections", "n_clicks"),
             Input("menu_exit", "n_clicks"),
             Input("btn_close", "n_clicks"),
             Input("toggle_open_ports_system", "value", allow_optional=True),
@@ -1372,6 +1384,7 @@ class TapMap:
             _about_clicks: int,
             _help_clicks: int,
             _daily_report_clicks: int,
+            _significant_connections_clicks: int,
             _exit_clicks: int,
             _close_clicks: int,
             toggle_system_value: Any,
