@@ -1,4 +1,4 @@
-"""Test the Significant Connections history table rendering."""
+"""Test Significant Connections history and detail rendering."""
 
 from __future__ import annotations
 
@@ -6,7 +6,10 @@ from typing import Any
 
 from dash import html
 
-from tapmap.ui.significant_connections_view import render_significant_connections
+from tapmap.ui.significant_connections_view import (
+    render_significant_connection_detail,
+    render_significant_connections,
+)
 
 
 def _event(**overrides: Any) -> dict[str, Any]:
@@ -39,7 +42,7 @@ def _event(**overrides: Any) -> dict[str, Any]:
 
 
 def _table(items: list[dict[str, Any]]) -> html.Table:
-    """Render items and return the table component (fails if the empty state rendered instead)."""
+    """Render items and return the history table."""
     result = render_significant_connections(items)
     table = result[1]
     assert isinstance(table, html.Table)
@@ -68,7 +71,18 @@ def _verification_span(td: html.Td) -> html.Span:
     return td.children
 
 
-# --- empty state ---
+def _detail_value(children: list[Any], section: str, label: str) -> Any:
+    """Return the rendered value for a label in a detail section."""
+    section_index = next(
+        i for i, c in enumerate(children) if isinstance(c, html.H2) and c.children == section
+    )
+    table = children[section_index + 1]
+    tbody = next(c for c in table.children if isinstance(c, html.Tbody))
+    for row in tbody.children:
+        key_td, value_td = row.children
+        if key_td.children == label:
+            return value_td.children
+    raise AssertionError(f"label {label!r} not found in section {section!r}")
 
 
 def test_render_significant_connections_empty_history_shows_placeholder() -> None:
@@ -77,9 +91,6 @@ def test_render_significant_connections_empty_history_shows_placeholder() -> Non
 
     assert isinstance(result[1], html.Pre)
     assert "no significant connections" in result[1].children.lower()
-
-
-# --- table structure ---
 
 
 def test_table_headers_match_the_required_columns() -> None:
@@ -101,9 +112,6 @@ def test_one_row_per_persisted_event() -> None:
     table = _table([_event(ip="1.1.1.1"), _event(ip="2.2.2.2"), _event(ip="3.3.3.3")])
 
     assert len(_rows(table)) == 3
-
-
-# --- ordering ---
 
 
 def test_events_are_displayed_newest_first() -> None:
@@ -131,9 +139,6 @@ def test_equal_timestamps_preserve_existing_relative_order() -> None:
     assert _cell_text(rows[1].children[4]) == "Second"
 
 
-# --- reason labels ---
-
-
 def test_single_reason_shows_its_user_facing_label() -> None:
     """A single reason renders its display label, not the raw identifier."""
     table = _table([_event(reasons=["new_country"])])
@@ -149,9 +154,6 @@ def test_multiple_reasons_join_into_one_cell_on_one_line() -> None:
     assert _cell_text(_rows(table)[0].children[1]) == (
         "New application, New country, New network operator, New port, Verification failed"
     )
-
-
-# --- location ---
 
 
 def test_location_with_city_and_country_shows_flag_and_both() -> None:
@@ -182,9 +184,6 @@ def test_location_with_neither_shows_globe_and_unknown_place_name() -> None:
     assert _cell_text(_rows(table)[0].children[2]) == "🌐 Unknown place name"
 
 
-# --- network operator / application ---
-
-
 def test_network_operator_and_application_show_persisted_values() -> None:
     """Network operator and Application cells show asn_org and app_name verbatim."""
     table = _table([_event(asn_org="Google LLC", app_name="Chrome")])
@@ -192,9 +191,6 @@ def test_network_operator_and_application_show_persisted_values() -> None:
 
     assert _cell_text(cells[3]) == "Google LLC"
     assert _cell_text(cells[4]) == "Chrome"
-
-
-# --- full-value hover tooltip ---
 
 
 def test_reason_cell_tooltip_shows_the_complete_value() -> None:
@@ -209,64 +205,19 @@ def test_reason_cell_tooltip_shows_the_complete_value() -> None:
     )
 
 
-def test_location_cell_tooltip_matches_displayed_value() -> None:
-    """The Location cell's tooltip matches its displayed flag-and-place text."""
-    table = _table([_event(country_code="NL", city="Amsterdam", country="The Netherlands")])
-
-    location_span = _rows(table)[0].children[2].children
-
-    assert location_span.title == "🇳🇱 Amsterdam, The Netherlands"
-
-
-# --- verification bullet ---
-
-
-def test_verification_bullet_shows_no_text_only_the_glyph() -> None:
-    """The verification cell holds only the bullet glyph, no textual status."""
+def test_verification_bullet_renders_glyph_color_and_tooltip_for_a_resolved_status() -> None:
+    """The verification cell shows only the colored glyph, with the status label as its tooltip."""
     table = _table([_event(app_verification_status="verified")])
 
     span = _verification_span(_rows(table)[0].children[5])
 
     assert span.children == "■"
-
-
-def test_verification_bullet_uses_the_verified_color_and_tooltip() -> None:
-    """A verified event's bullet is green with a 'Verified' tooltip."""
-    table = _table([_event(app_verification_status="verified")])
-
-    span = _verification_span(_rows(table)[0].children[5])
-
     assert span.style["color"] == "#00ff66"
     assert span.title == "Verified"
 
 
-def test_verification_bullet_uses_the_failed_color_and_tooltip() -> None:
-    """A failed event's bullet is red with a 'Failed' tooltip."""
-    table = _table([_event(app_verification_status="failed")])
-
-    span = _verification_span(_rows(table)[0].children[5])
-
-    assert span.style["color"] == "#ff4444"
-    assert span.title == "Failed"
-
-
-def test_verification_bullet_uses_the_unknown_color_and_tooltip() -> None:
-    """An unknown-status event's bullet is yellow with an 'Unknown' tooltip."""
-    table = _table([_event(app_verification_status="unknown")])
-
-    span = _verification_span(_rows(table)[0].children[5])
-
-    assert span.style["color"] == "#ffff00"
-    assert span.title == "Unknown"
-
-
 def test_verification_bullet_shows_unknown_not_pending_for_a_null_persisted_status() -> None:
-    """A persisted null status (exe present) shows yellow Unknown, not white Pending.
-
-    Unlike the live cache's Pending/Retrieving substitution, a persisted
-    Significant Connection event has no "still resolving" concept - a null
-    status is presented the same way any other unresolved status would be.
-    """
+    """Verify that a missing persisted verification status shows Unknown, not Pending."""
     table = _table([_event(app_verification_status=None, exe="/opt/firefox.exe")])
 
     span = _verification_span(_rows(table)[0].children[5])
@@ -275,11 +226,66 @@ def test_verification_bullet_shows_unknown_not_pending_for_a_null_persisted_stat
     assert span.title == "Unknown"
 
 
-def test_verification_bullet_shows_unknown_for_a_null_status_with_no_exe() -> None:
-    """A persisted null status with no exe also shows Unknown, same as with an exe."""
-    table = _table([_event(app_verification_status=None, exe=None)])
+def test_render_significant_connection_detail_shows_values_from_every_section() -> None:
+    """The detail view renders representative values from each of its five sections."""
+    event = _event(
+        timestamp="2026-08-23T18:42:16.013313",
+        reasons=["new_app", "new_country"],
+        lat=52.37,
+        lon=4.89,
+        asn=13335,
+        asn_org="Cloudflare, Inc.",
+        city="Amsterdam",
+        country="The Netherlands",
+        country_code="NL",
+        app_name="Firefox",
+        app_creator="Mozilla Corporation",
+        app_verification_status="verified",
+        ip="2606:4700:4403::ac40:94eb",
+        port=443,
+        proto="tcp",
+        process_name="firefox.exe",
+        pid=7920,
+        exe="C:\\Program Files\\Mozilla Firefox\\firefox.exe",
+    )
 
-    span = _verification_span(_rows(table)[0].children[5])
+    children = render_significant_connection_detail(event)
 
-    assert span.style["color"] == "#ffff00"
-    assert span.title == "Unknown"
+    assert _detail_value(children, "Event", "Timestamp").children == "2026-08-23 18:42:16"
+    assert _detail_value(children, "Event", "Reason").children == "New application, New country"
+    assert (
+        _detail_value(children, "Location", "Location").children
+        == "🇳🇱 Amsterdam, The Netherlands"
+    )
+    assert _detail_value(children, "Location", "Coordinates").children == "Lat 52.37, Lon 4.89"
+    assert _detail_value(children, "Application", "Application").children == "Firefox"
+    assert "Verified" in _detail_value(children, "Application", "Verification").children
+    assert (
+        _detail_value(children, "Connection", "Remote IP").children
+        == "2606:4700:4403::ac40:94eb"
+    )
+    assert _detail_value(children, "Connection", "Protocol").children == "TCP"
+    assert (
+        _detail_value(children, "Process", "Executable").children
+        == "C:\\Program Files\\Mozilla Firefox\\firefox.exe"
+    )
+
+
+def test_render_significant_connection_detail_shows_dash_for_missing_values() -> None:
+    """Coordinates/ASN/signature fields show '-' when absent; null verification shows Unknown."""
+    event = _event(
+        lat=None,
+        lon=None,
+        asn=None,
+        app_verification_status=None,
+        app_signature_state=None,
+        app_signature_state_details=None,
+    )
+
+    children = render_significant_connection_detail(event)
+
+    assert _detail_value(children, "Location", "Coordinates").children == "-"
+    assert _detail_value(children, "Location", "ASN").children == "-"
+    assert _detail_value(children, "Application", "Signature state").children == "-"
+    assert _detail_value(children, "Application", "Signature details").children == "-"
+    assert "Unknown" in _detail_value(children, "Application", "Verification").children

@@ -552,13 +552,7 @@ class TapMap:
         return snap, status_cache.to_store(), view, no_update, insights_data
 
     def _refresh_pending_app_verifications(self) -> None:
-        """Backfill AppInfo verification results that completed since the last poll.
-
-        Covers connection-state and unmapped-state entries whose connection
-        has left the current snapshot but are still retained, and persisted
-        Significant Connection events still awaiting a terminal verification
-        result. Never triggers new AppInfo work.
-        """
+        """Backfill completed AppInfo verification results without starting new AppInfo work."""
         pending = (
             self.connection_state.pending_exe_paths()
             | self.unmapped_state.pending_exe_paths()

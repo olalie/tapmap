@@ -241,16 +241,8 @@ def test_analyze_routes_public_with_geo_to_connection_state_only() -> None:
     assert unmapped_state.cache == {}
 
 
-# --- deferred verification backfill vs. later independent significance ---
-
-
 def test_verification_backfill_does_not_suppress_a_later_verification_failed_event() -> None:
-    """A pending event's backfill does not block a later, independent verification_failed event.
-
-    Once the app is independently observed as failed in a later snapshot, the
-    backfill of the earlier pending event must not merge into, replace, or
-    block that later event.
-    """
+    """Verify that backfill does not suppress a later verification failure."""
     significant_connections = SignificantConnections([])
     history = SignificanceHistory.from_insights_state(
         InsightsState(
@@ -263,7 +255,6 @@ def test_verification_backfill_does_not_suppress_a_later_verification_failed_eve
         ConnectionState(), UnmappedState(), {}, significant_connections, history
     )
 
-    # First observation: app is new, verification not yet resolved.
     analyzer.analyze(
         [_connection(exe="/opt/app.exe", app_name="App", app_verification_status=None)]
     )
@@ -272,7 +263,6 @@ def test_verification_backfill_does_not_suppress_a_later_verification_failed_eve
     assert "new_app" in first_reasons
     assert "verification_failed" not in first_reasons
 
-    # Deferred verification resolves to failed and backfills the pending event in place.
     significant_connections.refresh_resolved_applications(
         {
             "/opt/app.exe": {
@@ -286,7 +276,6 @@ def test_verification_backfill_does_not_suppress_a_later_verification_failed_eve
     assert significant_connections.items[0]["app_verification_status"] == "failed"
     assert significant_connections.items[0]["reasons"] == first_reasons
 
-    # A later snapshot independently observes the same app as failed - still eligible.
     analyzer.analyze(
         [_connection(exe="/opt/app.exe", app_name="App", app_verification_status="failed")]
     )

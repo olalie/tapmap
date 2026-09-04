@@ -3,7 +3,9 @@
 from tapmap.state.modal import (
     ModalRoute,
     _decide_close,
+    _decide_internal_navigation,
     _decide_map_click,
+    _decide_row_click,
     _decide_screen_change,
     decide_modal_route,
 )
@@ -138,6 +140,83 @@ def test_decide_screen_change_opens_modal_from_menu_click() -> None:
     }
 
 
+def test_decide_screen_change_ignores_dict_shaped_triggers() -> None:
+    """A dict-shaped (pattern-matching) trigger does not crash the plain-string screen check."""
+    trigger = {
+        "type": "sc_row",
+        "timestamp": "x",
+        "pid": 1,
+        "ip": "1.1.1.1",
+        "port": 1,
+        "proto": "tcp",
+    }
+    result = _decide_screen_change(
+        trigger=trigger,
+        is_open=True,
+        current_screen="menu_significant_connections",
+        show_system=False,
+        action=None,
+        menu_screens={"menu_significant_connections"},
+        open_ports_prefs=None,
+        now_iso="2026-03-10T10:00:00",
+    )
+
+    assert result is None
+
+
+def test_decide_internal_navigation_returns_to_significant_connections_list() -> None:
+    """The Significant Connection detail Back button returns to the history list screen."""
+    result = _decide_internal_navigation(
+        trigger="btn_sc_back",
+        now_iso="2026-03-10T10:00:00",
+    )
+
+    assert result == {
+        "screen": "menu_significant_connections",
+        "t": "2026-03-10T10:00:00",
+        "payload": {},
+    }
+
+
+def test_decide_row_click_returns_none_for_non_row_trigger() -> None:
+    """Ignore triggers that aren't a Significant Connections row click."""
+    result = _decide_row_click(
+        trigger="menu_about",
+        now_iso="2026-03-10T10:00:00",
+    )
+
+    assert result is None
+
+
+def test_decide_row_click_returns_modal_state_for_a_row_click() -> None:
+    """Open the Significant Connection detail screen with the clicked row's identity fields."""
+    trigger = {
+        "type": "sc_row",
+        "timestamp": "2026-08-23T18:42:16.013313",
+        "pid": 7920,
+        "ip": "8.8.8.8",
+        "port": 443,
+        "proto": "tcp",
+    }
+
+    result = _decide_row_click(
+        trigger=trigger,
+        now_iso="2026-03-10T10:00:00",
+    )
+
+    assert result == {
+        "screen": "menu_significant_connection_detail",
+        "t": "2026-03-10T10:00:00",
+        "payload": {
+            "timestamp": "2026-08-23T18:42:16.013313",
+            "pid": 7920,
+            "ip": "8.8.8.8",
+            "port": 443,
+            "proto": "tcp",
+        },
+    }
+
+
 def test_decide_map_click_returns_none_for_non_map_trigger() -> None:
     """Ignore non-map triggers."""
     result = _decide_map_click(
@@ -239,6 +318,45 @@ def test_decide_modal_route_applies_map_click_after_higher_priority_checks() -> 
             "screen": "map_click",
             "t": "2026-03-10T10:00:00",
             "payload": {"click_data": click_data},
+        },
+    )
+
+
+def test_decide_modal_route_applies_row_click_after_higher_priority_checks() -> None:
+    """Return an apply route for a Significant Connections row click."""
+    trigger = {
+        "type": "sc_row",
+        "timestamp": "2026-08-23T18:42:16.013313",
+        "pid": 7920,
+        "ip": "8.8.8.8",
+        "port": 443,
+        "proto": "tcp",
+    }
+
+    result = decide_modal_route(
+        trigger=trigger,
+        is_open=True,
+        current_screen="menu_significant_connections",
+        action=None,
+        show_system=False,
+        menu_screens={"menu_significant_connections"},
+        open_ports_prefs=None,
+        click_data=None,
+        now_iso="2026-03-10T10:00:00",
+    )
+
+    assert result == ModalRoute(
+        action="apply",
+        modal_state={
+            "screen": "menu_significant_connection_detail",
+            "t": "2026-03-10T10:00:00",
+            "payload": {
+                "timestamp": "2026-08-23T18:42:16.013313",
+                "pid": 7920,
+                "ip": "8.8.8.8",
+                "port": 443,
+                "proto": "tcp",
+            },
         },
     )
 

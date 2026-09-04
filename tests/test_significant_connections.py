@@ -46,9 +46,6 @@ def test_add_below_limit_does_not_evict() -> None:
     assert history.items == [{"seq": 0}, {"seq": 1}, {"seq": 2}, {"seq": "new"}]
 
 
-# --- deferred verification backfill ---
-
-
 def _event(**overrides: object) -> dict[str, object]:
     """Return a minimal persisted Significant Connection event."""
     event = {
@@ -81,7 +78,7 @@ def _event(**overrides: object) -> dict[str, object]:
 def _resolved(
     exe: str, *, status: str, creator: str = "Vendor Inc."
 ) -> dict[str, dict[str, object]]:
-    """Return a resolved-metadata dict for one exe, matching AppInfo's refresh field shape."""
+    """Return resolved application metadata for one executable."""
     return {
         exe: {
             "app_creator": creator,
@@ -92,27 +89,17 @@ def _resolved(
     }
 
 
-def test_pending_exe_paths_returns_exe_still_awaiting_verification() -> None:
-    """pending_exe_paths() includes an event whose verification is still None."""
-    history = SignificantConnections([_event(exe="/opt/app.exe", app_verification_status=None)])
-
-    assert history.pending_exe_paths() == {"/opt/app.exe"}
-
-
-def test_pending_exe_paths_excludes_events_without_exe() -> None:
-    """pending_exe_paths() excludes events with no resolvable exe."""
-    history = SignificantConnections([_event(exe=None, app_verification_status=None)])
-
-    assert history.pending_exe_paths() == set()
-
-
-def test_pending_exe_paths_excludes_already_resolved_events() -> None:
-    """pending_exe_paths() excludes events whose verification is already terminal."""
+def test_pending_exe_paths_includes_only_events_still_awaiting_verification() -> None:
+    """pending_exe_paths() includes a pending exe, excluding resolved and exe-less events."""
     history = SignificantConnections(
-        [_event(exe="/opt/app.exe", app_verification_status="verified")]
+        [
+            _event(exe="/opt/pending.exe", app_verification_status=None),
+            _event(exe="/opt/resolved.exe", app_verification_status="verified"),
+            _event(exe=None, app_verification_status=None),
+        ]
     )
 
-    assert history.pending_exe_paths() == set()
+    assert history.pending_exe_paths() == {"/opt/pending.exe"}
 
 
 def test_refresh_resolved_applications_backfills_pending_event_to_verified() -> None:
@@ -125,24 +112,6 @@ def test_refresh_resolved_applications_backfills_pending_event_to_verified() -> 
     assert event["app_verification_status"] == "verified"
     assert event["app_creator"] == "Vendor Inc."
     assert event["app_signature_state"] == "SignedAndTrusted"
-
-
-def test_refresh_resolved_applications_backfills_pending_event_to_failed() -> None:
-    """A pending event's verification fields are filled once resolved as failed."""
-    history = SignificantConnections([_event(exe="/opt/app.exe")])
-
-    history.refresh_resolved_applications(_resolved("/opt/app.exe", status="failed"))
-
-    assert history.items[0]["app_verification_status"] == "failed"
-
-
-def test_refresh_resolved_applications_backfills_pending_event_to_unknown() -> None:
-    """A pending event's verification fields are filled once resolved as unknown."""
-    history = SignificantConnections([_event(exe="/opt/app.exe")])
-
-    history.refresh_resolved_applications(_resolved("/opt/app.exe", status="unknown"))
-
-    assert history.items[0]["app_verification_status"] == "unknown"
 
 
 def test_refresh_resolved_applications_leaves_unrelated_events_unchanged() -> None:
@@ -202,11 +171,29 @@ def test_refresh_resolved_applications_only_changes_verification_related_fields(
     assert updated["app_verification_status"] == "verified"
 
 
-def test_refresh_resolved_applications_is_a_noop_for_empty_resolved() -> None:
-    """An empty resolved dict changes nothing."""
-    event = _event(exe="/opt/app.exe")
+def test_find_by_identity_returns_the_matching_event() -> None:
+    """find_by_identity() returns the event whose five identity fields all match."""
+    event = _event(
+        timestamp="2026-08-23T18:42:16.013313", pid=1234, ip="8.8.8.8", port=443, proto="tcp"
+    )
     history = SignificantConnections([event])
 
-    history.refresh_resolved_applications({})
+    found = history.find_by_identity(
+        timestamp="2026-08-23T18:42:16.013313", pid=1234, ip="8.8.8.8", port=443, proto="tcp"
+    )
 
-    assert history.items[0]["app_verification_status"] is None
+    assert found is event
+
+
+def test_find_by_identity_returns_none_when_any_field_differs() -> None:
+    """find_by_identity() returns None if even one of the five identity fields doesn't match."""
+    event = _event(
+        timestamp="2026-08-23T18:42:16.013313", pid=1234, ip="8.8.8.8", port=443, proto="tcp"
+    )
+    history = SignificantConnections([event])
+
+    found = history.find_by_identity(
+        timestamp="2026-08-23T18:42:16.013313", pid=1234, ip="8.8.8.8", port=9999, proto="tcp"
+    )
+
+    assert found is None

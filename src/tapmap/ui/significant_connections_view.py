@@ -1,8 +1,4 @@
-"""Significant Connections history view rendering for the TapMap UI.
-
-Build the Significant Connections history table from the persisted,
-oldest-first SignificantConnections.items event list.
-"""
+"""Render Significant Connections history and details."""
 
 from __future__ import annotations
 
@@ -39,11 +35,7 @@ _COLUMNS = [
 
 
 def render_significant_connections(items: list[dict[str, Any]]) -> list[Any]:
-    """Build modal content for the Significant Connections history.
-
-    items is SignificantConnections.items (oldest first, unchanged); display
-    order is newest first, computed here for presentation only.
-    """
+    """Render Significant Connections history with newest events first."""
     header = html.H1("Significant connections", className="mx-h1")
 
     if not items:
@@ -112,15 +104,7 @@ def _format_location(event: dict[str, Any]) -> str:
 
 
 def _verification_cell(event: dict[str, Any]) -> html.Td:
-    """Build the narrow, headingless verification-status bullet cell.
-
-    Uses the raw persisted app_verification_status, not
-    display_verification_status()'s live-view pending substitution: a
-    persisted event's status is either a terminal value or was never
-    resolved at capture time, and history has no notion of "still
-    resolving" for a past event - a None status is presented as Unknown,
-    consistent with how any other unresolved status already displays.
-    """
+    """Build the verification status cell, showing a missing status as Unknown."""
     status = event.get("app_verification_status")
     glyph = html.Span(
         "■",
@@ -210,15 +194,7 @@ def _verification_value(event: dict[str, Any]) -> html.Span:
 
 
 def _detail_table(rows: Iterable[tuple[str, Any]]) -> html.Table:
-    """Build a two column key/value detail table whose values may wrap and may be components.
-
-    A string (or None) value is wrapped in a tooltip-bearing Span, matching
-    the rest of the app's single-line-with-tooltip convention. A value that
-    is already a Dash component (e.g. the Verification glyph) is used as-is.
-    Unlike the history table, values here are allowed to wrap onto multiple
-    lines rather than being ellipsis-truncated, so long executable paths
-    stay fully readable.
-    """
+    """Build a two-column detail table with wrapping text and component values."""
     body: list[Any] = []
     for key, value in rows:
         if isinstance(value, str) or value is None:

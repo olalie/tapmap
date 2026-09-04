@@ -59,18 +59,7 @@ class SignificantConnections:
         return pending
 
     def refresh_resolved_applications(self, resolved: dict[str, dict[str, Any]]) -> None:
-        """Backfill newly-completed AppInfo fields into persisted events still pending for that exe.
-
-        resolved maps exe path to a plain dict of app_creator,
-        app_verification_status, app_signature_state, and
-        app_signature_state_details values, matching ConnectionState's and
-        UnmappedState's refresh_resolved_applications(). Only fills fields
-        still None on a matching event - timestamp, reasons, and every
-        connection/geographic field are left untouched. A later, independent
-        significant event (e.g. a fresh verification_failed detection) is
-        unaffected: this only ever fills currently-None fields on already
-        persisted events, never adds, merges, or removes events.
-        """
+        """Backfill missing AppInfo fields without changing the event or its reasons."""
         if not resolved:
             return
         for event in self._items:

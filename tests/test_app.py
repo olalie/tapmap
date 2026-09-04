@@ -6,6 +6,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+from dash import html
+
 from tapmap.app import APP_META, TapMap
 from tapmap.model.appinfo import ApplicationMetadata, VerificationStatus
 from tapmap.runtime import RuntimeContext
@@ -143,10 +145,7 @@ def _pending_significant_event(**overrides: object) -> dict[str, object]:
 
 
 def test_refresh_pending_app_verifications_updates_all_three_states() -> None:
-    """A resolved exe backfills all three states.
-
-    Covers ConnectionState, UnmappedState, and SignificantConnections alike.
-    """
+    """Verify that a resolved executable backfills all three states."""
     app = _bare_app()
     app.connection_state.merge([_mapped_candidate(exe="/opt/app.exe", app_name="Firefox")])
     app.unmapped_state.merge([_unmapped_candidate(exe="/opt/app.exe", app_name="Firefox")])
@@ -179,10 +178,7 @@ def test_refresh_pending_app_verifications_updates_all_three_states() -> None:
 
 def test_refresh_pending_app_verifications_queries_significant_connections_only_pending_exe(
 ) -> None:
-    """An exe pending only in SignificantConnections is still queried and backfilled.
-
-    Covers an exe already evicted from the ConnectionState/UnmappedState live caches.
-    """
+    """Verify backfill after an executable has left the live connection states."""
     app = _bare_app()
     app.significant_connections.add(_pending_significant_event(exe="/opt/gone.exe"))
 
@@ -229,3 +225,32 @@ def test_refresh_pending_app_verifications_persists_the_corrected_significant_ev
         assert persisted[0]["reasons"] == ["new_app"]
     finally:
         app.close()
+
+
+def test_render_modal_shows_unavailable_message_when_significant_connection_is_gone() -> None:
+    """The detail screen shows a clear message, not an empty modal, when the event is gone."""
+    app = _bare_app()
+
+    children, body_class = app._render_modal(
+        {
+            "screen": "menu_significant_connection_detail",
+            "t": "2026-01-01T00:00:00",
+            "payload": {
+                "timestamp": "2026-08-23T18:42:16.013313",
+                "pid": 7920,
+                "ip": "8.8.8.8",
+                "port": 443,
+                "proto": "tcp",
+            },
+        },
+        None,
+        None,
+        "",
+        None,
+        False,
+    )
+
+    assert body_class == "modal-body"
+    assert any(
+        isinstance(c, html.Pre) and "no longer available" in c.children for c in children
+    )
