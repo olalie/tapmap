@@ -549,11 +549,14 @@ class TapMap:
         """Backfill AppInfo verification results that completed since the last poll.
 
         Covers connection-state and unmapped-state entries whose connection
-        has left the current snapshot but are still retained. Never triggers
-        new AppInfo work.
+        has left the current snapshot but are still retained, and persisted
+        Significant Connection events still awaiting a terminal verification
+        result. Never triggers new AppInfo work.
         """
         pending = (
-            self.connection_state.pending_exe_paths() | self.unmapped_state.pending_exe_paths()
+            self.connection_state.pending_exe_paths()
+            | self.unmapped_state.pending_exe_paths()
+            | self.significant_connections.pending_exe_paths()
         )
         if not pending:
             return
@@ -577,6 +580,7 @@ class TapMap:
         }
         self.connection_state.refresh_resolved_applications(fields)
         self.unmapped_state.refresh_resolved_applications(fields)
+        self.significant_connections.refresh_resolved_applications(fields)
 
     def _server_url(self) -> str:
         """Return this instance's local web UI URL."""
