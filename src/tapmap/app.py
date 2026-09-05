@@ -1346,23 +1346,68 @@ class TapMap:
             Output("modal_overlay", "className"),
             Output("modal_body", "children"),
             Output("modal_body", "className"),
+            Output("modal_content_request", "data"),
             Input("modal_state", "data"),
             Input("geodb_event", "data"),
+            prevent_initial_call=False,
+        )
+        def modal_shell(
+            modal_state_data: Any,
+            geodb_event_data: Any,
+        ):
+            """Open or close the modal and show its loading state."""
+            is_open = isinstance(modal_state_data, dict)
+            overlay_class = self._modal_overlay_class(is_open)
+
+            if not is_open:
+                return overlay_class, [], "modal-body", no_update
+
+            screen = modal_state_data.get("screen")
+            if screen == "menu_exit":
+                body_class = "modal-body no-close"
+            else:
+                body_class = (
+                    self._class_for_modal_screen(screen)
+                    if isinstance(screen, str)
+                    else "modal-body"
+                )
+
+            placeholder = html.Div(
+                html.Div(className="mx-spinner"),
+                className="mx-modal-loading",
+            )
+
+            content_request = {
+                "modal_state": modal_state_data,
+                "geodb_event": geodb_event_data,
+            }
+
+            return overlay_class, [placeholder], body_class, content_request
+
+        @self.app.callback(
+            # Replace the loading placeholder with the rendered content.
+            Output("modal_body", "children", allow_duplicate=True),
+            Input("modal_content_request", "data"),
             State("ui_view", "data"),
             State("model_snapshot", "data"),
             State("technical_details_on", "data"),
-            prevent_initial_call=False,
+            prevent_initial_call=True,
         )
-        def modal_renderer(
-            modal_state_data: Any,
-            geodb_event_data: Any,
+        def modal_content_renderer(
+            content_request: Any,
             ui_view: Any,
             snapshot: Any,
             technical_details_data: Any,
         ):
+            """Render the current modal screen's real content into modal_body."""
+            if not isinstance(content_request, dict):
+                raise PreventUpdate
+
+            modal_state_data = content_request.get("modal_state")
+            geodb_event_data = content_request.get("geodb_event")
             geo_path = str(self.runtime.geo_data_dir)
 
-            children, body_class = self._render_modal(
+            children, _body_class = self._render_modal(
                 modal_state_data,
                 snapshot,
                 ui_view,
@@ -1371,11 +1416,7 @@ class TapMap:
                 bool(technical_details_data),
             )
 
-            overlay_class = self._modal_overlay_class(
-                isinstance(modal_state_data, dict)
-            )
-
-            return overlay_class, children, body_class
+            return children
         
     def _register_modal_callbacks(self) -> None:
         @self.app.callback(

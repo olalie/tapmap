@@ -878,6 +878,30 @@ summary.mx-acc-header:hover {
   opacity: 0.8;
 }
 
+/* Modal loading placeholder */
+
+.mx-modal-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+.mx-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(0, 255, 102, 0.25);
+  border-top-color: var(--mx-green);
+  border-radius: 50%;
+  animation: mx-spin 0.7s linear infinite;
+}
+
+@keyframes mx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Status bar */
 
 .status-bar {
