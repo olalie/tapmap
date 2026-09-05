@@ -1,6 +1,6 @@
 [project]
 name = "tapmap"
-version = "1.12.0"
+version = "1.12.1"
 description = "Watch your computer connect across the internet in real time. Discover the world behind your apps."
 requires-python = ">=3.13"
 authors = [
