@@ -525,15 +525,26 @@ def test_autostart_trigger_kind_button_click_is_act() -> None:
     )
 
 
-def test_autostart_trigger_kind_r_keyboard_mnemonic_is_act() -> None:
-    """Treat the R shortcut as an autostart action."""
+def test_autostart_trigger_kind_r_keyboard_mnemonic_is_act_when_menu_open() -> None:
+    """Treat the R shortcut as an autostart action while the menu is open."""
+    kind = TapMap._autostart_trigger_kind(
+        trigger="key_action",
+        menu_open=True,
+        n_clicks=None,
+        key_action={"action": "menu_autostart", "t": "2026-01-01T00:00:00"},
+    )
+    assert kind == "act"
+
+
+def test_autostart_trigger_kind_r_keyboard_ignored_when_menu_closed() -> None:
+    """Ignore the R shortcut while the menu is closed."""
     kind = TapMap._autostart_trigger_kind(
         trigger="key_action",
         menu_open=False,
         n_clicks=None,
         key_action={"action": "menu_autostart", "t": "2026-01-01T00:00:00"},
     )
-    assert kind == "act"
+    assert kind == "ignore"
 
 
 def test_autostart_trigger_kind_unrelated_key_action_is_ignored() -> None:
@@ -545,6 +556,13 @@ def test_autostart_trigger_kind_unrelated_key_action_is_ignored() -> None:
         key_action={"action": "menu_help", "t": "2026-01-01T00:00:00"},
     )
     assert kind == "ignore"
+
+
+def test_autostart_is_not_a_menu_closing_command() -> None:
+    """Do not close the menu when autostart is toggled, unlike one-shot commands."""
+    assert "menu_autostart" not in TapMap.MENU_COMMANDS
+    assert "menu_clear_cache" in TapMap.MENU_COMMANDS
+    assert "menu_export_cache" in TapMap.MENU_COMMANDS
 
 
 def test_autostart_trigger_kind_menu_opening_is_refresh() -> None:

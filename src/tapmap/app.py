@@ -143,7 +143,7 @@ class TapMap:
         }
     )
     MENU_COMMANDS: ClassVar[frozenset[str]] = frozenset(
-        {"menu_clear_cache", "menu_export_cache", "menu_autostart"}
+        {"menu_clear_cache", "menu_export_cache"}
     )
 
     MIN_FLASH_S = 3.0
@@ -928,7 +928,7 @@ class TapMap:
                 new_value = not bool(insights_on)
                 self.settings = replace(self.settings, insights_panel=new_value)
                 self._save_settings()
-                return False, new_value, no_update
+                return no_update, new_value, no_update
 
             if trigger == "menu_technical_details" or (
                 trigger == "key_action"
@@ -938,7 +938,7 @@ class TapMap:
                 new_value = not bool(technical_details_on)
                 self.settings = replace(self.settings, technical_details=new_value)
                 self._save_settings()
-                return False, no_update, new_value
+                return no_update, no_update, new_value
 
             next_state = compute_menu_open_state(
                 trigger=trigger,
@@ -1301,7 +1301,11 @@ class TapMap:
             return "act" if n_clicks else "ignore"
 
         if trigger == "key_action":
-            if isinstance(key_action, dict) and key_action.get("action") == "menu_autostart":
+            if (
+                menu_open
+                and isinstance(key_action, dict)
+                and key_action.get("action") == "menu_autostart"
+            ):
                 return "act"
             return "ignore"
 
