@@ -53,6 +53,8 @@ def render_layout(
             dcc.Store(id="status_cache", data=status_cache_store),
             dcc.Store(id="ui_view", data={"points": [], "summaries": {}, "details": {}}),
             dcc.Store(id="modal_state", data=initial_modal_state),
+            # Triggers modal content rendering after the loading state is shown.
+            dcc.Store(id="modal_content_request", data=None),
             dcc.Store(id="open_ports_prefs", data={"show_system": False}),
             dcc.Download(id="cache_download"),
             html.Div(
