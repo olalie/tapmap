@@ -112,6 +112,8 @@ class MaxMindProvider:
     @classmethod
     def _download_url(cls, edition_id: str, license_key: str) -> str:
         """Build MaxMind download URL for one edition."""
+        # URL embeds license_key: raise request errors below with `from None`,
+        # never chain them, or the key resurfaces in logged tracebacks.
         return f"{cls.BASE_URL}?edition_id={edition_id}&license_key={license_key}&suffix=tar.gz"
 
     def load_credentials(self) -> tuple[str, str]:
@@ -233,20 +235,20 @@ class MaxMindProvider:
             status = exc.response.status_code if exc.response is not None else None
 
             if status == 401:
-                raise ValueError("Invalid MaxMind credentials.") from exc
+                raise ValueError("Invalid MaxMind credentials.") from None
 
             if status == 429:
                 raise ValueError(
                     "Too many MaxMind requests. Please wait a few minutes and try again."
-                ) from exc
+                ) from None
 
             if status == 503:
-                raise ValueError("MaxMind service unavailable. Please try again later.") from exc
+                raise ValueError("MaxMind service unavailable. Please try again later.") from None
 
-            raise ValueError(f"MaxMind request failed (HTTP {status}).") from exc
+            raise ValueError(f"MaxMind request failed (HTTP {status}).") from None
 
-        except requests.RequestException as exc:
-            raise ValueError("Unable to contact MaxMind.") from exc
+        except requests.RequestException:
+            raise ValueError("Unable to contact MaxMind.") from None
 
     def _remote_last_modified_epoch(self, edition_id: str) -> int:
         """Return remote Last-Modified epoch for one MaxMind edition."""
@@ -261,8 +263,8 @@ class MaxMindProvider:
                 allow_redirects=True,
             )
             response.raise_for_status()
-        except requests.RequestException as exc:
-            raise RuntimeError("Unable to fetch MaxMind remote version") from exc
+        except requests.RequestException:
+            raise RuntimeError("Unable to fetch MaxMind remote version") from None
 
         last_modified = response.headers.get("Last-Modified")
         if last_modified is None:
@@ -294,8 +296,8 @@ class MaxMindProvider:
                 timeout=120,
             )
             response.raise_for_status()
-        except requests.RequestException as exc:
-            raise RuntimeError("Unable to download MaxMind database") from exc
+        except requests.RequestException:
+            raise RuntimeError("Unable to download MaxMind database") from None
 
         with tempfile.TemporaryDirectory() as temp_dir_name:
             temp_dir = Path(temp_dir_name)
