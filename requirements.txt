@@ -1,5 +1,5 @@
 certifi==2026.7.22
-dash==4.4.1
+dash==4.1.0
 keyring==25.7.0
 maxminddb==3.1.1
 Pillow==12.3.0

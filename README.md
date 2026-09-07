@@ -362,6 +362,8 @@ MIT License
 
 Many thanks to the community members who reported bugs, tested pre-release builds, and suggested improvements.
 
+- @sersora0986 for reporting the Dash renderer performance issue and testing diagnostic builds to help identify the cause.
+
 - @faxotherapy for reporting macOS compatibility issues and testing Intel builds.  
 - @nafarinha for confirming architecture support and validating macOS behavior.
 
