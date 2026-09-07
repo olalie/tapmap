@@ -42,3 +42,10 @@ ZOOM_NEAR_KM: Final[float] = 25.0
 
 Locations within this distance are shown in yellow.
 """
+
+NOTIFICATION_LEARNING_DAYS: Final[int] = 7
+"""Distinct active Insights days required before Significant Connections notify.
+
+Counted from the 30-day Insights history (distinct days with any observed
+activity), not calendar days elapsed.
+"""

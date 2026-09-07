@@ -228,6 +228,7 @@ class TapMap:
             self.insights_state.insights,
             self.significant_connections,
             self.significance_history,
+            notification_learning_days=self.runtime.notification_learning_days,
         )
 
         self.settings_path = self.runtime.app_data_dir / "settings.json"

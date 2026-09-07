@@ -28,6 +28,7 @@ def _runtime_ctx(tmp_path: Path) -> RuntimeContext:
         location_override=None,
         security_extensions_dir=tmp_path,
         tray_icon_path=tmp_path,
+        notification_learning_days=7,
     )
 
 

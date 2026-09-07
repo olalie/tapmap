@@ -200,3 +200,23 @@ def process_insights(
         "new": new,
         "top": top,
     }
+
+
+def distinct_active_days(insights: dict[str, Any]) -> int:
+    """Return the count of the last 30 days with activity in any dimension.
+
+    ORs the 30-day bitmask of every entry across all dimensions, then counts
+    the set bits: a day counts once if any country, provider, port, or
+    application was observed on it, regardless of how many.
+    """
+    combined = 0
+    for dimension in insights.values():
+        if not isinstance(dimension, dict):
+            continue
+        for entry in dimension.values():
+            if not isinstance(entry, dict):
+                continue
+            mask = entry.get("m")
+            if isinstance(mask, int):
+                combined |= mask
+    return combined.bit_count()

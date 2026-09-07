@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import pytest
 
-from tapmap.state.insights import process_insights
+from tapmap.state.insights import distinct_active_days, process_insights
 
 # Fixed base ordinal: avoids any dependency on the wall clock.
 _BASE = date(2000, 1, 1).toordinal()
@@ -577,3 +577,56 @@ class TestInputFiltering:
         insights: dict[str, Any] = {}
         process_insights(items, insights, _now(1))
         assert insights.get("applications", {}) == {}
+
+
+class TestDistinctActiveDays:
+    """Test distinct_active_days(): OR bitmasks across all dimensions, then bit_count()."""
+
+    def test_empty_insights_returns_zero(self) -> None:
+        """No dimensions at all: zero active days."""
+        assert distinct_active_days({}) == 0
+
+    def test_empty_dimensions_return_zero(self) -> None:
+        """Dimensions present but with no entries: zero active days."""
+        insights = {"countries": {}, "providers": {}, "ports": {}, "applications": {}}
+        assert distinct_active_days(insights) == 0
+
+    def test_single_entry_single_bit(self) -> None:
+        """One entry observed only today contributes exactly one active day."""
+        insights = {"countries": {"US": {"l": _day(1), "m": _bits(0)}}}
+        assert distinct_active_days(insights) == 1
+
+    def test_same_day_across_dimensions_counts_once(self) -> None:
+        """Two dimensions both active on the same day count as one active day, not two."""
+        insights = {
+            "countries": {"US": {"l": _day(1), "m": _bits(0)}},
+            "providers": {"Acme Inc": {"l": _day(1), "m": _bits(0)}},
+        }
+        assert distinct_active_days(insights) == 1
+
+    def test_disjoint_days_across_dimensions_are_unioned(self) -> None:
+        """Different dimensions active on different days union to the total distinct count."""
+        insights = {
+            "countries": {"US": {"l": _day(1), "m": _bits(0)}},
+            "providers": {"Acme Inc": {"l": _day(1), "m": _bits(1, 2)}},
+        }
+        assert distinct_active_days(insights) == 3
+
+    def test_multiple_entries_same_dimension_are_unioned(self) -> None:
+        """Two keys in one dimension, active on different days, union correctly."""
+        insights = {
+            "applications": {
+                "Firefox": {"l": _day(1), "m": _bits(0)},
+                "GIMP": {"l": _day(1), "m": _bits(5)},
+            }
+        }
+        assert distinct_active_days(insights) == 2
+
+    def test_malformed_entries_are_ignored(self) -> None:
+        """Non-dict dimensions/entries and a missing or non-int m are skipped, not raised."""
+        insights: dict[str, Any] = {
+            "countries": {"US": {"l": _day(1), "m": _bits(0)}, "NO": "not-a-dict"},
+            "providers": "not-a-dict-either",
+            "ports": {"443": {"l": _day(1)}},
+        }
+        assert distinct_active_days(insights) == 1
