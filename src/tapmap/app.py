@@ -96,6 +96,7 @@ from .app_dirs import open_folder, reveal_in_file_manager
 from .config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
 from .lifecycle import LifecycleCoordinator, start_server_thread
 from .logging_config import configure_logging
+from .mqtt_cli import run_configure_mqtt
 from .runtime import AppMeta, RuntimeContext, build_runtime
 from .tray import create_tray_icon
 
@@ -1894,6 +1895,11 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Do not open the web browser automatically at startup.",
     )
+    parser.add_argument(
+        "--configure-mqtt",
+        action="store_true",
+        help="Interactively configure, update, or remove MQTT notifications, then exit.",
+    )
     return parser
 
 
@@ -1901,6 +1907,10 @@ def main(argv: list[str] | None = None) -> int:
     """Run application from the command line."""
     args = _build_arg_parser().parse_args(argv)
     runtime_ctx = build_runtime(APP_META, no_browser=args.no_browser)
+
+    if args.configure_mqtt:
+        return run_configure_mqtt(runtime_ctx)
+
     configure_logging(runtime_ctx)
     app = TapMap(runtime_ctx)
     try:
