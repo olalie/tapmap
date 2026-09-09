@@ -97,6 +97,7 @@ from .config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
 from .lifecycle import LifecycleCoordinator, start_server_thread
 from .logging_config import configure_logging
 from .mqtt_cli import run_configure_mqtt
+from .notifications.mqtt import create_mqtt_channel
 from .runtime import AppMeta, RuntimeContext, build_runtime
 from .tray import create_tray_icon
 
@@ -223,12 +224,15 @@ class TapMap:
         # the loaded InsightsState, and ConnectionAnalyzer references the
         # already-loaded SignificantConnections.
         self.significance_history = SignificanceHistory.from_insights_state(self.insights_state)
+        self.mqtt_channel = create_mqtt_channel(self.runtime)
+        notification_channels = [self.mqtt_channel] if self.mqtt_channel is not None else []
         self.connection_analyzer = ConnectionAnalyzer(
             self.connection_state,
             self.unmapped_state,
             self.insights_state.insights,
             self.significant_connections,
             self.significance_history,
+            notification_channels=notification_channels,
             notification_learning_days=self.runtime.notification_learning_days,
         )
 
@@ -1875,6 +1879,8 @@ class TapMap:
         appinfo_close_fn = getattr(self.model.appinfo, "close", None)
         if callable(appinfo_close_fn):
             appinfo_close_fn()
+        if self.mqtt_channel is not None:
+            self.mqtt_channel.close()
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:

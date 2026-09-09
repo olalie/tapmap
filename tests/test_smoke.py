@@ -11,6 +11,7 @@ import tapmap
 from tapmap import app as app_module
 from tapmap.app import APP_META, TapMap, _build_arg_parser
 from tapmap.autostart import linux_autostart, macos_autostart, windows_autostart
+from tapmap.mqtt_config import MqttConfig, mqtt_config_path, save_mqtt_config
 from tapmap.runtime import RuntimeContext
 from tapmap.state.autostart import (
     AutostartDecision,
@@ -181,6 +182,32 @@ def test_create_tray_icon_wires_open_and_quit_callbacks(tmp_path: Path, monkeypa
 
         captured["on_quit"]()
         app.lifecycle.wait_for_shutdown()  # must not block: on_quit() already requested it
+    finally:
+        app.close()
+
+
+def test_tapmap_has_no_mqtt_channel_without_mqtt_json(tmp_path: Path) -> None:
+    """No mqtt.json: the MQTT channel is absent from notification_channels."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        assert app.mqtt_channel is None
+        assert app.connection_analyzer.notification_channels == []
+    finally:
+        app.close()
+
+
+def test_tapmap_has_mqtt_channel_with_valid_mqtt_json(tmp_path: Path) -> None:
+    """A valid mqtt.json: the MQTT channel is present in notification_channels."""
+    save_mqtt_config(
+        mqtt_config_path(tmp_path),
+        MqttConfig(
+            host="broker.local", port=1883, topic="tapmap/significant_connections", tls=False
+        ),
+    )
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        assert app.mqtt_channel is not None
+        assert app.connection_analyzer.notification_channels == [app.mqtt_channel]
     finally:
         app.close()
 
