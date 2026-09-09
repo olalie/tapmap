@@ -1,15 +1,4 @@
-"""MQTT notification channel.
-
-Publishes one MQTT message per eligible, newly accepted Significant
-Connection. The paho-mqtt client and its background network thread live
-entirely inside this module. The MQTT callbacks (_on_connect/_on_disconnect/
-_on_connect_fail) handle connection lifecycle and logging only - they never
-touch ConnectionAnalyzer, Significant Connections, Insights, UI state, or any
-other TapMap application state. They track connection/failure state on the
-MqttChannel instance itself, so a broker that stays unavailable or keeps
-rejecting the same way does not re-log identical failures on every automatic
-retry.
-"""
+"""Publish Significant Connection notifications over MQTT."""
 
 from __future__ import annotations
 
@@ -48,20 +37,19 @@ class MqttChannel:
             logger.debug("MQTT publish did not succeed immediately: %s", info.rc)
 
     def close(self) -> None:
-        """Disconnect, then stop the network thread.
-
-        disconnect() only queues the DISCONNECT packet; the still-running
-        network thread is what flushes it and then exits on its own.
-        Calling loop_stop() first would join that thread before the packet
-        could ever be sent.
-        """
+        """Disconnect from the broker and stop the MQTT network thread."""
+        # disconnect() only queues the packet; the network loop sends it,
+        # so it must run before loop_stop() stops that loop.
         self._client.disconnect()
         self._client.loop_stop()
+
+    # The callbacks below must not modify ConnectionAnalyzer, Significant
+    # Connections, Insights, UI, or other TapMap application state.
 
     def _on_connect(
         self, client: Any, userdata: Any, connect_flags: Any, reason_code: Any, properties: Any
     ) -> None:
-        """Log the connection result. MQTT lifecycle/logging only."""
+        """Handle an MQTT connection result."""
         if reason_code.is_failure:
             self._report_failure(f"MQTT connection failed: {reason_code}")
         else:
@@ -72,41 +60,27 @@ class MqttChannel:
     def _on_disconnect(
         self, client: Any, userdata: Any, disconnect_flags: Any, reason_code: Any, properties: Any
     ) -> None:
-        """Log the disconnection. MQTT lifecycle/logging only.
-
-        A failure-flagged disconnect while _connected is already False is the
-        same-attempt echo paho raises right after a rejected CONNACK (always
-        reported as a generic "Unspecified error", carrying no information
-        _on_connect didn't already report) - it is not logged again.
-        """
+        """Handle an MQTT disconnection."""
         if not reason_code.is_failure:
             logger.info("MQTT disconnected: %s", reason_code)
             self._connected = False
             return
 
         if not self._connected:
+            # A failure disconnect while already disconnected can be the echo
+            # of the same failed connection attempt - do not log it again.
             return
 
         self._connected = False
         self._report_failure(f"MQTT disconnected: {reason_code}")
 
     def _on_connect_fail(self, client: Any, userdata: Any) -> None:
-        """Log a failed pre-CONNACK connection attempt. MQTT lifecycle/logging only.
-
-        paho calls this for any connection attempt that fails before a CONNACK
-        is exchanged (DNS, TCP, or TLS failures alike) and does not pass a
-        reason - on_connect/on_disconnect never fire for these attempts, so
-        without this callback they are silent.
-        """
+        """Handle an MQTT connection failure before CONNACK."""
+        # paho provides no reason here - do not invent or imply one.
         self._report_failure("MQTT connection attempt failed.")
 
     def _report_failure(self, message: str) -> None:
-        """Log message as WARNING unless it repeats the last reported failure.
-
-        Keeps a broker that stays down or keeps rejecting the same way from
-        producing one warning per automatic retry; a genuinely different
-        failure, or a fresh failure after a successful connection, still logs.
-        """
+        """Log a changed MQTT failure without repeating identical failures."""
         if message != self._last_reported_failure:
             logger.warning(message)
             self._last_reported_failure = message
@@ -170,11 +144,8 @@ def create_mqtt_channel(runtime: RuntimeContext) -> MqttChannel | None:
 
 
 def _build_payload(event: dict[str, Any]) -> dict[str, Any]:
-    """Return the MQTT payload for one Significant Connection event.
-
-    The complete event, unchanged, except exe (a local filesystem path that
-    can embed the OS username) is excluded and hostname is added.
-    """
+    """Build an MQTT payload without the executable path and with the hostname."""
+    # exe can embed the OS username, so it is excluded from the payload.
     payload = {key: value for key, value in event.items() if key != "exe"}
     payload["hostname"] = socket.gethostname()
     return payload

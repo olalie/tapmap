@@ -23,7 +23,7 @@ from tapmap.mqtt_config import (
 
 
 class _FakeKeyring:
-    """In-memory stand-in for the keyring backend, keyed like the real API."""
+    """Provide an in-memory keyring backend."""
 
     def __init__(self) -> None:
         self._store: dict[tuple[str, str], str] = {}
@@ -43,7 +43,7 @@ class _FakeKeyring:
 
 @pytest.fixture
 def fake_keyring(monkeypatch: pytest.MonkeyPatch) -> _FakeKeyring:
-    """Replace the keyring module's functions with an in-memory fake."""
+    """Replace keyring access with an in-memory backend."""
     fake = _FakeKeyring()
     monkeypatch.setattr(keyring, "get_password", fake.get_password)
     monkeypatch.setattr(keyring, "set_password", fake.set_password)
@@ -77,7 +77,6 @@ def test_missing_file_returns_none(tmp_path: Path) -> None:
 
 
 def test_round_trip_desktop_shape(tmp_path: Path) -> None:
-    """A config with no credentials round-trips exactly."""
     path = tmp_path / "mqtt.json"
     config = _config(host="mqtt.example.com", port=8883, tls=True)
 
@@ -88,7 +87,6 @@ def test_round_trip_desktop_shape(tmp_path: Path) -> None:
 
 
 def test_round_trip_docker_shape_with_credentials(tmp_path: Path) -> None:
-    """A config with embedded credentials (the Docker shape) round-trips exactly."""
     path = tmp_path / "mqtt.json"
     config = _config(username="alice", password="secret")
 
@@ -109,7 +107,6 @@ def test_round_trip_username_without_password(tmp_path: Path) -> None:
 
 
 def test_save_omits_null_credential_fields_from_the_file(tmp_path: Path) -> None:
-    """The desktop shape (no credentials) never writes username/password keys, not even null."""
     path = tmp_path / "mqtt.json"
     save_mqtt_config(path, _config())
 
@@ -119,7 +116,6 @@ def test_save_omits_null_credential_fields_from_the_file(tmp_path: Path) -> None
 
 
 def test_save_includes_credential_fields_when_present(tmp_path: Path) -> None:
-    """The Docker shape (credentials present) writes both fields."""
     path = tmp_path / "mqtt.json"
     save_mqtt_config(path, _config(username="alice", password="secret"))
 
@@ -138,7 +134,6 @@ def test_save_omits_password_key_when_only_username_is_set(tmp_path: Path) -> No
 
 
 def test_save_restricts_file_permissions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """save_mqtt_config chmods the file to 0600, since it may hold credentials."""
     chmod_calls: list[int] = []
     original_chmod = Path.chmod
 
@@ -165,7 +160,7 @@ def test_delete_removes_file(tmp_path: Path) -> None:
 
 
 def test_delete_missing_file_is_a_no_op(tmp_path: Path) -> None:
-    delete_mqtt_config(tmp_path / "mqtt.json")  # must not raise
+    delete_mqtt_config(tmp_path / "mqtt.json")
 
 
 # --- malformed/tolerant loading ---
@@ -186,13 +181,13 @@ def test_json_not_an_object_returns_none(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "data",
     [
-        '{"port": 1883, "topic": "t", "tls": false}',  # missing host
-        '{"host": "h", "topic": "t", "tls": false}',  # missing port
-        '{"host": "h", "port": "1883", "topic": "t", "tls": false}',  # port not an int
-        '{"host": "h", "port": 1883, "tls": false}',  # missing topic
-        '{"host": "h", "port": 1883, "topic": "t"}',  # missing tls
-        '{"host": "h", "port": 1883, "topic": "t", "tls": "false"}',  # tls not a bool
-        '{"host": "", "port": 1883, "topic": "t", "tls": false}',  # empty host
+        '{"port": 1883, "topic": "t", "tls": false}',
+        '{"host": "h", "topic": "t", "tls": false}',
+        '{"host": "h", "port": "1883", "topic": "t", "tls": false}',
+        '{"host": "h", "port": 1883, "tls": false}',
+        '{"host": "h", "port": 1883, "topic": "t"}',
+        '{"host": "h", "port": 1883, "topic": "t", "tls": "false"}',
+        '{"host": "", "port": 1883, "topic": "t", "tls": false}',
     ],
 )
 def test_missing_or_invalid_required_fields_return_none(tmp_path: Path, data: str) -> None:
@@ -246,12 +241,11 @@ def test_clear_credentials_removes_both(fake_keyring: _FakeKeyring) -> None:
 def test_clear_credentials_when_nothing_stored_does_not_raise(
     fake_keyring: _FakeKeyring,
 ) -> None:
-    clear_credentials()  # must not raise
+    clear_credentials()
     assert get_stored_credentials() == (None, None)
 
 
 def test_credentials_use_dedicated_keyring_service(fake_keyring: _FakeKeyring) -> None:
-    """MQTT credentials are stored under their own service name, not MaxMind's."""
     set_credentials("alice", "secret")
     assert fake_keyring.get_password(KEYRING_SERVICE, "username") == "alice"
     assert fake_keyring.get_password("tapmap_geolite2", "username") is None

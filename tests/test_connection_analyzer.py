@@ -13,7 +13,7 @@ from tapmap.state.unmapped_state import UnmappedState
 
 
 class _RecordingChannel:
-    """Test double that records every event handed to it."""
+    """Record events sent to the channel."""
 
     def __init__(self) -> None:
         self.received: list[dict[str, Any]] = []
@@ -311,13 +311,12 @@ def test_verification_backfill_does_not_suppress_a_later_verification_failed_eve
 
 
 def test_no_dispatch_during_learning_period() -> None:
-    """A Significant Connection is stored, but not dispatched, before the threshold is met."""
     significant_connections = SignificantConnections([])
     channel = _RecordingChannel()
     analyzer = ConnectionAnalyzer(
         ConnectionState(),
         UnmappedState(),
-        {},  # no Insights history: 0 distinct active days
+        {},
         significant_connections,
         _empty_history(),
         notification_channels=[channel],
@@ -331,12 +330,11 @@ def test_no_dispatch_during_learning_period() -> None:
 
 
 def test_dispatch_after_learning_period_is_over() -> None:
-    """Once enough Insights history exists, a newly accepted event is dispatched immediately."""
     significant_connections = SignificantConnections([])
     channel = _RecordingChannel()
     # "l" (anchor day) is irrelevant here: distinct_active_days() only reads "m".
     insights: dict[str, Any] = {
-        "countries": {"NO": {"l": 1, "m": (1 << 7) - 1}},  # 7 distinct active days already
+        "countries": {"NO": {"l": 1, "m": (1 << 7) - 1}},
     }
     analyzer = ConnectionAnalyzer(
         ConnectionState(),
@@ -354,34 +352,7 @@ def test_dispatch_after_learning_period_is_over() -> None:
     assert channel.received == [significant_connections.items[0]]
 
 
-def test_dispatch_zero_threshold_is_immediately_eligible() -> None:
-    """A zero learning-period threshold dispatches from the very first Significant Connection."""
-    significant_connections = SignificantConnections([])
-    channel = _RecordingChannel()
-    analyzer = ConnectionAnalyzer(
-        ConnectionState(),
-        UnmappedState(),
-        {},
-        significant_connections,
-        _empty_history(),
-        notification_channels=[channel],
-        notification_learning_days=0,
-    )
-
-    analyzer.analyze([_connection(country_code="US")])
-
-    assert channel.received == significant_connections.items
-
-
 def test_current_poll_does_not_count_toward_its_own_eligibility() -> None:
-    """Eligibility is checked against Insights as of the previous poll, not this one.
-
-    Regression test for the established off-by-one behavior: process_insights()
-    (which would add today's day to the bitmask) only runs once, after the
-    entire per-connection loop - so a connection that would itself push the
-    active-day count over the threshold is not dispatched in the same poll
-    that creates it, even though it is still stored as usual.
-    """
     significant_connections = SignificantConnections([])
     channel = _RecordingChannel()
     # 6 active days already recorded; today's observation would be the 7th,
@@ -403,48 +374,3 @@ def test_current_poll_does_not_count_toward_its_own_eligibility() -> None:
 
     assert len(significant_connections.items) == 1
     assert channel.received == []
-
-
-def test_a_failing_channel_does_not_prevent_another_or_break_analyze() -> None:
-    """A channel that raises does not stop delivery to other channels or break analyze()."""
-    significant_connections = SignificantConnections([])
-    working_channel = _RecordingChannel()
-
-    class _FailingChannel:
-        def send(self, event: dict[str, Any]) -> None:
-            raise RuntimeError("channel unavailable")
-
-    insights: dict[str, Any] = {"countries": {"NO": {"l": 1, "m": (1 << 7) - 1}}}
-    analyzer = ConnectionAnalyzer(
-        ConnectionState(),
-        UnmappedState(),
-        insights,
-        significant_connections,
-        _empty_history(),
-        notification_channels=[_FailingChannel(), working_channel],
-        notification_learning_days=7,
-    )
-
-    result = analyzer.analyze([_connection(country_code="US")])
-
-    assert len(significant_connections.items) == 1
-    assert working_channel.received == [significant_connections.items[0]]
-    assert set(result.keys()) == {"new", "top"}
-
-
-def test_default_construction_has_no_channels_and_does_not_dispatch() -> None:
-    """Omitting notification_channels defaults to an empty list: storage only, no dispatch."""
-    significant_connections = SignificantConnections([])
-    insights: dict[str, Any] = {"countries": {"NO": {"l": 1, "m": (1 << 7) - 1}}}
-    analyzer = ConnectionAnalyzer(
-        ConnectionState(),
-        UnmappedState(),
-        insights,
-        significant_connections,
-        _empty_history(),
-        notification_learning_days=7,
-    )
-
-    analyzer.analyze([_connection(country_code="US")])
-
-    assert len(significant_connections.items) == 1

@@ -1,9 +1,4 @@
-"""Interactive `tapmap --configure-mqtt` command.
-
-Single entry point for creating, updating, and removing the MQTT
-configuration. Never accepts credentials as command-line arguments - the
-password is always read through an interactive, non-echoing prompt.
-"""
+"""Configure MQTT notifications interactively."""
 
 from __future__ import annotations
 
@@ -37,7 +32,7 @@ def run_configure_mqtt(
     prompt_secret: Callable[[str], str] = getpass.getpass,
     output: Callable[[str], None] = print,
 ) -> int:
-    """Run the interactive MQTT configuration flow. Returns a process exit code."""
+    """Run interactive MQTT configuration and return the process exit code."""
     path = mqtt_config_path(runtime.app_data_dir)
     existing = load_mqtt_config(path)
 
@@ -109,16 +104,7 @@ def _prompt_credentials(
     runtime: RuntimeContext,
     existing: MqttConfig | None,
 ) -> tuple[str | None, str | None, bool, Callable[[], None] | None]:
-    """Run the auth yes/no gate and, if enabled, the keep/replace/collect flow.
-
-    Returns (username, password, use_auth, deferred_credential_action).
-    username/password are the values to embed in the saved MqttConfig -
-    always (None, None) on desktop, since desktop credentials live in the
-    OS keyring instead. deferred_credential_action, when not None, is the
-    keyring mutation (set or clear) the caller must run only after the
-    configuration has actually been saved - this function itself never
-    touches the keyring, so a failed or declined save leaves it untouched.
-    """
+    """Collect MQTT authentication settings and defer desktop credential changes."""
     if runtime.is_docker:
         existing_username = existing.username if existing else None
         existing_password = existing.password if existing else None
@@ -157,15 +143,7 @@ def _prompt_credentials(
 
 
 def _derive_default_port(existing: MqttConfig | None, tls: bool) -> int:
-    """Return the port to propose as the default for the given TLS answer.
-
-    Fresh setup: the standard port for tls (1883/8883). Reconfiguring:
-    the existing port is preserved, unless it exactly matches the standard
-    port for the *previous* TLS setting and TLS has just changed - in that
-    case the existing port was almost certainly never customized, so the
-    standard port for the new TLS setting is proposed instead. A genuinely
-    custom port (one that doesn't match the old standard) is always kept.
-    """
+    """Return the default port for the selected TLS setting and existing configuration."""
     if existing is None:
         return DEFAULT_PORT_TLS if tls else DEFAULT_PORT_PLAIN
 

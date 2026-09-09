@@ -187,7 +187,6 @@ def test_create_tray_icon_wires_open_and_quit_callbacks(tmp_path: Path, monkeypa
 
 
 def test_tapmap_has_no_mqtt_channel_without_mqtt_json(tmp_path: Path) -> None:
-    """No mqtt.json: the MQTT channel is absent from notification_channels."""
     app = TapMap(_runtime_ctx(tmp_path))
     try:
         assert app.mqtt_channel is None
@@ -197,7 +196,6 @@ def test_tapmap_has_no_mqtt_channel_without_mqtt_json(tmp_path: Path) -> None:
 
 
 def test_tapmap_has_mqtt_channel_with_valid_mqtt_json(tmp_path: Path) -> None:
-    """A valid mqtt.json: the MQTT channel is present in notification_channels."""
     save_mqtt_config(
         mqtt_config_path(tmp_path),
         MqttConfig(

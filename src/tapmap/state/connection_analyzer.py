@@ -3,12 +3,6 @@
 Mapped PUBLIC connections update ConnectionState and feed Insights. PUBLIC
 connections without usable GeoIP update UnmappedState and remain eligible
 for Significant Connections, but do not contribute to Insights.
-
-A newly accepted Significant Connection is immediately evaluated against
-notification policy and, if eligible, dispatched - in the same per-connection
-pass that stores it, never by polling SignificantConnections history
-afterward. Significance detection and storage stay unaware of this: neither
-get_significant() nor SignificantConnections know notifications exist.
 """
 
 from __future__ import annotations
@@ -26,7 +20,7 @@ from .unmapped_state import UnmappedState
 
 
 class ConnectionAnalyzer:
-    """Process a snapshot's connections: connection, unmapped, insights, significant, notify."""
+    """Process a snapshot's connections and update derived state and notifications."""
 
     def __init__(
         self,

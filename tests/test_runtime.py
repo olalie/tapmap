@@ -168,43 +168,36 @@ class TestGetCacheRetentionMin:
 
 
 class TestGetNotificationLearningDays:
-    """Test _get_notification_learning_days() env var parser."""
+    """Test notification learning-period configuration."""
 
     def test_default_returns_config(self) -> None:
-        """Missing env var returns config default."""
         with patch.dict(os.environ, {}, clear=True):
             assert _get_notification_learning_days() == 7
 
     def test_valid_value(self) -> None:
-        """An integer within the valid range (0-30) is accepted."""
         with patch.dict(os.environ, {"TAPMAP_NOTIFICATION_LEARNING_DAYS": "14"}, clear=True):
             assert _get_notification_learning_days() == 14
 
     def test_zero_is_accepted(self) -> None:
-        """Zero is a valid, meaningful value (no learning period), not an error."""
         with patch.dict(os.environ, {"TAPMAP_NOTIFICATION_LEARNING_DAYS": "0"}, clear=True):
             assert _get_notification_learning_days() == 0
 
     def test_thirty_is_accepted(self) -> None:
-        """30 is the upper bound of the valid range and is accepted."""
         with patch.dict(os.environ, {"TAPMAP_NOTIFICATION_LEARNING_DAYS": "30"}, clear=True):
             assert _get_notification_learning_days() == 30
 
     @pytest.mark.parametrize("value", ["-1", "-15"])
     def test_negative_values_return_config_default(self, value: str) -> None:
-        """Negative values are invalid and fall back to the config default, not clamped."""
         with patch.dict(os.environ, {"TAPMAP_NOTIFICATION_LEARNING_DAYS": value}, clear=True):
             assert _get_notification_learning_days() == 7
 
     @pytest.mark.parametrize("value", ["31", "45", "100"])
     def test_values_above_thirty_return_config_default(self, value: str) -> None:
-        """Values above 30 are invalid (distinct_active_days() can never exceed 30)."""
         with patch.dict(os.environ, {"TAPMAP_NOTIFICATION_LEARNING_DAYS": value}, clear=True):
             assert _get_notification_learning_days() == 7
 
     @pytest.mark.parametrize("value", ["abc", "1.5", ""])
     def test_invalid_values_return_config_default(self, value: str) -> None:
-        """Non-integer values fall back to config default."""
         with patch.dict(os.environ, {"TAPMAP_NOTIFICATION_LEARNING_DAYS": value}, clear=True):
             assert _get_notification_learning_days() == 7
 

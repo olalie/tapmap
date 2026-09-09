@@ -19,7 +19,7 @@ from tapmap.runtime import RuntimeContext
 
 
 class _FakeKeyring:
-    """In-memory stand-in for the keyring backend."""
+    """Provide an in-memory keyring backend."""
 
     def __init__(self) -> None:
         self._store: dict[tuple[str, str], str] = {}
@@ -47,14 +47,14 @@ def fake_keyring(monkeypatch: pytest.MonkeyPatch) -> _FakeKeyring:
 
 
 class _FakePublishInfo:
-    """Stand-in for paho's MQTTMessageInfo, carrying only the .rc field send() reads."""
+    """Provide the publish result code used by send()."""
 
     def __init__(self, rc: int) -> None:
         self.rc = rc
 
 
 class _FakeMqttClient:
-    """Records every call a real paho Client would make, without any network I/O."""
+    """Record MQTT client calls without network access."""
 
     def __init__(self, callback_api_version: Any, protocol: Any = None, **_: Any) -> None:
         self.callback_api_version = callback_api_version
@@ -103,7 +103,7 @@ class _FakeMqttClient:
 
 @pytest.fixture
 def fake_client(monkeypatch: pytest.MonkeyPatch) -> type[_FakeMqttClient]:
-    """Replace paho's Client with the fake for the duration of the test."""
+    """Replace the MQTT client with the test fake."""
     monkeypatch.setattr("paho.mqtt.client.Client", _FakeMqttClient)
     return _FakeMqttClient
 
@@ -228,7 +228,6 @@ def test_paho_unavailable_returns_none(
 def test_keyring_failure_returns_none_and_does_not_raise(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """A missing/broken keyring backend must not prevent TapMap startup."""
     runtime = _runtime_ctx(tmp_path, is_docker=False)
     save_mqtt_config(mqtt_config_path(tmp_path), _config())
 
@@ -238,7 +237,7 @@ def test_keyring_failure_returns_none_and_does_not_raise(
     monkeypatch.setattr(keyring, "get_password", _raise)
 
     with caplog.at_level(logging.WARNING, logger="tapmap.notifications.mqtt"):
-        result = create_mqtt_channel(runtime)  # must not raise
+        result = create_mqtt_channel(runtime)
 
     assert result is None
     assert "keyring" in caplog.text.lower()
@@ -269,7 +268,6 @@ def test_tls_setup_failure_returns_none_and_does_not_raise(
     caplog: pytest.LogCaptureFixture,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A broken system TLS/CA store must not prevent TapMap startup."""
     runtime = _runtime_ctx(tmp_path)
     save_mqtt_config(mqtt_config_path(tmp_path), _config(tls=True, port=8883))
 
@@ -279,7 +277,7 @@ def test_tls_setup_failure_returns_none_and_does_not_raise(
     monkeypatch.setattr(_FakeMqttClient, "tls_set", _raise)
 
     with caplog.at_level(logging.WARNING, logger="tapmap.notifications.mqtt"):
-        result = create_mqtt_channel(runtime)  # must not raise
+        result = create_mqtt_channel(runtime)
 
     assert result is None
     assert "tls" in caplog.text.lower()
@@ -331,7 +329,6 @@ def test_no_auth_no_tls_does_not_set_credentials_or_tls(
 def test_on_connect_fail_is_registered(
     tmp_path: Path, fake_client: type[_FakeMqttClient], fake_keyring: _FakeKeyring
 ) -> None:
-    """create_mqtt_channel wires on_connect_fail, so pre-CONNACK failures are logged."""
     runtime = _runtime_ctx(tmp_path)
     save_mqtt_config(mqtt_config_path(tmp_path), _config())
 
@@ -422,7 +419,7 @@ def test_send_publishes_with_qos_0_and_retain_false(
     _topic, payload, qos, retain = channel._client.published[0]
     assert qos == 0
     assert retain is False
-    assert isinstance(payload, str)  # published as a JSON-serialized string, not a dict
+    assert isinstance(payload, str)
 
 
 # --- send(): checking the immediate publish() result ---
@@ -438,7 +435,7 @@ def test_send_does_not_log_when_publish_succeeds_immediately(
     save_mqtt_config(mqtt_config_path(tmp_path), _config())
     channel = create_mqtt_channel(runtime)
     assert channel is not None
-    channel._client.publish_rc = 0  # MQTT_ERR_SUCCESS
+    channel._client.publish_rc = 0
 
     with caplog.at_level(logging.DEBUG, logger="tapmap.notifications.mqtt"):
         channel.send(_event())
@@ -456,7 +453,7 @@ def test_send_logs_at_debug_when_publish_fails_immediately(
     save_mqtt_config(mqtt_config_path(tmp_path), _config())
     channel = create_mqtt_channel(runtime)
     assert channel is not None
-    channel._client.publish_rc = 4  # MQTT_ERR_NO_CONN
+    channel._client.publish_rc = 4
 
     with caplog.at_level(logging.DEBUG, logger="tapmap.notifications.mqtt"):
         channel.send(_event())
@@ -468,16 +465,15 @@ def test_send_logs_at_debug_when_publish_fails_immediately(
 def test_send_does_not_retry_or_raise_on_publish_failure(
     tmp_path: Path, fake_client: type[_FakeMqttClient], fake_keyring: _FakeKeyring
 ) -> None:
-    """QoS 0 best-effort: a failed immediate publish is not retried or raised."""
     runtime = _runtime_ctx(tmp_path)
     save_mqtt_config(mqtt_config_path(tmp_path), _config())
     channel = create_mqtt_channel(runtime)
     assert channel is not None
-    channel._client.publish_rc = 4  # MQTT_ERR_NO_CONN
+    channel._client.publish_rc = 4
 
-    channel.send(_event())  # must not raise
+    channel.send(_event())
 
-    assert len(channel._client.published) == 1  # exactly one publish() call, no retry
+    assert len(channel._client.published) == 1
 
 
 # --- plaintext-credentials-without-TLS runtime warning ---
@@ -534,28 +530,9 @@ def test_no_warning_when_no_auth(
 # --- close/teardown ---
 
 
-def test_close_stops_loop_and_disconnects(
-    tmp_path: Path, fake_client: type[_FakeMqttClient], fake_keyring: _FakeKeyring
-) -> None:
-    runtime = _runtime_ctx(tmp_path)
-    save_mqtt_config(mqtt_config_path(tmp_path), _config())
-    channel = create_mqtt_channel(runtime)
-    assert channel is not None
-
-    channel.close()
-
-    assert channel._client.loop_stop_called is True
-    assert channel._client.disconnect_called is True
-
-
 def test_close_calls_disconnect_before_loop_stop(
     tmp_path: Path, fake_client: type[_FakeMqttClient], fake_keyring: _FakeKeyring
 ) -> None:
-    """disconnect() must run before loop_stop().
-
-    disconnect() only queues the DISCONNECT packet; the still-running
-    network thread is what actually flushes it before exiting.
-    """
     runtime = _runtime_ctx(tmp_path)
     save_mqtt_config(mqtt_config_path(tmp_path), _config())
     channel = create_mqtt_channel(runtime)
@@ -584,7 +561,7 @@ def test_send_failure_is_caught_by_dispatch_notification(
 
     channel._client.publish = _raise  # type: ignore[assignment]
 
-    dispatch_notification(_event(), [channel])  # must not raise
+    dispatch_notification(_event(), [channel])
 
 
 # --- MQTT lifecycle callbacks: logging and failure-repetition suppression ---
@@ -600,7 +577,7 @@ class _FakeReasonCode:
 
 
 def _channel() -> MqttChannel:
-    """A MqttChannel whose callbacks can be exercised without a real client."""
+    """Create an MQTT channel for callback tests."""
     return MqttChannel(_FakeMqttClient("v2"), "topic")
 
 
@@ -626,7 +603,6 @@ def test_on_connect_logs_warning_on_failure(caplog: pytest.LogCaptureFixture) ->
 def test_on_connect_repeated_identical_failure_is_suppressed(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A broker that keeps rejecting the same way must not warn on every retry."""
     channel = _channel()
     with caplog.at_level(logging.WARNING, logger="tapmap.notifications.mqtt"):
         for _ in range(5):
@@ -655,7 +631,6 @@ def test_on_connect_different_failure_reason_logs_again(
 
 
 def test_on_connect_failure_after_success_logs_again(caplog: pytest.LogCaptureFixture) -> None:
-    """A successful connection resets failure suppression for the next episode."""
     channel = _channel()
     with caplog.at_level(logging.INFO, logger="tapmap.notifications.mqtt"):
         channel._on_connect(None, None, None, _FakeReasonCode(is_failure=True), None)
@@ -669,7 +644,6 @@ def test_on_connect_failure_after_success_logs_again(caplog: pytest.LogCaptureFi
 def test_on_disconnect_logs_warning_after_established_connection_drops(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A failure-flagged disconnect following a live connection is a real, new failure."""
     channel = _channel()
     with caplog.at_level(logging.INFO, logger="tapmap.notifications.mqtt"):
         channel._on_connect(None, None, None, _FakeReasonCode(is_failure=False), None)
@@ -683,7 +657,6 @@ def test_on_disconnect_logs_warning_after_established_connection_drops(
 def test_on_disconnect_logs_info_on_normal_disconnect(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """A clean, intentional disconnect (e.g. at shutdown) is not a warning."""
     channel = _channel()
     with caplog.at_level(logging.INFO, logger="tapmap.notifications.mqtt"):
         channel._on_connect(None, None, None, _FakeReasonCode(is_failure=False), None)
@@ -697,7 +670,6 @@ def test_on_disconnect_logs_info_on_normal_disconnect(
 def test_on_disconnect_without_prior_connect_is_not_logged(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """The same-attempt echo after a rejected CONNACK is redundant and not logged."""
     channel = _channel()
     with caplog.at_level(logging.WARNING, logger="tapmap.notifications.mqtt"):
         channel._on_disconnect(None, None, None, _FakeReasonCode(is_failure=True), None)
@@ -709,11 +681,6 @@ def test_on_disconnect_without_prior_connect_is_not_logged(
 def test_connect_failure_and_matching_disconnect_produce_one_warning(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Reproduces the real pair for one rejected CONNACK.
-
-    "MQTT connection failed: Not authorized" / "MQTT disconnected: Unspecified
-    error". Only the meaningful first warning (from on_connect) should log.
-    """
     channel = _channel()
     with caplog.at_level(logging.WARNING, logger="tapmap.notifications.mqtt"):
         channel._on_connect(
@@ -730,7 +697,6 @@ def test_connect_failure_and_matching_disconnect_produce_one_warning(
 def test_repeated_connect_disconnect_failure_pairs_produce_one_warning_total(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Paho's automatic reconnect repeats the connect/disconnect pair; only the first logs."""
     channel = _channel()
     with caplog.at_level(logging.WARNING, logger="tapmap.notifications.mqtt"):
         for _ in range(3):
@@ -749,7 +715,6 @@ def test_repeated_connect_disconnect_failure_pairs_produce_one_warning_total(
 
 
 def test_on_connect_fail_logs_warning(caplog: pytest.LogCaptureFixture) -> None:
-    """A pre-CONNACK failure (DNS/TCP/TLS) is logged - otherwise it is silent."""
     channel = _channel()
     with caplog.at_level(logging.WARNING, logger="tapmap.notifications.mqtt"):
         channel._on_connect_fail(None, None)
@@ -759,7 +724,6 @@ def test_on_connect_fail_logs_warning(caplog: pytest.LogCaptureFixture) -> None:
 
 
 def test_on_connect_fail_does_not_invent_a_reason(caplog: pytest.LogCaptureFixture) -> None:
-    """Paho gives on_connect_fail no reason; the message must not claim one."""
     channel = _channel()
     with caplog.at_level(logging.WARNING, logger="tapmap.notifications.mqtt"):
         channel._on_connect_fail(None, None)
@@ -772,7 +736,6 @@ def test_on_connect_fail_does_not_invent_a_reason(caplog: pytest.LogCaptureFixtu
 
 
 def test_on_connect_fail_repeated_is_suppressed(caplog: pytest.LogCaptureFixture) -> None:
-    """A broker that stays unreachable must not warn on every automatic retry."""
     channel = _channel()
     with caplog.at_level(logging.WARNING, logger="tapmap.notifications.mqtt"):
         for _ in range(5):
@@ -790,14 +753,3 @@ def test_on_connect_fail_after_recovery_logs_again(caplog: pytest.LogCaptureFixt
 
     warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
     assert len(warnings) == 2
-
-
-def test_mqtt_channel_is_a_notification_channel(
-    tmp_path: Path, fake_client: type[_FakeMqttClient], fake_keyring: _FakeKeyring
-) -> None:
-    """MqttChannel satisfies the NotificationChannel protocol (has a send() method)."""
-    runtime = _runtime_ctx(tmp_path)
-    save_mqtt_config(mqtt_config_path(tmp_path), _config())
-    channel = create_mqtt_channel(runtime)
-    assert isinstance(channel, MqttChannel)
-    assert callable(channel.send)

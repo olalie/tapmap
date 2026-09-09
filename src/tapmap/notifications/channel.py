@@ -1,9 +1,4 @@
-"""Channel abstraction and dispatch for notification delivery.
-
-Each channel is an independent output: one channel's failure must never
-prevent another channel from being attempted, and must never propagate to the
-caller (the connection-analysis poll loop).
-"""
+"""Define notification channels and failure-isolated dispatch."""
 
 from __future__ import annotations
 
@@ -17,14 +12,14 @@ class NotificationChannel(Protocol):
     """A single notification output."""
 
     def send(self, event: dict[str, Any]) -> None:
-        """Deliver one Significant Connection event through this channel."""
+        """Send one Significant Connection event."""
 
 
 def dispatch_notification(
     event: dict[str, Any],
     channels: list[NotificationChannel],
 ) -> None:
-    """Send event to every channel independently; one failure never stops another."""
+    """Send an event to all channels without propagating channel failures."""
     for channel in channels:
         try:
             channel.send(event)

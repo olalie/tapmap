@@ -22,7 +22,7 @@ from tapmap.runtime import RuntimeContext
 
 
 class _FakeKeyring:
-    """In-memory stand-in for the keyring backend."""
+    """Provide an in-memory keyring backend."""
 
     def __init__(self) -> None:
         self._store: dict[tuple[str, str], str] = {}
@@ -70,11 +70,7 @@ def _runtime_ctx(tmp_path: Path, *, is_docker: bool = False) -> RuntimeContext:
 
 
 def _scripted(answers: list[str], *, asked: list[str] | None = None) -> Any:
-    """Return a callable that pops canned answers in order.
-
-    If asked is given, every question text passed to the callable is
-    recorded there, in order.
-    """
+    """Return a prompt callable that consumes scripted answers."""
     remaining = list(answers)
 
     def _prompt(question: str) -> str:
@@ -88,7 +84,7 @@ def _scripted(answers: list[str], *, asked: list[str] | None = None) -> Any:
 
 
 def _capturing() -> tuple[Any, list[str]]:
-    """Return an output callable and the list it appends printed lines to."""
+    """Return an output callable and its captured lines."""
     lines: list[str] = []
     return lines.append, lines
 
@@ -129,7 +125,7 @@ def test_fresh_setup_without_auth(tmp_path: Path, fake_keyring: _FakeKeyring) ->
         username=None,
         password=None,
     )
-    assert secret_calls == []  # never prompted for a password when auth is off
+    assert secret_calls == []
     assert any("saved" in line.lower() for line in lines)
 
 
@@ -201,7 +197,7 @@ def test_fresh_setup_with_auth_docker_stores_in_file(
     assert config is not None
     assert config.username == "alice"
     assert config.password == "secret1"
-    assert get_stored_credentials() == (None, None)  # keyring untouched in Docker
+    assert get_stored_credentials() == (None, None)
 
 
 def test_username_without_password_is_allowed(tmp_path: Path, fake_keyring: _FakeKeyring) -> None:
@@ -210,7 +206,7 @@ def test_username_without_password_is_allowed(tmp_path: Path, fake_keyring: _Fak
     run_configure_mqtt(
         runtime,
         prompt=_scripted(["broker.local", "n", "", "", "y", "alice", "y"]),
-        prompt_secret=lambda q: "",  # left empty
+        prompt_secret=lambda q: "",
         output=_capturing()[0],
     )
 
@@ -271,12 +267,10 @@ def test_reconfigure_keeps_existing_credentials_on_desktop(
     assert config is not None
     assert config.host == "new.example.com"
     assert config.tls is True
-    # existing port (1883) was the standard port for the old TLS=off setting,
-    # and TLS just changed to on, so the standard port for TLS=on is proposed
-    # and accepted here via the blank answer - see _derive_default_port.
+    # Changing TLS updates an unchanged standard port to the new standard.
     assert config.port == 8883
     assert config.username is None
-    assert get_stored_credentials() == ("alice", "secret1")  # untouched
+    assert get_stored_credentials() == ("alice", "secret1")
 
 
 def test_reconfigure_replaces_credentials_on_docker(
@@ -343,7 +337,7 @@ def test_disable_on_docker_does_not_touch_keyring(
     run_configure_mqtt(runtime, prompt=_scripted(["y"]), output=_capturing()[0])
 
     assert not path.exists()
-    assert get_stored_credentials() == (None, None)  # never touched keyring at all
+    assert get_stored_credentials() == (None, None)
 
 
 # --- failure handling ---
@@ -462,8 +456,6 @@ def test_failed_save_does_not_set_desktop_keyring_credentials(
 
     result = run_configure_mqtt(
         runtime,
-        # tls=y so this exercises point 4 in isolation, without the
-        # plaintext warning from point 3 also being in play.
         prompt=_scripted(["broker.local", "y", "", "", "y", "alice"]),
         prompt_secret=lambda q: "secret1",
         output=_capturing()[0],
@@ -547,7 +539,6 @@ def test_reconfigure_end_to_end_proposes_tls_standard_port(
 
     run_configure_mqtt(
         runtime,
-        # disable?no, host(""->keep old), tls=y, port(""->accept shown default), topic(""), auth off
         prompt=_scripted(["n", "", "y", "", "", "n"]),
         output=_capturing()[0],
     )

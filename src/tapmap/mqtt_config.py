@@ -1,16 +1,4 @@
-"""MQTT configuration and credential storage.
-
-mqtt.json holds the connection settings (host, port, topic, TLS) for both
-desktop and Docker. On desktop, username/password are never written to that
-file - they live in the OS keyring, following the same approach as the
-existing MaxMind credentials (see geodb/maxmind.py). Docker has no usable OS
-keyring, so there username/password are stored in mqtt.json alongside the
-rest of the configuration, protected by file permissions.
-
-Absence of mqtt.json means MQTT is not configured. Nothing here creates it
-automatically; it is written only through the interactive --configure-mqtt
-command (mqtt_cli.py).
-"""
+"""Manage MQTT configuration and credentials."""
 
 from __future__ import annotations
 
@@ -31,12 +19,7 @@ PASSWORD_KEY = "password"
 
 @dataclass(frozen=True)
 class MqttConfig:
-    """Resolved MQTT connection configuration.
-
-    username/password are populated only for the Docker variant of this
-    config; on desktop they are always None here and are stored in the OS
-    keyring instead.
-    """
+    """Represent resolved MQTT connection settings."""
 
     host: str
     port: int
@@ -52,14 +35,7 @@ def mqtt_config_path(app_data_dir: Path) -> Path:
 
 
 def load_mqtt_config(path: Path) -> MqttConfig | None:
-    """Load MqttConfig from a JSON file.
-
-    Args:
-        path: Path to the mqtt.json file.
-
-    Returns:
-        MqttConfig, or None if the file is missing, corrupt, or malformed.
-    """
+    """Load MQTT configuration, or return None if it is missing or invalid."""
     try:
         with path.open(encoding="utf-8") as f:
             data = json.load(f)
@@ -97,19 +73,7 @@ def load_mqtt_config(path: Path) -> MqttConfig | None:
 
 
 def save_mqtt_config(path: Path, config: MqttConfig) -> None:
-    """Save MqttConfig to a JSON file atomically.
-
-    username/password are omitted from the file entirely when None, rather
-    than written as null, so a desktop config (which never sets them) never
-    contains those keys at all.
-
-    Args:
-        path: Path to the mqtt.json file.
-        config: MqttConfig to persist.
-
-    Raises:
-        OSError: If the file cannot be written or replaced.
-    """
+    """Save MQTT configuration atomically with restricted file permissions."""
     data = asdict(config)
     if data["username"] is None:
         del data["username"]
@@ -153,11 +117,7 @@ def get_stored_credentials() -> tuple[str | None, str | None]:
 
 
 def set_credentials(username: str, password: str | None) -> None:
-    """Store the desktop MQTT username/password in the OS keyring.
-
-    A missing/empty password clears any previously stored password rather
-    than storing an empty string, since MQTT allows username-only auth.
-    """
+    """Store desktop MQTT credentials, clearing an empty password."""
     keyring.set_password(KEYRING_SERVICE, USERNAME_KEY, username)
 
     if password:

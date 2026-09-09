@@ -38,8 +38,7 @@ class RuntimeContext:
         security_extensions_dir: Directory containing the Microsoft Security
             Extensions wrapper DLLs (Windows only; may not exist on other OSes).
         tray_icon_path: Path to the tray icon image asset.
-        notification_learning_days: Distinct active Insights days required
-            before Significant Connections become eligible for notification.
+        notification_learning_days: Active Insights days required before notifications begin.
     """
 
     meta: AppMeta
@@ -149,13 +148,7 @@ def _get_cache_retention_min() -> int:
         return CACHE_RETENTION_MIN
 
 def _get_notification_learning_days() -> int:
-    """Return the notification learning-period threshold in distinct active days.
-
-    Valid range is 0-30 (0 disables the learning period; distinct_active_days()
-    can never exceed 30). Out-of-range or non-integer values fall back to the
-    config default, rather than being clamped, so an out-of-range value never
-    silently disables notifications.
-    """
+    """Return the configured notification learning period in active days."""
     value = os.environ.get("TAPMAP_NOTIFICATION_LEARNING_DAYS")
 
     if value is None:
