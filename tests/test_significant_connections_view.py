@@ -184,6 +184,13 @@ def test_location_with_neither_shows_globe_and_unknown_place_name() -> None:
     assert _cell_text(_rows(table)[0].children[2]) == "🌐 Unknown place name"
 
 
+def test_row_id_encodes_a_missing_pid_as_empty_string_not_none() -> None:
+    """Encode a missing PID as an empty string."""
+    table = _table([_event(pid=None)])
+
+    assert _rows(table)[0].id["pid"] == ""
+
+
 def test_network_operator_and_application_show_persisted_values() -> None:
     """Network operator and Application cells show asn_org and app_name verbatim."""
     table = _table([_event(asn_org="Google LLC", app_name="Chrome")])

@@ -70,13 +70,18 @@ def _build_row(event: dict[str, Any]) -> html.Tr:
         id={
             "type": "sc_row",
             "timestamp": event.get("timestamp"),
-            "pid": event.get("pid"),
+            "pid": _encode_row_id_pid(event.get("pid")),
             "ip": event.get("ip"),
             "port": event.get("port"),
             "proto": event.get("proto"),
         },
         n_clicks=0,
     )
+
+
+def _encode_row_id_pid(pid: Any) -> str:
+    """Encode a PID for a Dash row ID. Dash does not accept None as an ID value."""
+    return "" if pid is None else str(pid)
 
 
 def _format_timestamp(timestamp: Any) -> str:

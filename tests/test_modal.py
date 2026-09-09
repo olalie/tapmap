@@ -217,6 +217,44 @@ def test_decide_row_click_returns_modal_state_for_a_row_click() -> None:
     }
 
 
+def test_decide_row_click_decodes_a_present_pid_from_its_string_row_id() -> None:
+    """Decode a present row ID PID to an integer."""
+    trigger = {
+        "type": "sc_row",
+        "timestamp": "2026-08-23T18:42:16.013313",
+        "pid": "7920",
+        "ip": "8.8.8.8",
+        "port": 443,
+        "proto": "tcp",
+    }
+
+    result = _decide_row_click(
+        trigger=trigger,
+        now_iso="2026-03-10T10:00:00",
+    )
+
+    assert result["payload"]["pid"] == 7920
+
+
+def test_decide_row_click_decodes_an_absent_pid_back_to_none() -> None:
+    """Decode an absent row ID PID to None."""
+    trigger = {
+        "type": "sc_row",
+        "timestamp": "2026-09-09T10:47:48.786605",
+        "pid": "",
+        "ip": "2620:2d:4002:1::1061",
+        "port": 80,
+        "proto": "tcp",
+    }
+
+    result = _decide_row_click(
+        trigger=trigger,
+        now_iso="2026-03-10T10:00:00",
+    )
+
+    assert result["payload"]["pid"] is None
+
+
 def test_decide_map_click_returns_none_for_non_map_trigger() -> None:
     """Ignore non-map triggers."""
     result = _decide_map_click(
