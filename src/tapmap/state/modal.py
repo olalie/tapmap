@@ -141,12 +141,17 @@ def _decide_row_click(
         "t": now_iso,
         "payload": {
             "timestamp": trigger.get("timestamp"),
-            "pid": trigger.get("pid"),
+            "pid": _decode_row_id_pid(trigger.get("pid")),
             "ip": trigger.get("ip"),
             "port": trigger.get("port"),
             "proto": trigger.get("proto"),
         },
     }
+
+
+def _decode_row_id_pid(pid: Any) -> int | None:
+    """Decode a row ID PID to its domain value."""
+    return None if pid == "" else int(pid)
 
 def decide_modal_route(
     *,

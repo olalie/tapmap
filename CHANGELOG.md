@@ -1,5 +1,28 @@
 ## Unreleased
 
+### Fixes
+
+- Handle Significant Connections when the process PID is unavailable
+
+## 1.12.3 (2026-09-07)
+
+### Fixes
+
+- Pin Dash to 4.1.0 to avoid a browser renderer performance regression
+
+## 1.12.2 (2026-09-06)
+
+### Fixes
+
+- Prevent MaxMind license keys from appearing in exception tracebacks and logs
+
+## 1.12.1 (2026-09-05)
+
+### Fixes
+
+- Keep the menu open when toggling Insights, Technical details, or automatic startup
+- Show modal windows immediately with a loading indicator
+
 ## 1.12.0 (2026-09-04)
 
 ### Features
