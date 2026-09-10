@@ -98,7 +98,6 @@ class ModalTextBuilder:
                 app_version=self.app_version,
                 app_author=self.app_author,
                 snapshot=snapshot,
-                is_docker=is_docker,
             )
         label = self._label_map.get(action, action)
         return [self._h1("Details"), html.Pre(f"Menu selected: {label}")]

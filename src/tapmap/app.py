@@ -34,6 +34,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Final, Literal, TypedDict
 
+import dash
 import psutil
 from dash import ALL, Dash, Input, Output, State, ctx, dcc, html, no_update
 from dash.exceptions import PreventUpdate
@@ -97,6 +98,7 @@ from .config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
 from .lifecycle import LifecycleCoordinator, start_server_thread
 from .logging_config import configure_logging
 from .mqtt_cli import run_configure_mqtt
+from .mqtt_config import load_mqtt_config, mqtt_config_path
 from .notifications.mqtt import create_mqtt_channel
 from .runtime import AppMeta, RuntimeContext, build_runtime
 from .tray import create_tray_icon
@@ -379,8 +381,8 @@ class TapMap:
 
     def _build_runtime_info(self) -> dict[str, Any]:
         geo_status = self.geodb.local_status()
+        mqtt_config = load_mqtt_config(mqtt_config_path(self.runtime.app_data_dir))
         return {
-            "version": self.runtime.meta.version,
             "poll_interval_ms": POLL_INTERVAL_MS,
             "coord_precision": COORD_PRECISION,
             "zoom_near_km": ZOOM_NEAR_KM,
@@ -407,7 +409,14 @@ class TapMap:
             "cache_retention_min": self.runtime.cache_retention_min,
             "is_docker": self.runtime.is_docker,
             "geo_provider": geo_status["provider"],
-            "geo_database_date": geo_status["local_display_date"]
+            "geo_database_date": geo_status["local_display_date"],
+            "notification_learning_days": self.runtime.notification_learning_days,
+            "mqtt_configured": mqtt_config is not None,
+            "mqtt_host": mqtt_config.host if mqtt_config else None,
+            "mqtt_port": mqtt_config.port if mqtt_config else None,
+            "mqtt_topic": mqtt_config.topic if mqtt_config else None,
+            "mqtt_tls": mqtt_config.tls if mqtt_config else None,
+            "dash_version": getattr(dash, "__version__", "-"),
         }
 
     def _reload_geodb_runtime(self) -> bool:

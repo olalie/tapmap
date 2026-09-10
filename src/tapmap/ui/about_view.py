@@ -19,7 +19,6 @@ def render_about(
     app_version: str,
     app_author: str,
     snapshot: Any | None = None,
-    is_docker: bool,
 ) -> list[Any]:
     """Render About view content.
 
@@ -75,6 +74,17 @@ def render_about(
         net_backend_version_val if isinstance(net_backend_version_val, str) else "-"
     )
 
+    is_docker = bool(runtime_info.get("is_docker", False))
+
+    notification_learning_days = runtime_info.get("notification_learning_days")
+    mqtt_configured = bool(runtime_info.get("mqtt_configured", False))
+    mqtt_host = runtime_info.get("mqtt_host")
+    mqtt_port = runtime_info.get("mqtt_port")
+    mqtt_topic = runtime_info.get("mqtt_topic")
+    mqtt_tls = runtime_info.get("mqtt_tls")
+
+    dash_version = str(runtime_info.get("dash_version") or "-")
+
     tapmap_rows: list[tuple[str, str]] = [
         ("Name", app_name),
         ("Version", app_version),
@@ -98,11 +108,32 @@ def render_about(
         auto_geo=auto_geo,
     )
 
+    notification_rows: list[tuple[str, str]] = [
+        (
+            "Learning period",
+            f"{notification_learning_days} days"
+            if isinstance(notification_learning_days, int)
+            else "-",
+        ),
+        ("MQTT configured", "Yes" if mqtt_configured else "No"),
+    ]
+    if mqtt_configured:
+        notification_rows.append(
+            (
+                "Broker",
+                f"{mqtt_host}:{mqtt_port}" if mqtt_host and mqtt_port is not None else "-",
+            )
+        )
+        notification_rows.append(("Topic", mqtt_topic if mqtt_topic else "-"))
+        notification_rows.append(("TLS", "On" if mqtt_tls else "Off"))
+
     runtime_rows: list[tuple[str, str]] = [
         ("OS", os_text),
         ("Python", py_text),
         ("Network backend", net_backend),
         ("Backend version", net_backend_version),
+        ("Frontend", "Dash"),
+        ("Frontend version", dash_version),
         ("Server host", server_host),
         ("Docker", "Yes" if is_docker else "No"),
         ("Browser launch", "Enabled" if launch_browser else "Disabled"),
@@ -134,10 +165,11 @@ def render_about(
         kv_table(tapmap_rows),
         html.H2("Command line"),
         html.Pre(
-            "tapmap                 Start application\n"
-            "tapmap --help          Show options\n"
-            "tapmap --version       Show version\n"
-            "tapmap --no-browser    Do not open the browser automatically"
+            "tapmap                       Start application\n"
+            "tapmap --help                Show options\n"
+            "tapmap --version             Show version\n"
+            "tapmap --no-browser          Do not open the browser automatically\n"
+            "tapmap --configure-mqtt      Configure MQTT notifications"
         ),
         html.H2("Geolocation"),
         html.P(
@@ -169,6 +201,8 @@ def render_about(
         ) if geo_provider == "maxmind" else None,
         html.H2("Location"),
         kv_table(location_rows),
+        html.H2("Notifications"),
+        kv_table(notification_rows),
         html.H2("Runtime"),
         kv_table(runtime_rows),
         html.H2("Project"),

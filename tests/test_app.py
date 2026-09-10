@@ -6,10 +6,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import dash
 from dash import html
 
 from tapmap.app import APP_META, TapMap
 from tapmap.model.appinfo import ApplicationMetadata, VerificationStatus
+from tapmap.mqtt_config import MqttConfig, mqtt_config_path, save_mqtt_config
 from tapmap.runtime import RuntimeContext
 from tapmap.significant_connections_persistence import load_significant_connections
 from tapmap.state.connection_state import ConnectionState
@@ -255,3 +257,69 @@ def test_render_modal_shows_unavailable_message_when_significant_connection_is_g
     assert any(
         isinstance(c, html.Pre) and "no longer available" in c.children for c in children
     )
+
+
+def _app_for_runtime_info(tmp_path: Path) -> TapMap:
+    """Build a minimal TapMap instance for runtime-info tests."""
+    app = object.__new__(TapMap)
+    app.runtime = _runtime_ctx(tmp_path)
+    app.geodb = MagicMock()
+    app.geodb.local_status.return_value = {"provider": "none", "local_display_date": "-"}
+    app.model = SimpleNamespace(geoinfo=SimpleNamespace(city_enabled=False))
+    app._public_ip_cached = None
+    app._auto_geo_cached = {}
+    app.my_location = []
+    return app
+
+
+def test_build_runtime_info_reports_mqtt_unconfigured_when_no_config_file(
+    tmp_path: Path,
+) -> None:
+    """With no mqtt.json in the app data directory, MQTT reads as unconfigured."""
+    app = _app_for_runtime_info(tmp_path)
+
+    info = app._build_runtime_info()
+
+    assert info["mqtt_configured"] is False
+    assert info["mqtt_host"] is None
+    assert info["mqtt_port"] is None
+    assert info["mqtt_topic"] is None
+    assert info["mqtt_tls"] is None
+
+
+def test_build_runtime_info_reports_mqtt_config_without_leaking_credentials(
+    tmp_path: Path,
+) -> None:
+    """A configured mqtt.json surfaces host/port/topic/tls but never the stored credentials."""
+    app = _app_for_runtime_info(tmp_path)
+    save_mqtt_config(
+        mqtt_config_path(tmp_path),
+        MqttConfig(
+            host="broker.example.com",
+            port=8883,
+            topic="tapmap/events",
+            tls=True,
+            username="secret-user",
+            password="secret-pass",
+        ),
+    )
+
+    info = app._build_runtime_info()
+
+    assert info["mqtt_configured"] is True
+    assert info["mqtt_host"] == "broker.example.com"
+    assert info["mqtt_port"] == 8883
+    assert info["mqtt_topic"] == "tapmap/events"
+    assert info["mqtt_tls"] is True
+    assert info["notification_learning_days"] == app.runtime.notification_learning_days
+    assert "secret-user" not in info.values()
+    assert "secret-pass" not in info.values()
+
+
+def test_build_runtime_info_reports_installed_dash_version(tmp_path: Path) -> None:
+    """Verify reported Dash version."""
+    app = _app_for_runtime_info(tmp_path)
+
+    info = app._build_runtime_info()
+
+    assert info["dash_version"] == dash.__version__
