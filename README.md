@@ -85,6 +85,7 @@ TapMap makes this visible so you can:
 - Nearby locations highlighted when multiple connections overlap
 - Insights panel showing new and frequent activity over time
 - Significant Connections history of new applications, countries, network operators, ports, and failed verification
+- MQTT notifications for new Significant Connections
 - Daily Activity Report with application patterns, provider analysis, and activity timelines
 - Unmapped public services with missing geolocation
 - Established LAN and LOCAL services
@@ -129,9 +130,23 @@ To build a complete activity history, keep TapMap running while your system is i
 
 ---
 
+## Significant Connections and notifications
+
+Significant Connections records new applications, countries, network operators, remote ports, and failed application verification.
+
+Open **Significant Connections** from the **INSIGHTS** menu or press **S** to view up to 500 recent events.
+
+TapMap can publish new Significant Connections to an MQTT broker. Run the configuration wizard to set up the connection:
+
+    tapmap --configure-mqtt
+
+See [MQTT](https://olalie.github.io/tapmap/mqtt/) for details.
+
+---
+
 ## How it works
 
-TapMap follows a simple local pipeline:
+TapMap's live map follows a simple local pipeline:
 
     socket scan → IP extraction → GeoIP lookup → map rendering
 
@@ -183,6 +198,7 @@ Additional documentation:
 - [Application Information](https://olalie.github.io/tapmap/application-information/)
 - [GeoIP Database Management](https://olalie.github.io/tapmap/geodb-management/)
 - [Environment Variables](https://olalie.github.io/tapmap/environment-variables/)
+- [MQTT](https://olalie.github.io/tapmap/mqtt/)
 - [Docker](https://olalie.github.io/tapmap/docker/)
 - [Backend Testing](https://olalie.github.io/tapmap/backend-testing/)
 - [Privacy Policy](https://olalie.github.io/tapmap/privacy/)
@@ -252,7 +268,7 @@ Inspect connections that could not be geolocated and therefore do not appear on 
 
 ## Privacy
 
-TapMap is designed to protect your privacy. It processes network connection data locally, does not transmit connection data, telemetry, analytics, or personal information, and performs geolocation using local GeoIP databases.
+TapMap is designed to protect your privacy. It processes network connection data locally, does not send telemetry or analytics, and performs geolocation using local GeoIP databases. If MQTT notifications are configured, Significant Connection data is published to the configured MQTT broker.
 
 For details, see [PRIVACY.md](PRIVACY.md).
 
@@ -285,6 +301,8 @@ Command-line options:
     tapmap -v
 
     tapmap --no-browser
+
+    tapmap --configure-mqtt
 
 ---
 
