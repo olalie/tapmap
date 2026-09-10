@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import logging
-import socket
 import ssl
 from typing import TYPE_CHECKING, Any
 
@@ -144,8 +143,6 @@ def create_mqtt_channel(runtime: RuntimeContext) -> MqttChannel | None:
 
 
 def _build_payload(event: dict[str, Any]) -> dict[str, Any]:
-    """Build an MQTT payload without the executable path and with the hostname."""
+    """Build an MQTT payload without the executable path."""
     # exe can embed the OS username, so it is excluded from the payload.
-    payload = {key: value for key, value in event.items() if key != "exe"}
-    payload["hostname"] = socket.gethostname()
-    return payload
+    return {key: value for key, value in event.items() if key != "exe"}

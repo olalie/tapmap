@@ -130,7 +130,7 @@ def _runtime_ctx(tmp_path: Path, *, is_docker: bool = False) -> RuntimeContext:
 
 def _config(**overrides: object) -> MqttConfig:
     values: dict[str, object] = {
-        "host": "broker.local",
+        "host": "192.0.2.1",
         "port": 1883,
         "topic": "tapmap/significant_connections",
         "tls": False,
@@ -173,13 +173,7 @@ def _event(**overrides: object) -> dict[str, Any]:
 def test_build_payload_excludes_exe() -> None:
     payload = _build_payload(_event())
     assert "exe" not in payload
-
-
-def test_build_payload_adds_hostname() -> None:
-    payload = _build_payload(_event())
-    assert "hostname" in payload
-    assert isinstance(payload["hostname"], str)
-    assert payload["hostname"]
+    assert "hostname" not in payload
 
 
 def test_build_payload_preserves_every_other_field_unchanged() -> None:
@@ -322,7 +316,7 @@ def test_no_auth_no_tls_does_not_set_credentials_or_tls(
     client = channel._client
     assert client.username is None
     assert client.tls_set_called is False
-    assert client.connect_async_calls == [("broker.local", 1883)]
+    assert client.connect_async_calls == [("192.0.2.1", 1883)]
     assert client.loop_start_called is True
 
 
@@ -390,7 +384,7 @@ def test_tls_enabled_calls_tls_set(
 
     assert channel is not None
     assert channel._client.tls_set_called is True
-    assert channel._client.connect_async_calls == [("broker.local", 8883)]
+    assert channel._client.connect_async_calls == [("192.0.2.1", 8883)]
 
 
 def test_topic_from_config_is_used_by_send(

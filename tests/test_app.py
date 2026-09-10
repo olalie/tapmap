@@ -295,7 +295,7 @@ def test_build_runtime_info_reports_mqtt_config_without_leaking_credentials(
     save_mqtt_config(
         mqtt_config_path(tmp_path),
         MqttConfig(
-            host="broker.example.com",
+            host="192.0.2.1",
             port=8883,
             topic="tapmap/events",
             tls=True,
@@ -307,7 +307,7 @@ def test_build_runtime_info_reports_mqtt_config_without_leaking_credentials(
     info = app._build_runtime_info()
 
     assert info["mqtt_configured"] is True
-    assert info["mqtt_host"] == "broker.example.com"
+    assert info["mqtt_host"] == "192.0.2.1"
     assert info["mqtt_port"] == 8883
     assert info["mqtt_topic"] == "tapmap/events"
     assert info["mqtt_tls"] is True

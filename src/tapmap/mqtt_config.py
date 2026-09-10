@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import ipaddress
 import json
 import time
 from dataclasses import asdict, dataclass
@@ -49,6 +50,10 @@ def load_mqtt_config(path: Path) -> MqttConfig | None:
         tls = data.get("tls")
 
         if not isinstance(host, str) or not host:
+            return None
+        try:
+            ipaddress.ip_address(host)
+        except ValueError:
             return None
         if not isinstance(port, int):
             return None

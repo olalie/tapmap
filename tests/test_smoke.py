@@ -199,7 +199,7 @@ def test_tapmap_has_mqtt_channel_with_valid_mqtt_json(tmp_path: Path) -> None:
     save_mqtt_config(
         mqtt_config_path(tmp_path),
         MqttConfig(
-            host="broker.local", port=1883, topic="tapmap/significant_connections", tls=False
+            host="192.0.2.1", port=1883, topic="tapmap/significant_connections", tls=False
         ),
     )
     app = TapMap(_runtime_ctx(tmp_path))

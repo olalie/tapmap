@@ -91,7 +91,7 @@ def _capturing() -> tuple[Any, list[str]]:
 
 def _existing_config(**overrides: object) -> MqttConfig:
     values: dict[str, object] = {
-        "host": "old.example.com",
+        "host": "198.51.100.10",
         "port": 1883,
         "topic": "old/topic",
         "tls": False,
@@ -110,7 +110,7 @@ def test_fresh_setup_without_auth(tmp_path: Path, fake_keyring: _FakeKeyring) ->
 
     result = run_configure_mqtt(
         runtime,
-        prompt=_scripted(["broker.local", "n", "", "", "n"]),
+        prompt=_scripted(["192.0.2.1", "n", "", "", "n"]),
         prompt_secret=lambda q: secret_calls.append(q) or "unused",
         output=output,
     )
@@ -118,7 +118,7 @@ def test_fresh_setup_without_auth(tmp_path: Path, fake_keyring: _FakeKeyring) ->
     assert result == 0
     config = load_mqtt_config(mqtt_config_path(tmp_path))
     assert config == MqttConfig(
-        host="broker.local",
+        host="192.0.2.1",
         port=1883,
         topic="tapmap/significant_connections",
         tls=False,
@@ -136,7 +136,7 @@ def test_fresh_setup_with_tls_derives_default_port(
 
     run_configure_mqtt(
         runtime,
-        prompt=_scripted(["broker.local", "y", "", "", "n"]),
+        prompt=_scripted(["192.0.2.1", "y", "", "", "n"]),
         output=_capturing()[0],
     )
 
@@ -153,7 +153,7 @@ def test_fresh_setup_with_auth_desktop_stores_in_keyring(
 
     run_configure_mqtt(
         runtime,
-        prompt=_scripted(["broker.local", "n", "", "", "y", "alice", "y"]),
+        prompt=_scripted(["192.0.2.1", "n", "", "", "y", "alice", "y"]),
         prompt_secret=lambda q: "secret1",
         output=_capturing()[0],
     )
@@ -173,7 +173,7 @@ def test_password_prompt_is_preceded_by_hidden_input_notice(
 
     run_configure_mqtt(
         runtime,
-        prompt=_scripted(["broker.local", "n", "", "", "y", "alice", "y"]),
+        prompt=_scripted(["192.0.2.1", "n", "", "", "y", "alice", "y"]),
         prompt_secret=lambda q: "secret1",
         output=output,
     )
@@ -188,7 +188,7 @@ def test_fresh_setup_with_auth_docker_stores_in_file(
 
     run_configure_mqtt(
         runtime,
-        prompt=_scripted(["broker.local", "n", "", "", "y", "alice", "y"]),
+        prompt=_scripted(["192.0.2.1", "n", "", "", "y", "alice", "y"]),
         prompt_secret=lambda q: "secret1",
         output=_capturing()[0],
     )
@@ -205,7 +205,7 @@ def test_username_without_password_is_allowed(tmp_path: Path, fake_keyring: _Fak
 
     run_configure_mqtt(
         runtime,
-        prompt=_scripted(["broker.local", "n", "", "", "y", "alice", "y"]),
+        prompt=_scripted(["192.0.2.1", "n", "", "", "y", "alice", "y"]),
         prompt_secret=lambda q: "",
         output=_capturing()[0],
     )
@@ -223,13 +223,41 @@ def test_host_is_required_and_reprompts_on_blank(
 
     run_configure_mqtt(
         runtime,
-        prompt=_scripted(["", "", "broker.local", "n", "", "", "n"]),
+        prompt=_scripted(["", "", "192.0.2.1", "n", "", "", "n"]),
         output=_capturing()[0],
     )
 
     config = load_mqtt_config(mqtt_config_path(tmp_path))
     assert config is not None
-    assert config.host == "broker.local"
+    assert config.host == "192.0.2.1"
+
+
+def test_host_rejects_dns_name_and_reprompts(tmp_path: Path, fake_keyring: _FakeKeyring) -> None:
+    runtime = _runtime_ctx(tmp_path)
+
+    run_configure_mqtt(
+        runtime,
+        prompt=_scripted(["broker.local", "192.0.2.1", "n", "", "", "n"]),
+        output=_capturing()[0],
+    )
+
+    config = load_mqtt_config(mqtt_config_path(tmp_path))
+    assert config is not None
+    assert config.host == "192.0.2.1"
+
+
+def test_host_accepts_ipv6(tmp_path: Path, fake_keyring: _FakeKeyring) -> None:
+    runtime = _runtime_ctx(tmp_path)
+
+    run_configure_mqtt(
+        runtime,
+        prompt=_scripted(["2001:db8::1", "n", "", "", "n"]),
+        output=_capturing()[0],
+    )
+
+    config = load_mqtt_config(mqtt_config_path(tmp_path))
+    assert config is not None
+    assert config.host == "2001:db8::1"
 
 
 def test_invalid_port_reprompts(tmp_path: Path, fake_keyring: _FakeKeyring) -> None:
@@ -237,7 +265,7 @@ def test_invalid_port_reprompts(tmp_path: Path, fake_keyring: _FakeKeyring) -> N
 
     run_configure_mqtt(
         runtime,
-        prompt=_scripted(["broker.local", "n", "abc", "70000", "9000", "", "n"]),
+        prompt=_scripted(["192.0.2.1", "n", "abc", "70000", "9000", "", "n"]),
         output=_capturing()[0],
     )
 
@@ -259,13 +287,13 @@ def test_reconfigure_keeps_existing_credentials_on_desktop(
 
     run_configure_mqtt(
         runtime,
-        prompt=_scripted(["n", "new.example.com", "y", "", "", "y", "y"]),
+        prompt=_scripted(["n", "203.0.113.20", "y", "", "", "y", "y"]),
         output=_capturing()[0],
     )
 
     config = load_mqtt_config(mqtt_config_path(tmp_path))
     assert config is not None
-    assert config.host == "new.example.com"
+    assert config.host == "203.0.113.20"
     assert config.tls is True
     # Changing TLS updates an unchanged standard port to the new standard.
     assert config.port == 8883
@@ -281,7 +309,7 @@ def test_reconfigure_replaces_credentials_on_docker(
 
     run_configure_mqtt(
         runtime,
-        prompt=_scripted(["n", "new.example.com", "n", "", "", "y", "n", "bob", "y"]),
+        prompt=_scripted(["n", "203.0.113.20", "n", "", "", "y", "n", "bob", "y"]),
         prompt_secret=lambda q: "newpass",
         output=_capturing()[0],
     )
@@ -302,7 +330,7 @@ def test_turning_auth_off_clears_desktop_keyring(
 
     run_configure_mqtt(
         runtime,
-        prompt=_scripted(["n", "new.example.com", "n", "", "", "n"]),
+        prompt=_scripted(["n", "203.0.113.20", "n", "", "", "n"]),
         output=_capturing()[0],
     )
 
@@ -356,7 +384,7 @@ def test_save_failure_returns_nonzero_and_does_not_raise(
     output, lines = _capturing()
     result = run_configure_mqtt(
         runtime,
-        prompt=_scripted(["broker.local", "n", "", "", "n"]),
+        prompt=_scripted(["192.0.2.1", "n", "", "", "n"]),
         output=output,
     )
 
@@ -375,7 +403,7 @@ def test_plaintext_auth_warning_uses_exact_wording(
 
     run_configure_mqtt(
         runtime,
-        prompt=_scripted(["broker.local", "n", "", "", "y", "alice", "y"], asked=asked),
+        prompt=_scripted(["192.0.2.1", "n", "", "", "y", "alice", "y"], asked=asked),
         prompt_secret=lambda q: "secret1",
         output=_capturing()[0],
     )
@@ -397,7 +425,7 @@ def test_declining_plaintext_auth_warning_saves_nothing(
 
     result = run_configure_mqtt(
         runtime,
-        prompt=_scripted(["broker.local", "n", "", "", "y", "alice", "n"]),
+        prompt=_scripted(["192.0.2.1", "n", "", "", "y", "alice", "n"]),
         prompt_secret=lambda q: "secret1",
         output=output,
     )
@@ -417,7 +445,7 @@ def test_declining_plaintext_auth_warning_does_not_change_docker_config(
 
     run_configure_mqtt(
         runtime,
-        prompt=_scripted(["n", "new.example.com", "n", "", "", "y", "n", "bob", "n"]),
+        prompt=_scripted(["n", "203.0.113.20", "n", "", "", "y", "n", "bob", "n"]),
         prompt_secret=lambda q: "newpass",
         output=_capturing()[0],
     )
@@ -433,7 +461,7 @@ def test_no_warning_when_auth_is_off(tmp_path: Path, fake_keyring: _FakeKeyring)
 
     result = run_configure_mqtt(
         runtime,
-        prompt=_scripted(["broker.local", "n", "", "", "n"], asked=asked),
+        prompt=_scripted(["192.0.2.1", "n", "", "", "n"], asked=asked),
         output=_capturing()[0],
     )
 
@@ -456,7 +484,7 @@ def test_failed_save_does_not_set_desktop_keyring_credentials(
 
     result = run_configure_mqtt(
         runtime,
-        prompt=_scripted(["broker.local", "y", "", "", "y", "alice"]),
+        prompt=_scripted(["192.0.2.1", "y", "", "", "y", "alice"]),
         prompt_secret=lambda q: "secret1",
         output=_capturing()[0],
     )
@@ -480,7 +508,7 @@ def test_failed_save_does_not_clear_desktop_keyring_credentials(
 
     result = run_configure_mqtt(
         runtime,
-        prompt=_scripted(["n", "new.example.com", "n", "", "", "n"]),
+        prompt=_scripted(["n", "203.0.113.20", "n", "", "", "n"]),
         output=_capturing()[0],
     )
 

@@ -78,7 +78,17 @@ def test_missing_file_returns_none(tmp_path: Path) -> None:
 
 def test_round_trip_desktop_shape(tmp_path: Path) -> None:
     path = tmp_path / "mqtt.json"
-    config = _config(host="mqtt.example.com", port=8883, tls=True)
+    config = _config(host="203.0.113.5", port=8883, tls=True)
+
+    save_mqtt_config(path, config)
+    loaded = load_mqtt_config(path)
+
+    assert loaded == config
+
+
+def test_round_trip_ipv6_host(tmp_path: Path) -> None:
+    path = tmp_path / "mqtt.json"
+    config = _config(host="2001:db8::1")
 
     save_mqtt_config(path, config)
     loaded = load_mqtt_config(path)
@@ -182,12 +192,13 @@ def test_json_not_an_object_returns_none(tmp_path: Path) -> None:
     "data",
     [
         '{"port": 1883, "topic": "t", "tls": false}',
-        '{"host": "h", "topic": "t", "tls": false}',
-        '{"host": "h", "port": "1883", "topic": "t", "tls": false}',
-        '{"host": "h", "port": 1883, "tls": false}',
-        '{"host": "h", "port": 1883, "topic": "t"}',
-        '{"host": "h", "port": 1883, "topic": "t", "tls": "false"}',
+        '{"host": "192.0.2.1", "topic": "t", "tls": false}',
+        '{"host": "192.0.2.1", "port": "1883", "topic": "t", "tls": false}',
+        '{"host": "192.0.2.1", "port": 1883, "tls": false}',
+        '{"host": "192.0.2.1", "port": 1883, "topic": "t"}',
+        '{"host": "192.0.2.1", "port": 1883, "topic": "t", "tls": "false"}',
         '{"host": "", "port": 1883, "topic": "t", "tls": false}',
+        '{"host": "mqtt.example.com", "port": 1883, "topic": "t", "tls": false}',
     ],
 )
 def test_missing_or_invalid_required_fields_return_none(tmp_path: Path, data: str) -> None:

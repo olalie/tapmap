@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import getpass
+import ipaddress
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
@@ -49,7 +50,7 @@ def run_configure_mqtt(
             output("MQTT disabled.")
             return 0
 
-    host = _prompt_required(prompt, output, "Host", default=existing.host if existing else None)
+    host = _prompt_host(prompt, output, default=existing.host if existing else None)
     tls = _prompt_yes_no(prompt, output, "Use TLS?", default=existing.tls if existing else False)
     port = _prompt_port(prompt, output, default=_derive_default_port(existing, tls))
     topic = _prompt_required(
@@ -190,6 +191,29 @@ def _prompt_required(
         if default:
             return default
         output(f"{label} is required.")
+
+
+def _prompt_host(
+    prompt: Callable[[str], str],
+    output: Callable[[str], None],
+    *,
+    default: str | None = None,
+) -> str:
+    """Prompt for a literal IP address; blank input accepts the default, if any."""
+    suffix = f" [{default}]" if default else ""
+    while True:
+        answer = prompt(f"Broker IP address{suffix}: ").strip()
+        if not answer:
+            if default:
+                return default
+            output("Broker IP address is required.")
+            continue
+        try:
+            ipaddress.ip_address(answer)
+        except ValueError:
+            output("Enter a literal IP address, not a hostname.")
+            continue
+        return answer
 
 
 def _prompt_port(

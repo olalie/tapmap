@@ -14,7 +14,7 @@ tapmap --configure-mqtt
 
 The wizard configures:
 
-- Broker hostname
+- Broker IP address
 - Port
 - Topic
 - TLS
