@@ -5,6 +5,8 @@ import platform
 from pathlib import Path
 from typing import Any
 
+import keyring
+import keyring.errors
 import pytest
 
 import tapmap
@@ -38,6 +40,34 @@ class _FakeReader:
 
     def close(self):
         self.closed = True
+
+
+class _FakeKeyring:
+    """Provide an in-memory keyring backend."""
+
+    def __init__(self) -> None:
+        self._store: dict[tuple[str, str], str] = {}
+
+    def get_password(self, service: str, key: str) -> str | None:
+        return self._store.get((service, key))
+
+    def set_password(self, service: str, key: str, value: str) -> None:
+        self._store[(service, key)] = value
+
+    def delete_password(self, service: str, key: str) -> None:
+        try:
+            del self._store[(service, key)]
+        except KeyError:
+            raise keyring.errors.PasswordDeleteError("not found") from None
+
+
+@pytest.fixture
+def fake_keyring(monkeypatch: pytest.MonkeyPatch) -> _FakeKeyring:
+    fake = _FakeKeyring()
+    monkeypatch.setattr(keyring, "get_password", fake.get_password)
+    monkeypatch.setattr(keyring, "set_password", fake.set_password)
+    monkeypatch.setattr(keyring, "delete_password", fake.delete_password)
+    return fake
 
 
 def _runtime_ctx(tmp_path: Path, *, is_docker: bool = False) -> RuntimeContext:
@@ -195,7 +225,9 @@ def test_tapmap_has_no_mqtt_channel_without_mqtt_json(tmp_path: Path) -> None:
         app.close()
 
 
-def test_tapmap_has_mqtt_channel_with_valid_mqtt_json(tmp_path: Path) -> None:
+def test_tapmap_has_mqtt_channel_with_valid_mqtt_json(
+    tmp_path: Path, fake_keyring: _FakeKeyring
+) -> None:
     save_mqtt_config(
         mqtt_config_path(tmp_path),
         MqttConfig(
