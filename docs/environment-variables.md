@@ -158,3 +158,29 @@ TAPMAP_CACHE_RETENTION_MIN=15 tapmap
 This setting affects only the map cache.
 
 It does not affect the current network snapshot, Open Ports, LAN/LOCAL Services, Unmapped Services, or the 30-day Insights history.
+
+## TAPMAP_NOTIFICATION_LEARNING_DAYS
+
+Control how many active Insights days TapMap waits before sending notifications.
+
+Default:
+
+```text
+7
+```
+
+Values:
+
+```text
+0–30
+```
+
+A value of `0` enables notifications immediately.
+
+Example:
+
+```bash
+TAPMAP_NOTIFICATION_LEARNING_DAYS=0 tapmap
+```
+
+The learning period affects notifications only. Significant Connections are recorded during the learning period.

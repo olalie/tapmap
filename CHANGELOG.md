@@ -1,5 +1,12 @@
 ## Unreleased
 
+### Features
+
+- Add MQTT notifications for Significant Connections
+  - Configure MQTT with `tapmap --configure-mqtt`
+  - Support TLS and optional authentication
+  - Delay notifications until the configurable Insights learning period is complete
+
 ### Fixes
 
 - Handle Significant Connections when the process PID is unavailable

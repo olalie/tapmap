@@ -20,6 +20,8 @@ The wizard configures:
 - TLS
 - Optional username and password
 
+The broker address must be an IPv4 or IPv6 address. Hostnames, including `localhost`, are not supported so TapMap does not perform DNS lookups when connecting to the broker. The same restriction applies to manually edited `mqtt.json` files.
+
 The default port is `1883` without TLS and `8883` with TLS.
 
 The default topic is:

@@ -21,7 +21,7 @@ The map is the primary user experience. Additional functionality is exposed thro
 
 TapMap runs entirely on the local machine.
 
-Network activity data is not sent to external services.
+Network activity data is processed locally unless the user explicitly configures an external integration such as MQTT.
 
 GeoIP lookups use local databases.
 
@@ -294,6 +294,15 @@ ConnectionAnalyzer
        │      │
        │      ▼
        │   significant? ──▶ SignificantConnections ──▶ significant_connections.json
+       │                         │
+       │                         ▼
+       │                  notification policy
+       │                         │
+       │                         ▼
+       │                dispatch_notification()
+       │                         │
+       │                         ▼
+       │                notification channels
        │
        ▼  (after the loop; mapped PUBLIC connections only)
 
@@ -318,6 +327,10 @@ Significant Connections evaluation runs per connection, inside the same loop tha
 Insights is a separate, batch-updated structure: after the per-connection loop completes, process_insights() updates the rolling 30-day Insights history using only the mapped PUBLIC connections observed in that poll. Unmapped PUBLIC connections are evaluated for significance but do not contribute to Insights.
 
 Historical state survives application restarts.
+
+Notification handling is separate from Significant Connections history. A newly accepted Significant Connection is stored first, then evaluated against the notification policy. Eligible events are passed to `dispatch_notification()`, which sends them independently to the configured notification channels. Significant Connections history is not a notification queue, and notification failures do not affect event storage or other channels.
+
+`MqttChannel` owns the MQTT client and its network lifecycle, including connection and reconnection. MQTT callbacks do not modify ConnectionAnalyzer, SignificantConnections, Insights, or UI state.
 
 ---
 
@@ -404,6 +417,7 @@ The following boundaries should be preserved:
 - GeoIP database management remains isolated in geodb
 - historical state remains separate from session state
 - tray/lifecycle code does not directly access or manipulate model/state-owned application state
+- notification channels do not modify analyzer, historical, or UI state
 
 ---
 
@@ -416,11 +430,14 @@ src/tapmap/
 ├── runtime.py      Runtime initialization
 ├── lifecycle.py    Shutdown coordination and the tray run loop
 ├── tray.py         System tray icon and menu
+├── mqtt_cli.py     MQTT configuration CLI
+├── mqtt_config.py  MQTT configuration and persistence
 │
 ├── model/          Network collection and GeoIP enrichment
 ├── state/          Application state and decision logic
 ├── ui/             Dash and Plotly rendering
 ├── geodb/          GeoIP database management
+├── notifications/  Notification channels and dispatch
 ├── autostart/      Per-platform login autostart integration
 │
 └── assets/         Static Dash assets
@@ -462,6 +479,7 @@ During startup:
 - [Docker](docs/docker.md)
 - [GeoIP Database Management](docs/geodb-management.md)
 - [Environment Variables](docs/environment-variables.md)
+- [MQTT](docs/mqtt.md)
 - [Backend Testing](docs/backend-testing.md)
 - [Application Information](docs/application-information.md)
 - [AppInfo Performance](docs/appinfo-performance.md)

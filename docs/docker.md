@@ -75,6 +75,27 @@ A common example is changing the default port:
 
 See [Environment Variables](environment-variables.md) for details.
 
+## MQTT
+
+To configure MQTT, run the configuration wizard with the same data directory mounted to `/data`:
+
+```bash
+docker run --rm -it \
+  --network host \
+  -v ~/tapmap-data:/data \
+  -e TAPMAP_IN_DOCKER=1 \
+  olalie/tapmap:latest \
+  tapmap --configure-mqtt
+```
+
+The MQTT configuration is stored in `/data/mqtt.json` and persists in the mounted host directory.
+
+Unlike desktop installations, Docker stores MQTT credentials in `mqtt.json`. The file is created with permissions `0600`.
+
+The broker must be specified by IPv4 or IPv6 address. Hostnames, including `localhost`, are not supported.
+
+See [MQTT](mqtt.md) for MQTT configuration and notification behavior.
+
 ## Process information
 
 TapMap always shows network activity.

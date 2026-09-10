@@ -47,6 +47,7 @@ nav:
       - Application Information: application-information.md
       - GeoDB Management: geodb-management.md
       - Environment Variables: environment-variables.md
+      - MQTT: mqtt.md
       - Docker: docker.md
 
   - Developer Guide:

@@ -32,12 +32,8 @@ def render_help() -> list[Any]:
             [
                 html.Li("Start TapMap."),
                 html.Li("Hover map markers for a connection summary."),
-                html.Li(
-                    "Click map markers for connection details and application information."
-                ),
-                html.Li(
-                    "The Insights panel highlights new and frequent activity."
-                ),
+                html.Li("Click map markers for connection details and application information."),
+                html.Li("The Insights panel highlights new and frequent activity."),
                 html.Li(
                     "Open the Daily Activity Report (D) for deeper analysis of activity patterns."
                 ),
@@ -182,8 +178,7 @@ def render_help() -> list[Any]:
         ),
         html.H2("Menu"),
         html.P(
-            "The menu is organized into the expandable sections INSIGHTS, NETWORK, "
-            "TOOLS, and INFO."
+            "The menu is organized into the expandable sections INSIGHTS, NETWORK, TOOLS, and INFO."
         ),
         html.Table(
             className="mx-table mx-kv",
@@ -220,9 +215,7 @@ def render_help() -> list[Any]:
                         html.Tr(
                             [
                                 html.Td("INFO"),
-                                html.Td(
-                                    "Help and About windows."
-                                ),
+                                html.Td("Help and About windows."),
                             ]
                         ),
                     ]
@@ -318,8 +311,7 @@ def render_help() -> list[Any]:
                         html.Tr([html.Td("C"), html.Td("Clear cache"), html.Td("Status")]),
                         html.Tr([html.Td("H"), html.Td("Help"), html.Td("Window")]),
                         html.Tr([html.Td("A"), html.Td("About"), html.Td("Window")]),
-                        html.Tr([html.Td("Z"), html.Td("Fit mapped connections"),
-                                 html.Td("Map")]),
+                        html.Tr([html.Td("Z"), html.Td("Fit mapped connections"), html.Td("Map")]),
                         html.Tr([html.Td("X"), html.Td("Exit"), html.Td("Exit")]),
                         html.Tr([html.Td("ESC"), html.Td("Close window"), html.Td("Window")]),
                     ]
@@ -343,8 +335,7 @@ def render_help() -> list[Any]:
             ]
         ),
         html.P(
-            "The system tray and autostart are available for desktop installations, not "
-            "Docker."
+            "The system tray and autostart are available for desktop installations, not Docker."
         ),
         html.H2("Application information"),
         html.P(
@@ -376,25 +367,19 @@ def render_help() -> list[Any]:
                     [
                         html.Tr(
                             [
-                                html.Td(
-                                    html.Span("■", style={"color": "#00ff66"})
-                                ),
+                                html.Td(html.Span("■", style={"color": "#00ff66"})),
                                 html.Td("Verified: Verification succeeded."),
                             ]
                         ),
                         html.Tr(
                             [
-                                html.Td(
-                                    html.Span("■", style={"color": "#ff4444"})
-                                ),
+                                html.Td(html.Span("■", style={"color": "#ff4444"})),
                                 html.Td("Failed: Verification failed."),
                             ]
                         ),
                         html.Tr(
                             [
-                                html.Td(
-                                    html.Span("■", style={"color": "#ffff00"})
-                                ),
+                                html.Td(html.Span("■", style={"color": "#ffff00"})),
                                 html.Td(
                                     "Unknown or unavailable: Verification could not be completed."
                                 ),
@@ -402,12 +387,8 @@ def render_help() -> list[Any]:
                         ),
                         html.Tr(
                             [
-                                html.Td(
-                                    html.Span("■", style={"color": "#ffffff"})
-                                ),
-                                html.Td(
-                                    "Retrieving...: Verification is in progress."
-                                ),
+                                html.Td(html.Span("■", style={"color": "#ffffff"})),
+                                html.Td("Retrieving...: Verification is in progress."),
                             ]
                         ),
                     ]
@@ -429,20 +410,13 @@ def render_help() -> list[Any]:
         ),
         html.H2("Insights"),
         html.P(
-            "The Insights panel highlights mapped public activity observed during "
-            "the last 30 days."
+            "The Insights panel highlights mapped public activity observed during the last 30 days."
         ),
         html.Ul(
             [
-                html.Li(
-                    "New apps, providers (ASN), countries, and ports observed today."
-                ),
-                html.Li(
-                    "Top 5+ most frequently observed items over the last 30 days."
-                ),
-                html.Li(
-                    "Click countries to zoom to the selected country."
-                ),
+                html.Li("New apps, providers (ASN), countries, and ports observed today."),
+                html.Li("Top 5+ most frequently observed items over the last 30 days."),
+                html.Li("Click countries to zoom to the selected country."),
             ]
         ),
         html.P(
@@ -482,10 +456,17 @@ def render_help() -> list[Any]:
             "Click a row to view location, application, connection, and process "
             "details. Use Back to return to the list."
         ),
-        html.P(
-            "Missing historical verification status is shown as Unknown."
-        ),
+        html.P("Missing historical verification status is shown as Unknown."),
         html.P("TapMap keeps the most recent 500 Significant Connections."),
+        html.H3("MQTT notifications"),
+        html.P(
+            "TapMap can publish new Significant Connections to an MQTT broker. "
+            "Configure MQTT with tapmap --configure-mqtt."
+        ),
+        html.P(
+            "By default, notifications start after 7 active Insights days. "
+            "Significant Connections are recorded during the learning period."
+        ),
         html.H2("Unmapped public services (missing geolocation)"),
         html.P(
             "The Unmapped window lists PUBLIC services that are not shown on the map because "
@@ -530,9 +511,7 @@ def render_help() -> list[Any]:
         ),
         html.P("System processes are hidden by default. Use the toggle to include them."),
         html.H2("Status line"),
-        html.P(
-            "Short status messages may appear after commands such as Clear cache."
-        ),
+        html.P("Short status messages may appear after commands such as Clear cache."),
         html.H3("STATUS: WAIT | OK | ERROR"),
         html.Table(
             className="mx-table mx-kv",
@@ -676,10 +655,10 @@ def render_help() -> list[Any]:
             "GeoIP Database Management is used to install, update, verify, and manage "
             "supported databases."
         ),
-            html.P(
-                "When no supported databases are detected, GeoIP Database Management "
-                "provides installation options for supported providers."
-            ),
+        html.P(
+            "When no supported databases are detected, GeoIP Database Management "
+            "provides installation options for supported providers."
+        ),
         html.P(
             "Databases can be installed from GeoIP Database Management or managed "
             "manually using the data folder."
@@ -706,11 +685,17 @@ def render_help() -> list[Any]:
         html.Ul(
             [
                 html.Li("TapMap runs locally."),
-                html.Li("No connection data is sent anywhere."),
+                html.Li(
+                    "TapMap does not transmit connection data unless explicitly configured "
+                    "by the user."
+                ),
                 html.Li("Geolocation uses local GeoIP databases."),
                 html.Li(
-                    "TapMap stores activity history and significant connection events locally. "
-                    "This data is never transmitted or shared by TapMap."
+                    "TapMap stores activity history and significant connection events locally."
+                ),
+                html.Li(
+                    "If MQTT notifications are configured, new notification-eligible Significant "
+                    "Connection data is published to the configured MQTT broker."
                 ),
                 html.Li(
                     "If automatic local geolocation is enabled, TapMap contacts a public "
