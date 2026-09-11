@@ -40,7 +40,8 @@ def create_tray_icon(
             title=tooltip,
             menu=menu,
         )
-    except (ImportError, OSError, ValueError):
+    except (AssertionError, ImportError, OSError, ValueError):
         # gi.require_version() raises ValueError when the AppIndicator typelib is missing.
+        # PyGObject can raise AssertionError while loading overrides against newer GLib.
         logger.warning("Tray icon unavailable; continuing without one.", exc_info=True)
         return None
