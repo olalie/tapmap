@@ -27,6 +27,7 @@ def render_layout(
     modal_overlay_class: str,
     initial_insights_on: bool,
     initial_technical_details_on: bool,
+    initial_notifications_on: bool,
     autostart_supported: bool,
     initial_autostart_display_state: str,
     initial_autostart_disabled: bool,
@@ -43,6 +44,7 @@ def render_layout(
             dcc.Store(id="menu_open", data=False),
             dcc.Store(id="insights_on", data=initial_insights_on),
             dcc.Store(id="technical_details_on", data=initial_technical_details_on),
+            dcc.Store(id="notifications_on", data=initial_notifications_on),
             dcc.Store(id="selected_country", data=None),
             dcc.Store(id="camera_mode", data=None),
             dcc.Store(id="key_action", data=None),
@@ -114,6 +116,11 @@ def render_layout(
                                     _menu_button(
                                         "Significant connections (S)",
                                         "menu_significant_connections",
+                                    ),
+                                    _menu_toggle_button(
+                                        "Notifications (N)",
+                                        "menu_notifications",
+                                        initial_notifications_on,
                                     ),
                                 ],
                                 className="mx-acc-body",

@@ -1,6 +1,30 @@
 """Tests for keyboard action parsing."""
 
+import re
+from pathlib import Path
+
 from tapmap.state import keyboard
+
+_KEYBOARD_JS_PATH = (
+    Path(__file__).resolve().parent.parent / "src" / "tapmap" / "assets" / "keyboard.js"
+)
+
+# menu_zoom_connections' "z" is dispatched by modebar.js via a UI control, not by
+# keyboard.js's keydown allowlist, so it is exempt from the cross-check below.
+_KEYS_SENT_OUTSIDE_KEYBOARD_JS = {"z"}
+
+
+def _js_shortcut_keys() -> set[str]:
+    """Return the single-character keys allowlisted in keyboard.js's shortcuts Set.
+
+    keyboard.js gates which keystrokes are even sent to the server before
+    KEY_MAP ever sees them, so a key missing from this allowlist silently
+    never reaches build_key_action, regardless of KEY_MAP.
+    """
+    text = _KEYBOARD_JS_PATH.read_text(encoding="utf-8")
+    match = re.search(r"new Set\(\[(.*?)\]\)", text, re.DOTALL)
+    assert match is not None, "keyboard.js shortcuts Set literal not found"
+    return set(re.findall(r'"(\w)"', match.group(1)))
 
 
 class DummyDatetime:
@@ -119,3 +143,37 @@ def test_build_key_action_maps_autostart(monkeypatch) -> None:
         "action": "menu_autostart",
         "t": "2026-01-01T00:00:00",
     }
+
+
+def test_build_key_action_maps_notifications(monkeypatch) -> None:
+    """Map the N key to the notifications toggle action."""
+    monkeypatch.setattr(keyboard, "datetime", DummyDatetime)
+
+    result = keyboard.build_key_action("__n__")
+
+    assert result == {
+        "action": "menu_notifications",
+        "t": "2026-01-01T00:00:00",
+    }
+
+
+# --- keyboard.js allowlist: keys must actually reach the server ---
+
+
+def test_keyboard_js_allows_the_notifications_key() -> None:
+    """N must be allowlisted in keyboard.js, or key_capture never receives it."""
+    assert "n" in _js_shortcut_keys()
+
+
+def test_keyboard_js_allows_every_single_letter_key_map_action() -> None:
+    """Every single-letter KEY_MAP token must be allowlisted in keyboard.js.
+
+    Guards against the class of bug where a new shortcut is added to
+    KEY_MAP but the keydown listener's allowlist is never updated to match,
+    so the keystroke is silently dropped before it reaches Python at all.
+    """
+    single_letter_tokens = {
+        token.strip("_") for token in keyboard.KEY_MAP if len(token.strip("_")) == 1
+    }
+
+    assert single_letter_tokens - _KEYS_SENT_OUTSIDE_KEYBOARD_JS <= _js_shortcut_keys()

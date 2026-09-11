@@ -67,8 +67,10 @@ Source: "{#MyAppDir}\_internal\*"; DestDir: "{app}\_internal"; Flags: ignorevers
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+; AppUserModelID must match WINDOWS_AUMID in src/tapmap/notifications/desktop.py
+; so toast notifications show TapMap's name and icon instead of a generic one.
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; AppUserModelID: "no.tip.tapmap"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; AppUserModelID: "no.tip.tapmap"
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; \

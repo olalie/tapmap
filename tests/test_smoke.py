@@ -220,7 +220,7 @@ def test_tapmap_has_no_mqtt_channel_without_mqtt_json(tmp_path: Path) -> None:
     app = TapMap(_runtime_ctx(tmp_path))
     try:
         assert app.mqtt_channel is None
-        assert app.connection_analyzer.notification_channels == []
+        assert app.mqtt_channel not in app.connection_analyzer.notification_channels
     finally:
         app.close()
 
@@ -237,7 +237,7 @@ def test_tapmap_has_mqtt_channel_with_valid_mqtt_json(
     app = TapMap(_runtime_ctx(tmp_path))
     try:
         assert app.mqtt_channel is not None
-        assert app.connection_analyzer.notification_channels == [app.mqtt_channel]
+        assert app.mqtt_channel in app.connection_analyzer.notification_channels
     finally:
         app.close()
 
@@ -637,6 +637,99 @@ def test_autostart_trigger_kind_menu_opening_is_refresh() -> None:
         )
         == "ignore"
     )
+
+
+# --- "Notifications" control: trigger classification ---
+
+
+def test_notifications_trigger_kind_button_click_is_act() -> None:
+    """Treat a notifications button click as an action."""
+    assert (
+        TapMap._notifications_trigger_kind(
+            trigger="menu_notifications", menu_open=False, n_clicks=1, key_action=None
+        )
+        == "act"
+    )
+    assert (
+        TapMap._notifications_trigger_kind(
+            trigger="menu_notifications", menu_open=False, n_clicks=0, key_action=None
+        )
+        == "ignore"
+    )
+
+
+def test_notifications_trigger_kind_n_keyboard_mnemonic_is_act_when_menu_open() -> None:
+    """Treat the N shortcut as a notifications action while the menu is open."""
+    kind = TapMap._notifications_trigger_kind(
+        trigger="key_action",
+        menu_open=True,
+        n_clicks=None,
+        key_action={"action": "menu_notifications", "t": "2026-01-01T00:00:00"},
+    )
+    assert kind == "act"
+
+
+def test_notifications_trigger_kind_n_keyboard_ignored_when_menu_closed() -> None:
+    """Ignore the N shortcut while the menu is closed."""
+    kind = TapMap._notifications_trigger_kind(
+        trigger="key_action",
+        menu_open=False,
+        n_clicks=None,
+        key_action={"action": "menu_notifications", "t": "2026-01-01T00:00:00"},
+    )
+    assert kind == "ignore"
+
+
+def test_notifications_trigger_kind_unrelated_key_action_is_ignored() -> None:
+    """Ignore unrelated keyboard actions."""
+    kind = TapMap._notifications_trigger_kind(
+        trigger="key_action",
+        menu_open=True,
+        n_clicks=None,
+        key_action={"action": "menu_help", "t": "2026-01-01T00:00:00"},
+    )
+    assert kind == "ignore"
+
+
+def test_notifications_is_not_a_menu_screen_or_command() -> None:
+    """Do not treat the notifications toggle as a screen or a one-shot command."""
+    assert "menu_notifications" not in TapMap.MENU_SCREENS
+    assert "menu_notifications" not in TapMap.MENU_COMMANDS
+
+
+# --- "Notifications" control: presence and settings wiring ---
+
+
+def test_notifications_button_always_present(tmp_path: Path) -> None:
+    """Show the notifications control regardless of platform, unlike autostart."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        assert _component_exists(app.app.layout, "menu_notifications") is True
+    finally:
+        app.close()
+
+
+def test_desktop_notification_channel_enabled_matches_settings(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Build the desktop channel with enabled= taken from persisted settings."""
+    from tapmap.settings_persistence import Settings, save_settings
+
+    save_settings(tmp_path / "settings.json", Settings(desktop_notifications=False))
+
+    captured: dict[str, Any] = {}
+
+    def _fake_factory(*, icon_path, enabled):
+        captured["enabled"] = enabled
+        return None
+
+    monkeypatch.setattr(app_module, "create_desktop_notification_channel", _fake_factory)
+
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        assert captured["enabled"] is False
+    finally:
+        app.close()
 
 
 # --- "Run TapMap automatically" control: platform gating and wiring ---

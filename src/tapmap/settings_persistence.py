@@ -13,6 +13,7 @@ class Settings:
     version: int = 1
     insights_panel: bool = True
     technical_details: bool = False
+    desktop_notifications: bool = True
 
 
 DEFAULT_SETTINGS = Settings()
@@ -37,6 +38,9 @@ def load_settings(path: Path) -> Settings:
             insights_panel=bool(data.get("insights_panel", DEFAULT_SETTINGS.insights_panel)),
             technical_details=bool(
                 data.get("technical_details", DEFAULT_SETTINGS.technical_details)
+            ),
+            desktop_notifications=bool(
+                data.get("desktop_notifications", DEFAULT_SETTINGS.desktop_notifications)
             ),
         )
     except Exception:
