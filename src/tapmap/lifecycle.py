@@ -12,6 +12,7 @@ import logging
 import platform
 import signal
 import threading
+from collections.abc import Callable
 from types import FrameType
 from typing import TYPE_CHECKING, Final
 
@@ -42,7 +43,7 @@ class LifecycleCoordinator:
         if self._icon is not None:
             self._icon.stop()
 
-    def run_tray(self, icon: Icon) -> None:
+    def run_tray(self, icon: Icon, *, on_ready: Callable[[], None] | None = None) -> None:
         """Run icon's blocking loop, honoring a shutdown already requested before it started.
 
         pystray's Icon.stop() has no effect until the icon is actually
@@ -51,12 +52,22 @@ class LifecycleCoordinator:
         lost, and icon.run() would then block forever. pystray only invokes
         the setup callback once it has marked the icon running, so
         re-checking and re-stopping there closes that window.
+
+        on_ready, if given, runs once the icon's real run loop is confirmed
+        active - the only point some platform setup (e.g. macOS notification
+        authorization) has been found to work reliably.
         """
 
         def _setup(icon: Icon) -> None:
             icon.visible = True
             if self._shutdown_event.is_set():
                 icon.stop()
+                return
+            if on_ready is not None:
+                try:
+                    on_ready()
+                except Exception:
+                    logger.exception("Unable to run the tray-ready callback.")
 
         timer_id = _start_windows_message_loop_nudge()
         try:

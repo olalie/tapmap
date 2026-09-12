@@ -95,6 +95,72 @@ def test_run_tray_honors_a_shutdown_already_requested_before_the_icon_started() 
     assert finished.is_set()
 
 
+def test_run_tray_calls_on_ready_once_the_icon_is_running() -> None:
+    """Run on_ready only after the icon is marked running, not at run_tray() call time."""
+    coordinator = LifecycleCoordinator()
+    calls: list[str] = []
+
+    class _FakeIcon:
+        def run(self, setup=None) -> None:
+            calls.append("run_started")
+            if setup is not None:
+                setup(self)
+
+    coordinator.run_tray(_FakeIcon(), on_ready=lambda: calls.append("on_ready"))
+
+    assert calls == ["run_started", "on_ready"]
+
+
+def test_run_tray_without_on_ready_does_not_require_one() -> None:
+    """Allow callers that have no platform-specific setup to omit on_ready."""
+    coordinator = LifecycleCoordinator()
+
+    class _FakeIcon:
+        def run(self, setup=None) -> None:
+            if setup is not None:
+                setup(self)
+
+    coordinator.run_tray(_FakeIcon())  # must not raise
+
+
+def test_run_tray_skips_on_ready_when_shutdown_already_requested() -> None:
+    """Do not run platform setup for a tray that is about to stop anyway."""
+    coordinator = LifecycleCoordinator()
+    calls: list[str] = []
+
+    class _FakeIcon:
+        def stop(self) -> None:
+            calls.append("stop")
+
+        def run(self, setup=None) -> None:
+            if setup is not None:
+                setup(self)
+
+    icon = _FakeIcon()
+    coordinator.set_tray_icon(icon)
+    coordinator.request_shutdown()  # already calls icon.stop() once
+
+    coordinator.run_tray(icon, on_ready=lambda: calls.append("on_ready"))
+
+    # _setup() re-stops on the already-requested shutdown; on_ready must not run.
+    assert calls == ["stop", "stop"]
+
+
+def test_run_tray_logs_and_continues_when_on_ready_raises(monkeypatch) -> None:
+    """A failing platform-setup callback must not crash tray startup."""
+    coordinator = LifecycleCoordinator()
+
+    class _FakeIcon:
+        def run(self, setup=None) -> None:
+            if setup is not None:
+                setup(self)
+
+    def _boom() -> None:
+        raise RuntimeError("activation failed")
+
+    coordinator.run_tray(_FakeIcon(), on_ready=_boom)  # must not raise
+
+
 def test_run_tray_always_stops_the_windows_message_loop_nudge(monkeypatch) -> None:
     """Stop the Windows message-loop timer when the tray exits.
 

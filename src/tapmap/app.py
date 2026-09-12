@@ -1734,6 +1734,11 @@ class TapMap:
 
             return render_insights_panel(data, selected_country=selected_country)
 
+    def _activate_desktop_notification_channel(self) -> None:
+        """Run the desktop notification channel's one-time activation, if any exists."""
+        if self.desktop_notification_channel is not None:
+            self.desktop_notification_channel.activate()
+
     def _create_tray_icon(self) -> Icon | None:
         """Build this instance's tray icon, or None if unavailable (Docker always has none)."""
         if self.runtime.is_docker:
@@ -1816,7 +1821,7 @@ class TapMap:
         server_thread = start_server_thread(server, self.lifecycle)
 
         if icon is not None:
-            self.lifecycle.run_tray(icon)
+            self.lifecycle.run_tray(icon, on_ready=self._activate_desktop_notification_channel)
         else:
             self.lifecycle.wait_for_shutdown()
 

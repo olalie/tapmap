@@ -3,6 +3,7 @@
 import dataclasses
 import platform
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import keyring
@@ -728,6 +729,33 @@ def test_desktop_notification_channel_enabled_matches_settings(
     app = TapMap(_runtime_ctx(tmp_path))
     try:
         assert captured["enabled"] is False
+    finally:
+        app.close()
+
+
+def test_activate_desktop_notification_channel_activates_when_present(tmp_path: Path) -> None:
+    """Run the channel's one-time activation from the tray-ready callback."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        calls: list[None] = []
+        app.desktop_notification_channel = SimpleNamespace(activate=lambda: calls.append(None))
+
+        app._activate_desktop_notification_channel()
+
+        assert calls == [None]
+    finally:
+        app.close()
+
+
+def test_activate_desktop_notification_channel_is_a_noop_without_a_channel(
+    tmp_path: Path,
+) -> None:
+    """Do nothing when no desktop notification channel exists for this platform."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        app.desktop_notification_channel = None
+
+        app._activate_desktop_notification_channel()  # must not raise
     finally:
         app.close()
 

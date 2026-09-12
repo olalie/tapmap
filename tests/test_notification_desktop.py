@@ -62,6 +62,23 @@ def test_enabled_flag_can_be_toggled_at_runtime() -> None:
     assert calls == []
 
 
+def test_activate_is_a_noop_without_an_on_activate_callback() -> None:
+    channel = DesktopNotificationChannel(lambda _event: None, enabled=True)
+
+    channel.activate()  # must not raise
+
+
+def test_activate_calls_the_on_activate_callback() -> None:
+    calls: list[None] = []
+    channel = DesktopNotificationChannel(
+        lambda _event: None, enabled=True, on_activate=lambda: calls.append(None)
+    )
+
+    channel.activate()
+
+    assert calls == [None]
+
+
 # --- notification text formatting ---
 
 
@@ -94,20 +111,6 @@ def test_notification_text_falls_back_for_missing_app_name_and_country() -> None
 
 
 # --- create_desktop_notification_channel: unsupported platform ---
-
-
-def test_macos_returns_none_pending_implementation(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    monkeypatch.setattr(sys, "platform", "darwin")
-
-    with caplog.at_level(logging.INFO, logger="tapmap.notifications.desktop"):
-        result = create_desktop_notification_channel(
-            icon_path=tmp_path / "tapmap.ico", enabled=True
-        )
-
-    assert result is None
-    assert "not yet implemented" in caplog.text
 
 
 def test_other_platform_returns_none(
@@ -354,6 +357,243 @@ def test_linux_sender_shows_notification_with_expected_text(
     assert "Germany" in notification.body
     assert notification.icon_name == "tapmap"
     assert notification.shown is True
+
+
+# --- macOS sender ---
+
+
+_FAKE_DEFAULT_SOUND = object()
+
+
+class _FakeMutableNotificationContent:
+    def __init__(self) -> None:
+        self.title: str | None = None
+        self.body: str | None = None
+        self.sound: Any = None
+
+    def init(self) -> _FakeMutableNotificationContent:
+        return self
+
+    def setTitle_(self, title: str) -> None:
+        self.title = title
+
+    def setBody_(self, body: str) -> None:
+        self.body = body
+
+    def setSound_(self, sound: Any) -> None:
+        self.sound = sound
+
+
+class _FakeNotificationRequest:
+    def __init__(
+        self, identifier: str, content: _FakeMutableNotificationContent, trigger: Any
+    ) -> None:
+        self.identifier = identifier
+        self.content = content
+        self.trigger = trigger
+
+
+class _FakeUserNotificationCenter:
+    def __init__(self) -> None:
+        self.authorization_options: list[int] = []
+        self.added_requests: list[_FakeNotificationRequest] = []
+        self.grant_authorization = True
+        self.authorization_error: str | None = None
+        self.delivery_error: str | None = None
+
+    def requestAuthorizationWithOptions_completionHandler_(
+        self, options: int, completion: Any
+    ) -> None:
+        self.authorization_options.append(options)
+        completion(self.grant_authorization, self.authorization_error)
+
+    def addNotificationRequest_withCompletionHandler_(
+        self, request: _FakeNotificationRequest, completion: Any
+    ) -> None:
+        self.added_requests.append(request)
+        completion(self.delivery_error)
+
+
+def _install_fake_user_notifications(
+    monkeypatch: pytest.MonkeyPatch,
+) -> _FakeUserNotificationCenter:
+    center = _FakeUserNotificationCenter()
+    fake_module = SimpleNamespace(
+        UNUserNotificationCenter=SimpleNamespace(currentNotificationCenter=lambda: center),
+        UNMutableNotificationContent=SimpleNamespace(alloc=_FakeMutableNotificationContent),
+        UNNotificationRequest=SimpleNamespace(
+            requestWithIdentifier_content_trigger_=_FakeNotificationRequest
+        ),
+        UNNotificationSound=SimpleNamespace(defaultSound=lambda: _FAKE_DEFAULT_SOUND),
+        UNAuthorizationOptionAlert=1 << 2,
+        UNAuthorizationOptionSound=1 << 1,
+    )
+    monkeypatch.setitem(sys.modules, "UserNotifications", fake_module)
+    return center
+
+
+def test_macos_missing_dependency_returns_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setitem(sys.modules, "UserNotifications", None)
+
+    with caplog.at_level(logging.WARNING, logger="tapmap.notifications.desktop"):
+        result = create_desktop_notification_channel(
+            icon_path=tmp_path / "tapmap.ico", enabled=True
+        )
+
+    assert result is None
+    assert "pyobjc-framework-UserNotifications" in caplog.text
+
+
+def test_macos_sender_does_not_request_authorization_before_activate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(sys, "platform", "darwin")
+    center = _install_fake_user_notifications(monkeypatch)
+
+    channel = create_desktop_notification_channel(icon_path=tmp_path / "tapmap.ico", enabled=True)
+
+    assert channel is not None
+    assert center.authorization_options == []
+
+
+def test_macos_sender_requests_authorization_on_activate(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(sys, "platform", "darwin")
+    center = _install_fake_user_notifications(monkeypatch)
+
+    channel = create_desktop_notification_channel(icon_path=tmp_path / "tapmap.ico", enabled=True)
+    assert channel is not None
+
+    channel.activate()
+
+    assert center.authorization_options == [(1 << 2) | (1 << 1)]
+
+
+def test_macos_sender_shows_notification_with_expected_text(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(sys, "platform", "darwin")
+    center = _install_fake_user_notifications(monkeypatch)
+
+    channel = create_desktop_notification_channel(icon_path=tmp_path / "tapmap.ico", enabled=True)
+    assert channel is not None
+    channel.activate()
+    event = _event(app_name="Firefox", country="Germany", reasons=["new_country"])
+
+    channel.send(event)
+
+    assert len(center.added_requests) == 1
+    request = center.added_requests[0]
+    assert request.content.title == "New country"
+    assert "Firefox" in request.content.body
+    assert "Germany" in request.content.body
+    assert request.identifier
+
+
+def test_macos_sender_uses_the_default_notification_sound(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(sys, "platform", "darwin")
+    center = _install_fake_user_notifications(monkeypatch)
+
+    channel = create_desktop_notification_channel(icon_path=tmp_path / "tapmap.ico", enabled=True)
+    assert channel is not None
+    channel.activate()
+
+    channel.send(_event())
+
+    assert center.added_requests[0].content.sound is _FAKE_DEFAULT_SOUND
+
+
+def test_macos_sender_uses_a_distinct_identifier_per_event(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(sys, "platform", "darwin")
+    center = _install_fake_user_notifications(monkeypatch)
+
+    channel = create_desktop_notification_channel(icon_path=tmp_path / "tapmap.ico", enabled=True)
+    assert channel is not None
+    channel.activate()
+
+    channel.send(_event())
+    channel.send(_event())
+
+    identifiers = [request.identifier for request in center.added_requests]
+    assert len(set(identifiers)) == 2
+
+
+def test_macos_sender_attempts_delivery_before_activation_is_called(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """send() does not depend on activate() having run first."""
+    monkeypatch.setattr(sys, "platform", "darwin")
+    center = _install_fake_user_notifications(monkeypatch)
+
+    channel = create_desktop_notification_channel(icon_path=tmp_path / "tapmap.ico", enabled=True)
+    assert channel is not None
+
+    channel.send(_event())
+
+    assert len(center.added_requests) == 1
+
+
+def test_macos_sender_still_attempts_delivery_after_authorization_denied(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Do not cache the denied result: macOS alone decides whether delivery succeeds.
+
+    A user who denies authorization and later enables it in System Settings
+    must receive notifications without restarting TapMap.
+    """
+    monkeypatch.setattr(sys, "platform", "darwin")
+    center = _install_fake_user_notifications(monkeypatch)
+    center.grant_authorization = False
+
+    channel = create_desktop_notification_channel(icon_path=tmp_path / "tapmap.ico", enabled=True)
+    assert channel is not None
+    channel.activate()
+
+    channel.send(_event())
+
+    assert len(center.added_requests) == 1
+
+
+def test_macos_sender_logs_when_authorization_is_denied(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr(sys, "platform", "darwin")
+    center = _install_fake_user_notifications(monkeypatch)
+    center.grant_authorization = False
+    center.authorization_error = "Notifications are not allowed for this application"
+
+    channel = create_desktop_notification_channel(icon_path=tmp_path / "tapmap.ico", enabled=True)
+    assert channel is not None
+
+    with caplog.at_level(logging.INFO, logger="tapmap.notifications.desktop"):
+        channel.activate()
+
+    assert "not granted" in caplog.text
+
+
+def test_macos_sender_logs_delivery_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    monkeypatch.setattr(sys, "platform", "darwin")
+    center = _install_fake_user_notifications(monkeypatch)
+    center.delivery_error = "boom"
+
+    channel = create_desktop_notification_channel(icon_path=tmp_path / "tapmap.ico", enabled=True)
+    assert channel is not None
+    channel.activate()
+
+    with caplog.at_level(logging.WARNING, logger="tapmap.notifications.desktop"):
+        channel.send(_event())
+
+    assert "Failed to deliver" in caplog.text
 
 
 # --- failure isolation through the real dispatcher ---

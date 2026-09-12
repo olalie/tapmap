@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import uuid
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -28,9 +29,16 @@ _REASON_LABELS = {
 class DesktopNotificationChannel:
     """Show a native OS notification for each Significant Connection event, when enabled."""
 
-    def __init__(self, sender: Callable[[dict[str, Any]], None], *, enabled: bool) -> None:
+    def __init__(
+        self,
+        sender: Callable[[dict[str, Any]], None],
+        *,
+        enabled: bool,
+        on_activate: Callable[[], None] | None = None,
+    ) -> None:
         self._sender = sender
         self.enabled = enabled
+        self._on_activate = on_activate
 
     def send(self, event: dict[str, Any]) -> None:
         """Show a native notification for one Significant Connection event, if enabled."""
@@ -38,21 +46,32 @@ class DesktopNotificationChannel:
             return
         self._sender(event)
 
+    def activate(self) -> None:
+        """Run one-time, platform-specific setup once the app's real run loop is active.
+
+        macOS notification authorization must be requested after TapMap's tray
+        icon has actually started its run loop, not at channel-construction
+        time in TapMap.__init__ - see LifecycleCoordinator.run_tray's on_ready.
+        A no-op unless the platform sender needs this (currently macOS only).
+        """
+        if self._on_activate is not None:
+            self._on_activate()
+
 
 def create_desktop_notification_channel(
     *, icon_path: Path, enabled: bool
 ) -> DesktopNotificationChannel | None:
     """Build the desktop notification channel for the current OS, or None if unsupported."""
+    on_activate: Callable[[], None] | None = None
+
     if sys.platform == "win32":
         sender = _build_windows_sender(icon_path)
     elif sys.platform == "linux":
         sender = _build_linux_sender()
     elif sys.platform == "darwin":
-        # UNUserNotificationCenter behavior under TapMap's LSUIElement=True
-        # bundle has not yet been validated against a signed build, so no
-        # sender is implemented here pending that test.
-        logger.info("Desktop notifications are not yet implemented for this platform.")
-        return None
+        macos_sender = _build_macos_sender()
+        sender = None if macos_sender is None else macos_sender[0]
+        on_activate = None if macos_sender is None else macos_sender[1]
     else:
         logger.info("Desktop notifications are not supported on this platform.")
         return None
@@ -60,7 +79,7 @@ def create_desktop_notification_channel(
     if sender is None:
         return None
 
-    return DesktopNotificationChannel(sender, enabled=enabled)
+    return DesktopNotificationChannel(sender, enabled=enabled, on_activate=on_activate)
 
 
 def _format_reasons(reasons: Any) -> str:
@@ -133,3 +152,54 @@ def _build_linux_sender() -> Callable[[dict[str, Any]], None] | None:
         Notify.Notification.new(title, body, LINUX_ICON_NAME).show()
 
     return send
+
+
+def _build_macos_sender() -> tuple[Callable[[dict[str, Any]], None], Callable[[], None]] | None:
+    """Build a macOS sender via UNUserNotificationCenter, or None if unavailable.
+
+    Returns (send, activate). activate() must run only after TapMap's tray
+    icon has started its real run loop (see LifecycleCoordinator.run_tray's
+    on_ready) - requesting authorization any earlier was found, empirically,
+    to hang or fail outright regardless of signing, notarization or
+    LSUIElement, on both macOS 26.1 and this project's PyInstaller bundle.
+    """
+    try:
+        import UserNotifications as UN
+    except ImportError:
+        logger.warning(
+            "pyobjc-framework-UserNotifications is not installed; "
+            "desktop notifications are unavailable."
+        )
+        return None
+
+    center = UN.UNUserNotificationCenter.currentNotificationCenter()
+
+    def handle_authorization_result(granted: bool, error: Any) -> None:
+        if not granted:
+            logger.info("macOS notification authorization was not granted: %s", error)
+
+    def activate() -> None:
+        options = UN.UNAuthorizationOptionAlert | UN.UNAuthorizationOptionSound
+        center.requestAuthorizationWithOptions_completionHandler_(
+            options, handle_authorization_result
+        )
+
+    def send(event: dict[str, Any]) -> None:
+        title, body = _notification_text(event)
+        content = UN.UNMutableNotificationContent.alloc().init()
+        content.setTitle_(title)
+        content.setBody_(body)
+        content.setSound_(UN.UNNotificationSound.defaultSound())
+        # A unique identifier per event: an event reusing another's pending
+        # identifier would replace it instead of delivering both.
+        request = UN.UNNotificationRequest.requestWithIdentifier_content_trigger_(
+            str(uuid.uuid4()), content, None
+        )
+
+        def handle_delivery_result(error: Any) -> None:
+            if error is not None:
+                logger.warning("Failed to deliver a macOS notification: %s", error)
+
+        center.addNotificationRequest_withCompletionHandler_(request, handle_delivery_result)
+
+    return send, activate
