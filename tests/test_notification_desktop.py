@@ -31,9 +31,6 @@ def _event(**overrides: object) -> dict[str, Any]:
     return values
 
 
-# --- DesktopNotificationChannel: enabled gating ---
-
-
 def test_disabled_channel_does_not_call_sender() -> None:
     calls: list[dict[str, Any]] = []
     channel = DesktopNotificationChannel(calls.append, enabled=False)
@@ -66,10 +63,7 @@ def test_enabled_flag_can_be_toggled_at_runtime() -> None:
 def test_activate_is_a_noop_without_an_on_activate_callback() -> None:
     channel = DesktopNotificationChannel(lambda _event: None, enabled=True)
 
-    channel.activate()  # must not raise
-
-
-# --- notification text formatting ---
+    channel.activate()
 
 
 def test_format_reasons_maps_known_reasons_to_labels() -> None:
@@ -77,12 +71,7 @@ def test_format_reasons_maps_known_reasons_to_labels() -> None:
 
 
 def test_every_significant_connection_reason_has_a_desktop_notification_label() -> None:
-    """Every reason significance.py can produce must have a desktop notification label.
-
-    Prevents the same class of cross-file drift as the keyboard.js/KEY_MAP
-    shortcut mismatch: two related mappings, in different modules, that must
-    be kept in sync as new significance reasons are added.
-    """
+    """Require a desktop notification label for every significance reason."""
     from tapmap.state import significance
 
     reasons = {
@@ -112,9 +101,6 @@ def test_notification_text_falls_back_for_missing_app_name_and_country() -> None
     assert "an unknown location" in body
 
 
-# --- create_desktop_notification_channel: unsupported platform ---
-
-
 def test_other_platform_returns_none(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -127,9 +113,6 @@ def test_other_platform_returns_none(
 
     assert result is None
     assert "not supported" in caplog.text
-
-
-# --- Windows sender ---
 
 
 class _FakeToast:
@@ -249,9 +232,6 @@ def test_windows_sender_adds_image_when_icon_exists(
     assert len(toaster.shown[0].images) == 1
 
 
-# --- Linux sender ---
-
-
 class _FakeNotification:
     def __init__(self, title: str, body: str, icon_name: str) -> None:
         self.title = title
@@ -341,9 +321,6 @@ def test_linux_sender_shows_notification_with_expected_text(
     assert "Germany" in notification.body
     assert notification.icon_name == "tapmap"
     assert notification.shown is True
-
-
-# --- macOS sender ---
 
 
 _FAKE_DEFAULT_SOUND = object()
@@ -513,11 +490,7 @@ def test_macos_sender_uses_a_distinct_identifier_per_event(
 def test_macos_sender_still_attempts_delivery_after_authorization_denied(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Do not cache the denied result: macOS alone decides whether delivery succeeds.
-
-    A user who denies authorization and later enables it in System Settings
-    must receive notifications without restarting TapMap.
-    """
+    """Attempt delivery after denied authorization without caching the result."""
     monkeypatch.setattr(sys, "platform", "darwin")
     center = _install_fake_user_notifications(monkeypatch)
     center.grant_authorization = False
@@ -529,9 +502,6 @@ def test_macos_sender_still_attempts_delivery_after_authorization_denied(
     channel.send(_event())
 
     assert len(center.added_requests) == 1
-
-
-# --- failure isolation through the real dispatcher ---
 
 
 def test_send_failure_is_caught_by_dispatch_notification() -> None:

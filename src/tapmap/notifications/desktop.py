@@ -47,13 +47,7 @@ class DesktopNotificationChannel:
         self._sender(event)
 
     def activate(self) -> None:
-        """Run one-time, platform-specific setup once the app's real run loop is active.
-
-        macOS notification authorization must be requested after TapMap's tray
-        icon has actually started its run loop, not at channel-construction
-        time in TapMap.__init__ - see LifecycleCoordinator.run_tray's on_ready.
-        A no-op unless the platform sender needs this (currently macOS only).
-        """
+        """Run platform-specific notification setup when required."""
         if self._on_activate is not None:
             self._on_activate()
 
@@ -83,7 +77,7 @@ def create_desktop_notification_channel(
 
 
 def _format_reasons(reasons: list[str]) -> str:
-    """Join an event's significance reasons into one comma-separated, user-facing line."""
+    """Format significance reasons for display in a notification."""
     return ", ".join(_REASON_LABELS.get(r, str(r)) for r in reasons)
 
 
@@ -154,14 +148,7 @@ def _build_linux_sender() -> Callable[[dict[str, Any]], None] | None:
 
 
 def _build_macos_sender() -> tuple[Callable[[dict[str, Any]], None], Callable[[], None]] | None:
-    """Build a macOS sender via UNUserNotificationCenter, or None if unavailable.
-
-    Returns (send, activate). activate() must run only after TapMap's tray
-    icon has started its real run loop (see LifecycleCoordinator.run_tray's
-    on_ready) - requesting authorization any earlier was found, empirically,
-    to hang or fail outright regardless of signing, notarization or
-    LSUIElement, on both macOS 26.1 and this project's PyInstaller bundle.
-    """
+    """Build a macOS notification sender and activation callback, or None if unavailable."""
     try:
         import UserNotifications as UN
     except ImportError:
@@ -189,8 +176,7 @@ def _build_macos_sender() -> tuple[Callable[[dict[str, Any]], None], Callable[[]
         content.setTitle_(title)
         content.setBody_(body)
         content.setSound_(UN.UNNotificationSound.defaultSound())
-        # A unique identifier per event: an event reusing another's pending
-        # identifier would replace it instead of delivering both.
+        # Use a unique identifier so one pending notification cannot replace another.
         request = UN.UNNotificationRequest.requestWithIdentifier_content_trigger_(
             str(uuid.uuid4()), content, None
         )

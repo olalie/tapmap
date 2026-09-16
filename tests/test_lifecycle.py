@@ -96,12 +96,7 @@ def test_run_tray_honors_a_shutdown_already_requested_before_the_icon_started() 
 
 
 def test_run_tray_calls_on_ready_from_within_icons_run_setup_callback() -> None:
-    """Run on_ready via icon.run()'s setup callback, not eagerly before icon.run() is called.
-
-    This proves on_ready fires from inside the pystray setup hook, after
-    icon.run() has been entered - it does not and cannot prove that any
-    native platform run loop (e.g. Cocoa's) is actually active by that point.
-    """
+    """Run on_ready from pystray's setup callback."""
     coordinator = LifecycleCoordinator()
     calls: list[str] = []
 
@@ -117,7 +112,7 @@ def test_run_tray_calls_on_ready_from_within_icons_run_setup_callback() -> None:
 
 
 def test_run_tray_skips_on_ready_when_shutdown_already_requested() -> None:
-    """Do not run platform setup for a tray that is about to stop anyway."""
+    """Skip on_ready when shutdown was already requested."""
     coordinator = LifecycleCoordinator()
     calls: list[str] = []
 
@@ -131,16 +126,15 @@ def test_run_tray_skips_on_ready_when_shutdown_already_requested() -> None:
 
     icon = _FakeIcon()
     coordinator.set_tray_icon(icon)
-    coordinator.request_shutdown()  # already calls icon.stop() once
+    coordinator.request_shutdown()
 
     coordinator.run_tray(icon, on_ready=lambda: calls.append("on_ready"))
 
-    # _setup() re-stops on the already-requested shutdown; on_ready must not run.
     assert calls == ["stop", "stop"]
 
 
 def test_run_tray_logs_and_continues_when_on_ready_raises(monkeypatch) -> None:
-    """A failing platform-setup callback must not crash tray startup."""
+    """Continue tray startup when on_ready raises."""
     coordinator = LifecycleCoordinator()
 
     class _FakeIcon:
@@ -151,7 +145,7 @@ def test_run_tray_logs_and_continues_when_on_ready_raises(monkeypatch) -> None:
     def _boom() -> None:
         raise RuntimeError("activation failed")
 
-    coordinator.run_tray(_FakeIcon(), on_ready=_boom)  # must not raise
+    coordinator.run_tray(_FakeIcon(), on_ready=_boom)
 
 
 def test_run_tray_always_stops_the_windows_message_loop_nudge(monkeypatch) -> None:

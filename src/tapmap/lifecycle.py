@@ -53,9 +53,8 @@ class LifecycleCoordinator:
         the setup callback once it has marked the icon running, so
         re-checking and re-stopping there closes that window.
 
-        on_ready, if given, runs once the icon's real run loop is confirmed
-        active - the only point some platform setup (e.g. macOS notification
-        authorization) has been found to work reliably.
+        If provided, on_ready runs from pystray's setup callback after the
+        icon has been marked ready.
         """
 
         def _setup(icon: Icon) -> None:

@@ -640,9 +640,6 @@ def test_autostart_trigger_kind_menu_opening_is_refresh() -> None:
     )
 
 
-# --- "Notifications" control: trigger classification ---
-
-
 def test_notifications_trigger_kind_button_click_is_act() -> None:
     """Treat a notifications button click as an action."""
     assert (
@@ -693,7 +690,7 @@ def test_notifications_trigger_kind_unrelated_key_action_is_ignored() -> None:
 
 
 def test_toggling_notifications_does_not_close_the_menu() -> None:
-    """Toggling Notifications must not close the menu, unlike navigating to a screen."""
+    """Keep the menu open when toggling notifications."""
     from tapmap.state.menu import compute_menu_open_state
 
     result = compute_menu_open_state(
@@ -705,9 +702,6 @@ def test_toggling_notifications_does_not_close_the_menu() -> None:
     )
 
     assert result is None
-
-
-# --- "Notifications" control: presence and settings wiring ---
 
 
 def test_notifications_button_present_in_layout(tmp_path: Path) -> None:
@@ -722,7 +716,7 @@ def test_notifications_button_present_in_layout(tmp_path: Path) -> None:
 def test_desktop_notification_channel_enabled_matches_settings(
     tmp_path: Path, monkeypatch
 ) -> None:
-    """Build the desktop channel with enabled= taken from persisted settings."""
+    """Apply the persisted notification setting to the desktop channel."""
     from tapmap.settings_persistence import Settings, save_settings
 
     save_settings(tmp_path / "settings.json", Settings(desktop_notifications=False))
@@ -743,7 +737,7 @@ def test_desktop_notification_channel_enabled_matches_settings(
 
 
 def test_activate_desktop_notification_channel_activates_when_present(tmp_path: Path) -> None:
-    """Run the channel's one-time activation from the tray-ready callback."""
+    """Activate the desktop notification channel when present."""
     app = TapMap(_runtime_ctx(tmp_path))
     try:
         calls: list[None] = []

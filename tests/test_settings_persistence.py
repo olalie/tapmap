@@ -45,7 +45,7 @@ def test_load_settings_partial_data_fills_defaults(tmp_path: Path) -> None:
 
 
 def test_load_settings_desktop_notifications_disabled_is_preserved(tmp_path: Path) -> None:
-    """A persisted desktop_notifications=False is not overwritten by the default."""
+    """Preserve a persisted disabled desktop notification setting."""
     path = tmp_path / "settings.json"
     path.write_text(json.dumps({"desktop_notifications": False}), encoding="utf-8")
 

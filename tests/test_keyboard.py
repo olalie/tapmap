@@ -9,18 +9,12 @@ _KEYBOARD_JS_PATH = (
     Path(__file__).resolve().parent.parent / "src" / "tapmap" / "assets" / "keyboard.js"
 )
 
-# menu_zoom_connections' "z" is dispatched by modebar.js via a UI control, not by
-# keyboard.js's keydown allowlist, so it is exempt from the cross-check below.
+# Z is dispatched by modebar.js rather than keyboard.js.
 _KEYS_SENT_OUTSIDE_KEYBOARD_JS = {"z"}
 
 
 def _js_shortcut_keys() -> set[str]:
-    """Return the single-character keys allowlisted in keyboard.js's shortcuts Set.
-
-    keyboard.js gates which keystrokes are even sent to the server before
-    KEY_MAP ever sees them, so a key missing from this allowlist silently
-    never reaches build_key_action, regardless of KEY_MAP.
-    """
+    """Return single-character shortcuts allowlisted by keyboard.js."""
     text = _KEYBOARD_JS_PATH.read_text(encoding="utf-8")
     match = re.search(r"new Set\(\[(.*?)\]\)", text, re.DOTALL)
     assert match is not None, "keyboard.js shortcuts Set literal not found"
@@ -157,16 +151,8 @@ def test_build_key_action_maps_notifications(monkeypatch) -> None:
     }
 
 
-# --- keyboard.js allowlist: keys must actually reach the server ---
-
-
 def test_keyboard_js_allows_every_single_letter_key_map_action() -> None:
-    """Every single-letter KEY_MAP token must be allowlisted in keyboard.js.
-
-    Guards against the class of bug where a new shortcut is added to
-    KEY_MAP but the keydown listener's allowlist is never updated to match,
-    so the keystroke is silently dropped before it reaches Python at all.
-    """
+    """Require every single-letter KEY_MAP shortcut in keyboard.js."""
     single_letter_tokens = {
         token.strip("_") for token in keyboard.KEY_MAP if len(token.strip("_")) == 1
     }

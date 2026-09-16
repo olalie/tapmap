@@ -1342,12 +1342,7 @@ class TapMap:
     def _notifications_trigger_kind(
         *, trigger: Any, menu_open: Any, n_clicks: Any, key_action: Any
     ) -> str:
-        """Classify a notifications-toggle trigger as act or ignore.
-
-        The N key only toggles notifications while the menu is open, matching
-        the "Run TapMap automatically (R)" keyboard scoping; it must not act
-        as a global shortcut while the menu is closed.
-        """
+        """Classify a notifications toggle trigger as actionable or ignored."""
         if trigger == "menu_notifications":
             return "act" if n_clicks else "ignore"
 
@@ -1735,7 +1730,7 @@ class TapMap:
             return render_insights_panel(data, selected_country=selected_country)
 
     def _activate_desktop_notification_channel(self) -> None:
-        """Run the desktop notification channel's one-time activation, if any exists."""
+        """Activate the desktop notification channel when available."""
         if self.desktop_notification_channel is not None:
             self.desktop_notification_channel.activate()
 
