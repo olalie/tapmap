@@ -107,3 +107,22 @@ def test_create_tray_icon_returns_none_when_creation_raises_value_error(monkeypa
         on_quit=lambda: None,
     )
     assert icon is None
+
+
+def test_create_tray_icon_returns_none_when_creation_raises_assertion_error(monkeypatch) -> None:
+    """Return None when tray icon creation raises AssertionError."""
+    import pystray
+
+    def _raise(*args, **kwargs):
+        """Simulate a PyGObject override-loading failure."""
+        raise AssertionError("unix_signal_add_full was set deprecated but wasn't added to __all__")
+
+    monkeypatch.setattr(pystray, "Icon", _raise)
+
+    icon = create_tray_icon(
+        icon_path=_ICON_PATH,
+        tooltip="TapMap",
+        on_open=lambda: None,
+        on_quit=lambda: None,
+    )
+    assert icon is None
