@@ -68,7 +68,7 @@ Download:
 - GeoLite2 City (GeoIP2 Binary / .mmdb)
 - GeoLite2 ASN (GeoIP2 Binary / .mmdb)
 
-https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
+[https://dev.maxmind.com/geoip/geolite2-free-geolocation-data](https://dev.maxmind.com/geoip/geolite2-free-geolocation-data)
 
 Do not download the CSV versions.
 
@@ -88,7 +88,7 @@ Download:
 - DB-IP City Lite
 - DB-IP ASN Lite
 
-https://db-ip.com/db/lite.php
+[https://db-ip.com/db/lite.php](https://db-ip.com/db/lite.php)
 
 DB-IP distributes the databases as compressed `.gz` files.
 

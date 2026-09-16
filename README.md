@@ -85,7 +85,7 @@ TapMap makes this visible so you can:
 - Nearby locations highlighted when multiple connections overlap
 - Insights panel showing new and frequent activity over time
 - Significant Connections history of new applications, countries, network operators, ports, and failed verification
-- MQTT notifications for new Significant Connections
+- Desktop and MQTT notifications for new Significant Connections
 - Daily Activity Report with application patterns, provider analysis, and activity timelines
 - Unmapped public services with missing geolocation
 - Established LAN and LOCAL services
@@ -135,6 +135,8 @@ To build a complete activity history, keep TapMap running while your system is i
 Significant Connections records new applications, countries, network operators, remote ports, and failed application verification.
 
 Open **Significant Connections** from the **INSIGHTS** menu or press **S** to view up to 500 recent events.
+
+Desktop notifications are enabled by default on Windows, Linux, and macOS. Use **Notifications (N)** in the **INSIGHTS** menu to turn them on or off.
 
 TapMap can publish new Significant Connections to an MQTT broker. Run the configuration wizard to set up the connection:
 
@@ -198,6 +200,7 @@ Additional documentation:
 - [Application Information](https://olalie.github.io/tapmap/application-information/)
 - [GeoIP Database Management](https://olalie.github.io/tapmap/geodb-management/)
 - [Environment Variables](https://olalie.github.io/tapmap/environment-variables/)
+- [Desktop Notifications](https://olalie.github.io/tapmap/desktop-notifications/)
 - [MQTT](https://olalie.github.io/tapmap/mqtt/)
 - [Docker](https://olalie.github.io/tapmap/docker/)
 - [Backend Testing](https://olalie.github.io/tapmap/backend-testing/)
@@ -250,12 +253,13 @@ Inspect connections that could not be geolocated and therefore do not appear on 
 | D   | Daily Activity Report |
 | I   | Toggle Insights panel |
 | S   | Significant Connections |
+| N   | Toggle desktop notifications (menu open) |
 | U   | Unmapped public services |
 | L   | Established LAN/LOCAL services |
 | O   | Open ports |
 | T   | Toggle Technical details |
 | G   | GeoIP Database Management |
-| R   | Run TapMap automatically |
+| R   | Run TapMap automatically (menu open) |
 | E   | Export cache |
 | C   | Clear cache |
 | H   | Help |
@@ -327,7 +331,7 @@ Requirements:
 
 On Ubuntu/Debian, install the system dependencies required by PyGObject and the system tray:
 
-    sudo apt install pkg-config libcairo2-dev libgirepository-2.0-dev gcc python3-dev gir1.2-ayatanaappindicator3-0.1
+    sudo apt install pkg-config libcairo2-dev libgirepository-2.0-dev gcc python3-dev gir1.2-ayatanaappindicator3-0.1 gir1.2-notify-0.7
 
 Create a virtual environment:
 
@@ -379,6 +383,8 @@ MIT License
 ## Acknowledgements
 
 Many thanks to the community members who reported bugs, tested pre-release builds, and suggested improvements.
+
+- @zero77 for reporting the Debian Forky startup crash and thoroughly testing diagnostic builds, system tray behavior, and the final fix.
 
 - @sersora0986 for reporting the Dash renderer performance issue and testing diagnostic builds to help identify the cause.
 

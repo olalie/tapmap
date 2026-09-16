@@ -79,6 +79,7 @@ def write_architecture_page() -> None:
     content = content.replace("(README.md)", "(index.md)")
     content = content.replace("(CONTRIBUTING.md)", "(contributing.md)")
     content = content.replace("(SECURITY.md)", "(security.md)")
+    content = content.replace("(PRIVACY.md)", "(privacy.md)")
     content = content.replace("(docs/", "(")
 
     with mkdocs_gen_files.open(ARCHITECTURE_DOC_PATH, "w") as file:

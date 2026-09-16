@@ -422,6 +422,7 @@ class TapMap:
             "geo_provider": geo_status["provider"],
             "geo_database_date": geo_status["local_display_date"],
             "notification_learning_days": self.runtime.notification_learning_days,
+            "desktop_notifications_available": self.desktop_notification_channel is not None,
             "mqtt_configured": mqtt_config is not None,
             "mqtt_host": mqtt_config.host if mqtt_config else None,
             "mqtt_port": mqtt_config.port if mqtt_config else None,
@@ -686,6 +687,7 @@ class TapMap:
         geo_path: str,
         geodb_event: dict[str, Any] | None,
         technical_details_enabled: bool,
+        notifications_enabled: bool,
     ) -> tuple[list[Any], str]:
         """Return modal body children and CSS class for the current modal screen."""
         if not isinstance(modal_state, dict):
@@ -787,6 +789,7 @@ class TapMap:
                 is_docker=self.runtime.is_docker,
                 unmapped_cache=self.unmapped_state.cache,
                 technical_details_enabled=technical_details_enabled,
+                notifications_enabled=notifications_enabled,
             )
             return self._as_children(body), self._class_for_modal_screen(screen)
 
@@ -1474,6 +1477,7 @@ class TapMap:
             State("ui_view", "data"),
             State("model_snapshot", "data"),
             State("technical_details_on", "data"),
+            State("notifications_on", "data"),
             prevent_initial_call=True,
         )
         def modal_content_renderer(
@@ -1481,6 +1485,7 @@ class TapMap:
             ui_view: Any,
             snapshot: Any,
             technical_details_data: Any,
+            notifications_data: Any,
         ):
             """Render the current modal screen's real content into modal_body."""
             if not isinstance(content_request, dict):
@@ -1497,6 +1502,7 @@ class TapMap:
                 geo_path,
                 geodb_event_data,
                 bool(technical_details_data),
+                bool(notifications_data),
             )
 
             return children

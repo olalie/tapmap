@@ -77,6 +77,8 @@ See [Environment Variables](environment-variables.md) for details.
 
 ## MQTT
 
+Desktop notifications are not available in Docker. MQTT can be used to receive notifications for new Significant Connections.
+
 To configure MQTT, run the configuration wizard with the same data directory mounted to `/data`:
 
 ```bash

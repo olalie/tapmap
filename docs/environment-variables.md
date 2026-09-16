@@ -73,6 +73,20 @@ unless overridden by `TAPMAP_HOST`.
 
 The default Docker setting allows TapMap to be accessed from other machines on the network.
 
+## TAPMAP_IN_DOCKER
+
+Tell TapMap that it is running in Docker.
+
+Docker deployments use:
+
+```text
+TAPMAP_IN_DOCKER=1
+```
+
+This changes Docker-specific runtime behavior, including the default server bind address and disabling desktop-only features such as the system tray and autostart.
+
+The Docker Compose configuration sets this variable automatically. When using `docker run`, set it explicitly as shown in the Docker examples.
+
 ## TAPMAP_DATA_DIR
 
 Override the application data directory.

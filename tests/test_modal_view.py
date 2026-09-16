@@ -114,6 +114,35 @@ def test_for_click_renders_exe_tag_as_plain_text_in_docker() -> None:
     assert not any(isinstance(c, str) and "<exe" in c for c in children)
 
 
+def _find_kv_value(result: list, label: str) -> str | None:
+    """Find the value for a given key across every kv_table row in result."""
+    for component in result:
+        if not isinstance(component, html.Table):
+            continue
+        tbody = next((c for c in component.children if isinstance(c, html.Tbody)), None)
+        if tbody is None:
+            continue
+        for tr in tbody.children:
+            key_cell, value_cell = tr.children
+            if key_cell.children == label:
+                return value_cell.children.children
+    return None
+
+
+def test_for_action_menu_about_passes_notifications_enabled_through() -> None:
+    """menu_about forwards the live notifications toggle state into render_about."""
+    snapshot = {"runtime_info": {"desktop_notifications_available": True}}
+    enabled_result = _builder().for_action(
+        "menu_about", snapshot=snapshot, is_docker=False, notifications_enabled=True
+    )
+    disabled_result = _builder().for_action(
+        "menu_about", snapshot=snapshot, is_docker=False, notifications_enabled=False
+    )
+
+    assert _find_kv_value(enabled_result, "Desktop notifications") == "On"
+    assert _find_kv_value(disabled_result, "Desktop notifications") == "Off"
+
+
 def test_for_action_menu_unmapped_routes_to_unmapped_view() -> None:
     """menu_unmapped renders from unmapped_cache via unmapped_view, not the latest snapshot."""
     unmapped_cache = {

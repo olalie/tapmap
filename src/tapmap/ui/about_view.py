@@ -19,11 +19,9 @@ def render_about(
     app_version: str,
     app_author: str,
     snapshot: Any | None = None,
+    notifications_enabled: bool = False,
 ) -> list[Any]:
-    """Render About view content.
-
-    Read snapshot["runtime_info"] only and avoid network calls.
-    """
+    """Render About view content from runtime info and the live notifications toggle state."""
     runtime_info: dict[str, Any] = {}
     if isinstance(snapshot, dict):
         info = snapshot.get("runtime_info")
@@ -77,6 +75,9 @@ def render_about(
     is_docker = bool(runtime_info.get("is_docker", False))
 
     notification_learning_days = runtime_info.get("notification_learning_days")
+    desktop_notifications_available = bool(
+        runtime_info.get("desktop_notifications_available", False)
+    )
     mqtt_configured = bool(runtime_info.get("mqtt_configured", False))
     mqtt_host = runtime_info.get("mqtt_host")
     mqtt_port = runtime_info.get("mqtt_port")
@@ -108,6 +109,13 @@ def render_about(
         auto_geo=auto_geo,
     )
 
+    if not desktop_notifications_available:
+        desktop_notifications_display = "Not available"
+    elif notifications_enabled:
+        desktop_notifications_display = "On"
+    else:
+        desktop_notifications_display = "Off"
+
     notification_rows: list[tuple[str, str]] = [
         (
             "Learning period",
@@ -115,6 +123,7 @@ def render_about(
             if isinstance(notification_learning_days, int)
             else "-",
         ),
+        ("Desktop notifications", desktop_notifications_display),
         ("MQTT configured", "Yes" if mqtt_configured else "No"),
     ]
     if mqtt_configured:

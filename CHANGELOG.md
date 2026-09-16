@@ -1,5 +1,25 @@
 ## Unreleased
 
+### Features
+
+- Add desktop notifications for Significant Connections on Windows, Linux, and macOS
+  - Enable desktop notifications by default
+  - Add **Notifications (N)** under INSIGHTS
+  - Store the notification setting between TapMap sessions
+  - Use the operating system's native notification system
+  - Request notification permission on macOS
+  - Keep desktop notifications independent from MQTT notifications
+
+### Fixes
+
+- Prevent the system tray from crashing on Debian Forky when PyGObject fails during tray initialization
+  - Handle `AssertionError` when creating the system tray icon
+  - Pin PyGObject to 3.54.5 on Linux
+
+### Documentation
+
+- Document desktop notifications, platform behavior, privacy, and Docker limitations
+
 ## 1.13.0 - 2026-09-10
 
 ### Features

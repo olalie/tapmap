@@ -189,8 +189,8 @@ def render_help() -> list[Any]:
                             [
                                 html.Td("INSIGHTS"),
                                 html.Td(
-                                    "Daily Activity Report, Insights panel, and "
-                                    "Significant Connections."
+                                    "Daily Activity Report, Insights panel, Significant "
+                                    "Connections, and Notifications."
                                 ),
                             ]
                         ),
@@ -267,6 +267,13 @@ def render_help() -> list[Any]:
                         ),
                         html.Tr(
                             [
+                                html.Td("N"),
+                                html.Td("Toggle desktop notifications (menu open)"),
+                                html.Td("Option"),
+                            ]
+                        ),
+                        html.Tr(
+                            [
                                 html.Td("U"),
                                 html.Td("Show unmapped public services (missing geolocation)"),
                                 html.Td("Window"),
@@ -303,7 +310,7 @@ def render_help() -> list[Any]:
                         html.Tr(
                             [
                                 html.Td("R"),
-                                html.Td("Toggle Run TapMap automatically"),
+                                html.Td("Toggle Run TapMap automatically (menu open)"),
                                 html.Td("Option"),
                             ]
                         ),
@@ -331,7 +338,7 @@ def render_help() -> list[Any]:
             [
                 html.B("Run TapMap automatically"),
                 " starts TapMap at login without opening the browser. Change it from the TOOLS "
-                "menu or press R.",
+                "menu, or press R while the menu is open.",
             ]
         ),
         html.P(
@@ -458,14 +465,19 @@ def render_help() -> list[Any]:
         ),
         html.P("Missing historical verification status is shown as Unknown."),
         html.P("TapMap keeps the most recent 500 Significant Connections."),
+        html.P(
+            "Desktop and MQTT notifications start after 7 active Insights days by default. "
+            "Significant Connections are recorded during the learning period."
+        ),
+        html.H3("Desktop notifications"),
+        html.P(
+            "Desktop notifications are enabled by default on Windows, Linux, and macOS. "
+            "Use Notifications (N) in the INSIGHTS menu to turn them on or off."
+        ),
         html.H3("MQTT notifications"),
         html.P(
             "TapMap can publish new Significant Connections to an MQTT broker. "
             "Configure MQTT with tapmap --configure-mqtt."
-        ),
-        html.P(
-            "By default, notifications start after 7 active Insights days. "
-            "Significant Connections are recorded during the learning period."
         ),
         html.H2("Unmapped public services (missing geolocation)"),
         html.P(
@@ -692,6 +704,10 @@ def render_help() -> list[Any]:
                 html.Li("Geolocation uses local GeoIP databases."),
                 html.Li(
                     "TapMap stores activity history and significant connection events locally."
+                ),
+                html.Li(
+                    "Desktop notifications are delivered through the operating system's local "
+                    "notification system."
                 ),
                 html.Li(
                     "If MQTT notifications are configured, new notification-eligible Significant "

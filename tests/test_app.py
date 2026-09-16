@@ -251,12 +251,48 @@ def test_render_modal_shows_unavailable_message_when_significant_connection_is_g
         "",
         None,
         False,
+        False,
     )
 
     assert body_class == "modal-body"
     assert any(
         isinstance(c, html.Pre) and "no longer available" in c.children for c in children
     )
+
+
+def _kv_value(children: list, label: str) -> str | None:
+    """Find the value for a given key across every kv_table row in children."""
+    for component in children:
+        if not isinstance(component, html.Table):
+            continue
+        tbody = next((c for c in component.children if isinstance(c, html.Tbody)), None)
+        if tbody is None:
+            continue
+        for tr in tbody.children:
+            key_cell, value_cell = tr.children
+            if key_cell.children == label:
+                return value_cell.children.children
+    return None
+
+
+def test_render_modal_menu_about_reflects_the_live_notifications_toggle(tmp_path: Path) -> None:
+    """About's Desktop notifications row follows the passed-in toggle state, not runtime_info."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        modal_state = {"screen": "menu_about", "t": "2026-01-01T00:00:00", "payload": {}}
+        snapshot = {"runtime_info": {"desktop_notifications_available": True}}
+
+        enabled_children, _ = app._render_modal(
+            modal_state, snapshot, None, "", None, False, True
+        )
+        disabled_children, _ = app._render_modal(
+            modal_state, snapshot, None, "", None, False, False
+        )
+
+        assert _kv_value(enabled_children, "Desktop notifications") == "On"
+        assert _kv_value(disabled_children, "Desktop notifications") == "Off"
+    finally:
+        app.close()
 
 
 def _app_for_runtime_info(tmp_path: Path) -> TapMap:
@@ -269,6 +305,7 @@ def _app_for_runtime_info(tmp_path: Path) -> TapMap:
     app._public_ip_cached = None
     app._auto_geo_cached = {}
     app.my_location = []
+    app.desktop_notification_channel = None
     return app
 
 
@@ -323,3 +360,27 @@ def test_build_runtime_info_reports_installed_dash_version(tmp_path: Path) -> No
     info = app._build_runtime_info()
 
     assert info["dash_version"] == dash.__version__
+
+
+def test_build_runtime_info_reports_desktop_notifications_unavailable_without_a_channel(
+    tmp_path: Path,
+) -> None:
+    """With no desktop notification channel, availability reads as False."""
+    app = _app_for_runtime_info(tmp_path)
+    app.desktop_notification_channel = None
+
+    info = app._build_runtime_info()
+
+    assert info["desktop_notifications_available"] is False
+
+
+def test_build_runtime_info_reports_desktop_notifications_available_with_a_channel(
+    tmp_path: Path,
+) -> None:
+    """With a desktop notification channel present, availability reads as True."""
+    app = _app_for_runtime_info(tmp_path)
+    app.desktop_notification_channel = SimpleNamespace(enabled=True)
+
+    info = app._build_runtime_info()
+
+    assert info["desktop_notifications_available"] is True

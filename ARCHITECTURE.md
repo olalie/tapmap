@@ -330,7 +330,7 @@ Historical state survives application restarts.
 
 Notification handling is separate from Significant Connections history. A newly accepted Significant Connection is stored first, then evaluated against the notification policy. Eligible events are passed to `dispatch_notification()`, which sends them independently to the configured notification channels. Significant Connections history is not a notification queue, and notification failures do not affect event storage or other channels.
 
-`MqttChannel` owns the MQTT client and its network lifecycle, including connection and reconnection. MQTT callbacks do not modify ConnectionAnalyzer, SignificantConnections, Insights, or UI state.
+`MqttChannel` owns the MQTT client and its network lifecycle, including connection and reconnection. `DesktopNotificationChannel` delegates notification delivery to the operating system on desktop installations. The channels operate independently and do not modify ConnectionAnalyzer, SignificantConnections, Insights, or UI state.
 
 ---
 
@@ -476,9 +476,11 @@ During startup:
 - [README](README.md)
 - [CONTRIBUTING](CONTRIBUTING.md)
 - [SECURITY](SECURITY.md)
+- [Privacy Policy](PRIVACY.md)
 - [Docker](docs/docker.md)
 - [GeoIP Database Management](docs/geodb-management.md)
 - [Environment Variables](docs/environment-variables.md)
+- [Desktop Notifications](docs/desktop-notifications.md)
 - [MQTT](docs/mqtt.md)
 - [Backend Testing](docs/backend-testing.md)
 - [Application Information](docs/application-information.md)

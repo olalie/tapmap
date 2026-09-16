@@ -63,6 +63,7 @@ class ModalTextBuilder:
         is_docker: bool,
         unmapped_cache: dict[str, Any] | None = None,
         technical_details_enabled: bool = False,
+        notifications_enabled: bool = False,
     ) -> list[Any]:
         """Build modal body content for a menu action.
 
@@ -74,6 +75,7 @@ class ModalTextBuilder:
             unmapped_cache: UnmappedState.cache, used for menu_unmapped.
             technical_details_enabled: Technical details setting, used for
                 menu_unmapped's presentation mode.
+            notifications_enabled: Current Notifications (N) toggle state, used for menu_about.
 
         Returns:
             Dash components for the modal body.
@@ -98,6 +100,7 @@ class ModalTextBuilder:
                 app_version=self.app_version,
                 app_author=self.app_author,
                 snapshot=snapshot,
+                notifications_enabled=notifications_enabled,
             )
         label = self._label_map.get(action, action)
         return [self._h1("Details"), html.Pre(f"Menu selected: {label}")]

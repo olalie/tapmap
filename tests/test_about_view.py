@@ -32,6 +32,7 @@ def _runtime_info(**overrides: Any) -> dict[str, Any]:
         "cache_retention_min": 0,
         "is_docker": False,
         "notification_learning_days": 7,
+        "desktop_notifications_available": True,
         "mqtt_configured": False,
         "mqtt_host": None,
         "mqtt_port": None,
@@ -43,13 +44,14 @@ def _runtime_info(**overrides: Any) -> dict[str, Any]:
     return info
 
 
-def _render(**overrides: Any) -> list[Any]:
+def _render(*, notifications_enabled: bool = False, **overrides: Any) -> list[Any]:
     """Render About with a minimal snapshot built from the given runtime_info overrides."""
     return render_about(
         app_name="TapMap",
         app_version="1.12.3",
         app_author="Ola Lie",
         snapshot={"runtime_info": _runtime_info(**overrides)},
+        notifications_enabled=notifications_enabled,
     )
 
 
@@ -86,7 +88,35 @@ def test_notifications_section_shows_learning_period_and_unconfigured_mqtt() -> 
     result = _render(mqtt_configured=False)
     rows = _kv_rows(_section_table(result, "Notifications"))
 
-    assert rows == {"Learning period": "7 days", "MQTT configured": "No"}
+    assert rows == {
+        "Learning period": "7 days",
+        "Desktop notifications": "Off",
+        "MQTT configured": "No",
+    }
+
+
+def test_desktop_notifications_shows_on_when_available_and_enabled() -> None:
+    """Verify the On display when a channel exists and the toggle is enabled."""
+    result = _render(desktop_notifications_available=True, notifications_enabled=True)
+    rows = _kv_rows(_section_table(result, "Notifications"))
+
+    assert rows["Desktop notifications"] == "On"
+
+
+def test_desktop_notifications_shows_off_when_available_and_disabled() -> None:
+    """Verify the Off display when a channel exists and the toggle is disabled."""
+    result = _render(desktop_notifications_available=True, notifications_enabled=False)
+    rows = _kv_rows(_section_table(result, "Notifications"))
+
+    assert rows["Desktop notifications"] == "Off"
+
+
+def test_desktop_notifications_shows_not_available_when_channel_missing() -> None:
+    """Verify the Not available display when no channel exists, regardless of the toggle."""
+    result = _render(desktop_notifications_available=False, notifications_enabled=True)
+    rows = _kv_rows(_section_table(result, "Notifications"))
+
+    assert rows["Desktop notifications"] == "Not available"
 
 
 def test_notifications_section_shows_broker_topic_and_tls_when_configured() -> None:
