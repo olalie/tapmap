@@ -160,11 +160,6 @@ def test_build_key_action_maps_notifications(monkeypatch) -> None:
 # --- keyboard.js allowlist: keys must actually reach the server ---
 
 
-def test_keyboard_js_allows_the_notifications_key() -> None:
-    """N must be allowlisted in keyboard.js, or key_capture never receives it."""
-    assert "n" in _js_shortcut_keys()
-
-
 def test_keyboard_js_allows_every_single_letter_key_map_action() -> None:
     """Every single-letter KEY_MAP token must be allowlisted in keyboard.js.
 

@@ -82,10 +82,9 @@ def create_desktop_notification_channel(
     return DesktopNotificationChannel(sender, enabled=enabled, on_activate=on_activate)
 
 
-def _format_reasons(reasons: Any) -> str:
+def _format_reasons(reasons: list[str]) -> str:
     """Join an event's significance reasons into one comma-separated, user-facing line."""
-    values = reasons if isinstance(reasons, list) else []
-    return ", ".join(_REASON_LABELS.get(r, str(r)) for r in values)
+    return ", ".join(_REASON_LABELS.get(r, str(r)) for r in reasons)
 
 
 def _notification_text(event: dict[str, Any]) -> tuple[str, str]:

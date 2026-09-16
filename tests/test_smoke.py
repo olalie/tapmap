@@ -692,17 +692,26 @@ def test_notifications_trigger_kind_unrelated_key_action_is_ignored() -> None:
     assert kind == "ignore"
 
 
-def test_notifications_is_not_a_menu_screen_or_command() -> None:
-    """Do not treat the notifications toggle as a screen or a one-shot command."""
-    assert "menu_notifications" not in TapMap.MENU_SCREENS
-    assert "menu_notifications" not in TapMap.MENU_COMMANDS
+def test_toggling_notifications_does_not_close_the_menu() -> None:
+    """Toggling Notifications must not close the menu, unlike navigating to a screen."""
+    from tapmap.state.menu import compute_menu_open_state
+
+    result = compute_menu_open_state(
+        trigger="menu_notifications",
+        menu_open=True,
+        key_action=None,
+        menu_screens=TapMap.MENU_SCREENS,
+        menu_commands=TapMap.MENU_COMMANDS,
+    )
+
+    assert result is None
 
 
 # --- "Notifications" control: presence and settings wiring ---
 
 
-def test_notifications_button_always_present(tmp_path: Path) -> None:
-    """Show the notifications control regardless of platform, unlike autostart."""
+def test_notifications_button_present_in_layout(tmp_path: Path) -> None:
+    """Render the Notifications control in the menu layout."""
     app = TapMap(_runtime_ctx(tmp_path))
     try:
         assert _component_exists(app.app.layout, "menu_notifications") is True

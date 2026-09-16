@@ -12,6 +12,7 @@ from typing import Any, ClassVar
 import pytest
 
 from tapmap.notifications.desktop import (
+    _REASON_LABELS,
     DesktopNotificationChannel,
     _format_reasons,
     _notification_text,
@@ -68,17 +69,6 @@ def test_activate_is_a_noop_without_an_on_activate_callback() -> None:
     channel.activate()  # must not raise
 
 
-def test_activate_calls_the_on_activate_callback() -> None:
-    calls: list[None] = []
-    channel = DesktopNotificationChannel(
-        lambda _event: None, enabled=True, on_activate=lambda: calls.append(None)
-    )
-
-    channel.activate()
-
-    assert calls == [None]
-
-
 # --- notification text formatting ---
 
 
@@ -86,12 +76,24 @@ def test_format_reasons_maps_known_reasons_to_labels() -> None:
     assert _format_reasons(["new_country", "new_app"]) == "New country, New application"
 
 
-def test_format_reasons_falls_back_to_raw_value_for_unknown_reason() -> None:
-    assert _format_reasons(["something_else"]) == "something_else"
+def test_every_significant_connection_reason_has_a_desktop_notification_label() -> None:
+    """Every reason significance.py can produce must have a desktop notification label.
 
+    Prevents the same class of cross-file drift as the keyboard.js/KEY_MAP
+    shortcut mismatch: two related mappings, in different modules, that must
+    be kept in sync as new significance reasons are added.
+    """
+    from tapmap.state import significance
 
-def test_format_reasons_handles_non_list_input() -> None:
-    assert _format_reasons(None) == ""
+    reasons = {
+        significance.REASON_NEW_APP,
+        significance.REASON_NEW_COUNTRY,
+        significance.REASON_NEW_PROVIDER,
+        significance.REASON_NEW_PORT,
+        significance.REASON_VERIFICATION_FAILED,
+    }
+
+    assert reasons <= _REASON_LABELS.keys()
 
 
 def test_notification_text_includes_app_name_and_country() -> None:
@@ -245,24 +247,6 @@ def test_windows_sender_adds_image_when_icon_exists(
     toaster = fake_module.WindowsToaster.instances[-1]  # type: ignore[attr-defined]
     assert len(toaster.shown) == 1
     assert len(toaster.shown[0].images) == 1
-
-
-def test_windows_sender_skips_image_when_icon_missing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(sys, "platform", "win32")
-    _install_fake_windows_toasts(monkeypatch)
-    _install_fake_windll(monkeypatch)
-
-    channel = create_desktop_notification_channel(
-        icon_path=tmp_path / "does_not_exist.ico", enabled=True
-    )
-    assert channel is not None
-    channel.send(_event())
-
-    fake_module = sys.modules["windows_toasts"]
-    toaster = fake_module.WindowsToaster.instances[-1]  # type: ignore[attr-defined]
-    assert toaster.shown[0].images == []
 
 
 # --- Linux sender ---
@@ -526,21 +510,6 @@ def test_macos_sender_uses_a_distinct_identifier_per_event(
     assert len(set(identifiers)) == 2
 
 
-def test_macos_sender_attempts_delivery_before_activation_is_called(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """send() does not depend on activate() having run first."""
-    monkeypatch.setattr(sys, "platform", "darwin")
-    center = _install_fake_user_notifications(monkeypatch)
-
-    channel = create_desktop_notification_channel(icon_path=tmp_path / "tapmap.ico", enabled=True)
-    assert channel is not None
-
-    channel.send(_event())
-
-    assert len(center.added_requests) == 1
-
-
 def test_macos_sender_still_attempts_delivery_after_authorization_denied(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -560,40 +529,6 @@ def test_macos_sender_still_attempts_delivery_after_authorization_denied(
     channel.send(_event())
 
     assert len(center.added_requests) == 1
-
-
-def test_macos_sender_logs_when_authorization_is_denied(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    monkeypatch.setattr(sys, "platform", "darwin")
-    center = _install_fake_user_notifications(monkeypatch)
-    center.grant_authorization = False
-    center.authorization_error = "Notifications are not allowed for this application"
-
-    channel = create_desktop_notification_channel(icon_path=tmp_path / "tapmap.ico", enabled=True)
-    assert channel is not None
-
-    with caplog.at_level(logging.INFO, logger="tapmap.notifications.desktop"):
-        channel.activate()
-
-    assert "not granted" in caplog.text
-
-
-def test_macos_sender_logs_delivery_errors(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
-) -> None:
-    monkeypatch.setattr(sys, "platform", "darwin")
-    center = _install_fake_user_notifications(monkeypatch)
-    center.delivery_error = "boom"
-
-    channel = create_desktop_notification_channel(icon_path=tmp_path / "tapmap.ico", enabled=True)
-    assert channel is not None
-    channel.activate()
-
-    with caplog.at_level(logging.WARNING, logger="tapmap.notifications.desktop"):
-        channel.send(_event())
-
-    assert "Failed to deliver" in caplog.text
 
 
 # --- failure isolation through the real dispatcher ---

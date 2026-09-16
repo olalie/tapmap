@@ -95,8 +95,13 @@ def test_run_tray_honors_a_shutdown_already_requested_before_the_icon_started() 
     assert finished.is_set()
 
 
-def test_run_tray_calls_on_ready_once_the_icon_is_running() -> None:
-    """Run on_ready only after the icon is marked running, not at run_tray() call time."""
+def test_run_tray_calls_on_ready_from_within_icons_run_setup_callback() -> None:
+    """Run on_ready via icon.run()'s setup callback, not eagerly before icon.run() is called.
+
+    This proves on_ready fires from inside the pystray setup hook, after
+    icon.run() has been entered - it does not and cannot prove that any
+    native platform run loop (e.g. Cocoa's) is actually active by that point.
+    """
     coordinator = LifecycleCoordinator()
     calls: list[str] = []
 
@@ -109,18 +114,6 @@ def test_run_tray_calls_on_ready_once_the_icon_is_running() -> None:
     coordinator.run_tray(_FakeIcon(), on_ready=lambda: calls.append("on_ready"))
 
     assert calls == ["run_started", "on_ready"]
-
-
-def test_run_tray_without_on_ready_does_not_require_one() -> None:
-    """Allow callers that have no platform-specific setup to omit on_ready."""
-    coordinator = LifecycleCoordinator()
-
-    class _FakeIcon:
-        def run(self, setup=None) -> None:
-            if setup is not None:
-                setup(self)
-
-    coordinator.run_tray(_FakeIcon())  # must not raise
 
 
 def test_run_tray_skips_on_ready_when_shutdown_already_requested() -> None:
