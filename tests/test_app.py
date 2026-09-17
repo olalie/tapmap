@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import MagicMock
 
 import dash
+import pytest
 from dash import html
 
 from tapmap.app import APP_META, TapMap
@@ -291,6 +294,200 @@ def test_render_modal_menu_about_reflects_the_live_notifications_toggle(tmp_path
 
         assert _kv_value(enabled_children, "Desktop notifications") == "On"
         assert _kv_value(disabled_children, "Desktop notifications") == "Off"
+    finally:
+        app.close()
+
+
+_ACTIVE_MAXMIND_STATUS: dict[str, object] = {
+    "provider": "maxmind",
+    "city_installed": True,
+    "asn_installed": True,
+    "city_valid": True,
+    "asn_valid": True,
+    "local_version": "2026-09-15",
+    "local_city_date": "2026-09-15",
+    "local_asn_date": "2026-09-15",
+    "local_display_date": "2026-09-15",
+    "remote_version": None,
+    "update_available": "unknown",
+    "message": "MaxMind GeoLite2 databases detected",
+    "error": None,
+    "checked_at": "2026-01-01T00:00:00",
+}
+
+
+def _walk_components(node: object) -> Iterator[Any]:
+    """Yield components from a Dash children tree."""
+    if node is None or isinstance(node, (str, int, float)):
+        return
+    if isinstance(node, (list, tuple)):
+        for item in node:
+            yield from _walk_components(item)
+        return
+    yield node
+    yield from _walk_components(getattr(node, "children", None))
+
+
+def _has_class(children: object, class_name: str) -> bool:
+    """Return whether a component tree contains the CSS class."""
+    return any(
+        class_name in (getattr(c, "className", "") or "") for c in _walk_components(children)
+    )
+
+
+def _find_by_id(children: object, component_id: str) -> Any | None:
+    """Return the component with the requested ID, if present."""
+    return next(
+        (c for c in _walk_components(children) if getattr(c, "id", None) == component_id),
+        None,
+    )
+
+
+@pytest.mark.parametrize(
+    "modal_state_data",
+    [
+        pytest.param(None, id="modal_closed"),
+        pytest.param(
+            {"screen": "menu_about", "t": "2026-01-01T00:00:00", "payload": {}},
+            id="different_screen",
+        ),
+    ],
+)
+def test_render_geodb_status_returns_none_when_geodb_screen_not_open(
+    tmp_path: Path, modal_state_data: dict[str, object] | None
+) -> None:
+    """Ignore GeoDB events when its management screen is not open."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        children = app._render_geodb_status(
+            {"action": "update", "response": _ACTIVE_MAXMIND_STATUS}, modal_state_data
+        )
+        assert children is None
+    finally:
+        app.close()
+
+
+def test_render_geodb_status_renders_result_without_a_loading_placeholder(
+    tmp_path: Path,
+) -> None:
+    """Render completed GeoDB events without the modal loading placeholder."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        app.geodb.local_status = MagicMock(return_value=_ACTIVE_MAXMIND_STATUS)
+        modal_state = {
+            "screen": app.SCR_GEODB_MANAGEMENT,
+            "t": "2026-01-01T00:00:00",
+            "payload": {},
+        }
+        geodb_event = {
+            "action": "update",
+            "response": {
+                **_ACTIVE_MAXMIND_STATUS,
+                "message": "Databases are already up to date",
+                "error": None,
+                "update_available": "no",
+                "checked_at": "2026-01-01T00:00:05",
+            },
+        }
+
+        children = app._render_geodb_status(geodb_event, modal_state)
+
+        assert children is not None
+        assert not _has_class(children, "mx-spinner")
+        assert not _has_class(children, "mx-modal-loading")
+        status_node = _find_by_id(children, "geodb-status-text")
+        assert status_node is not None
+        assert status_node.children == "Databases are already up to date"
+    finally:
+        app.close()
+
+
+def test_render_geodb_status_hides_stale_event_before_modal_opened(tmp_path: Path) -> None:
+    """Ignore GeoDB events created before the current modal session."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        app.geodb.local_status = MagicMock(return_value=_ACTIVE_MAXMIND_STATUS)
+        modal_state = {
+            "screen": app.SCR_GEODB_MANAGEMENT,
+            "t": "2026-01-01T00:00:10",
+            "payload": {},
+        }
+        stale_event = {
+            "action": "update",
+            "response": {
+                **_ACTIVE_MAXMIND_STATUS,
+                "message": "Databases are already up to date",
+                "error": None,
+                "checked_at": "2026-01-01T00:00:00",
+            },
+        }
+
+        children = app._render_geodb_status(stale_event, modal_state)
+
+        status_node = _find_by_id(children, "geodb-status-text")
+        assert status_node is not None
+        assert status_node.children == ""
+    finally:
+        app.close()
+
+
+def _callback_by_outputs_and_input(
+    app: TapMap, outputs: set[tuple[str, str]], input_id: tuple[str, str]
+) -> dict[str, Any]:
+    """Return the callback matching the requested outputs and input."""
+    matches = []
+    for spec in app.app.callback_map.values():
+        raw_output = spec["output"]
+        items = raw_output if isinstance(raw_output, list) else [raw_output]
+        ids = {(o.component_id, o.component_property) for o in items}
+        if ids != outputs:
+            continue
+        input_ids = {(i["id"], i["property"]) for i in spec["inputs"]}
+        if input_id in input_ids:
+            matches.append(spec)
+    assert len(matches) == 1, (
+        f"expected exactly one callback with outputs {outputs} and input {input_id}, "
+        f"found {len(matches)}"
+    )
+    return matches[0]
+
+
+def test_modal_shell_no_longer_has_geodb_event_as_an_input(tmp_path: Path) -> None:
+    """Keep GeoDB events from triggering the modal loading shell."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        spec = _callback_by_outputs_and_input(
+            app,
+            {
+                ("modal_overlay", "className"),
+                ("modal_body", "children"),
+                ("modal_body", "className"),
+                ("modal_content_request", "data"),
+            },
+            ("modal_state", "data"),
+        )
+        input_ids = {(i["id"], i["property"]) for i in spec["inputs"]}
+        state_ids = {(i["id"], i["property"]) for i in spec["state"]}
+
+        assert ("geodb_event", "data") not in input_ids
+        assert input_ids == {("modal_state", "data")}
+        assert ("geodb_event", "data") in state_ids
+    finally:
+        app.close()
+
+
+def test_geodb_status_renderer_reacts_to_geodb_event_only(tmp_path: Path) -> None:
+    """Trigger GeoDB status rendering only from GeoDB events."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        spec = _callback_by_outputs_and_input(
+            app, {("modal_body", "children")}, ("geodb_event", "data")
+        )
+        input_ids = {(i["id"], i["property"]) for i in spec["inputs"]}
+        state_ids = {(i["id"], i["property"]) for i in spec["state"]}
+
+        assert input_ids == {("geodb_event", "data")}
+        assert ("modal_state", "data") in state_ids
     finally:
         app.close()
 

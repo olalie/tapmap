@@ -795,6 +795,28 @@ class TapMap:
 
         return [], "modal-body"
 
+    def _render_geodb_status(
+        self,
+        geodb_event_data: dict[str, Any] | None,
+        modal_state_data: dict[str, Any] | None,
+    ) -> list[Any] | None:
+        """Return GeoDB content, or None when its management screen is not open."""
+        if not isinstance(modal_state_data, dict):
+            return None
+
+        if modal_state_data.get("screen") != self.SCR_GEODB_MANAGEMENT:
+            return None
+
+        return self._as_children(
+            self.modal_text.geodb_management(
+                status=self.geodb.local_status(),
+                geo_data_dir=str(self.runtime.geo_data_dir),
+                is_docker=self.runtime.is_docker,
+                geodb_event=geodb_event_data,
+                modal_opened_at=modal_state_data.get("t"),
+            )
+        )
+
     def _register_callbacks(self) -> None:
         self._register_keyboard_callbacks()
         self._register_poll_callbacks()
@@ -1434,7 +1456,7 @@ class TapMap:
             Output("modal_body", "className"),
             Output("modal_content_request", "data"),
             Input("modal_state", "data"),
-            Input("geodb_event", "data"),
+            State("geodb_event", "data"),
             prevent_initial_call=False,
         )
         def modal_shell(
@@ -1506,7 +1528,26 @@ class TapMap:
             )
 
             return children
-        
+
+        @self.app.callback(
+            # GeoDB operations manage their own loading state.
+            Output("modal_body", "children", allow_duplicate=True),
+            Input("geodb_event", "data"),
+            State("modal_state", "data"),
+            prevent_initial_call=True,
+        )
+        def geodb_status_renderer(
+            geodb_event_data: Any,
+            modal_state_data: Any,
+        ) -> list[Any]:
+            """Refresh the open GeoDB management screen after an operation."""
+            children = self._render_geodb_status(geodb_event_data, modal_state_data)
+
+            if children is None:
+                raise PreventUpdate
+
+            return children
+
     def _register_modal_callbacks(self) -> None:
         @self.app.callback(
             Output("modal_state", "data"),
