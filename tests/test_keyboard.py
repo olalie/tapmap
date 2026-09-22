@@ -158,3 +158,16 @@ def test_keyboard_js_allows_every_single_letter_key_map_action() -> None:
     }
 
     assert single_letter_tokens - _KEYS_SENT_OUTSIDE_KEYBOARD_JS <= _js_shortcut_keys()
+
+
+def test_keyboard_js_guards_modifier_keys_before_shortcut_dispatch() -> None:
+    """Verify Ctrl, Meta, and Alt are checked before dispatching a shortcut."""
+    text = _KEYBOARD_JS_PATH.read_text(encoding="utf-8")
+
+    escape_index = text.index('"__esc__"')
+    guard_index = text.index("e.ctrlKey")
+    dispatch_index = text.index("shortcuts.has(k)")
+
+    assert escape_index < guard_index < dispatch_index
+    assert "e.metaKey" in text[guard_index:dispatch_index]
+    assert "e.altKey" in text[guard_index:dispatch_index]

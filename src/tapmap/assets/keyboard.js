@@ -98,6 +98,8 @@
                 return;
             }
 
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+
             if (shortcuts.has(k)) {
                 sendToken("__" + k + "__");
             }
