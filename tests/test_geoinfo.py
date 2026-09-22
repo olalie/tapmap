@@ -242,6 +242,32 @@ def test_reload_reopens_readers(monkeypatch, tmp_path: Path) -> None:
     assert geo._city_reader is not first_reader
 
 
+def test_reload_clears_ip_cache(monkeypatch, tmp_path: Path) -> None:
+    """Verify reload discards cached lookups made before the database was available."""
+    ip = "203.0.113.40"
+    city_db = tmp_path / GeoInfo.CITY_DB_NAME
+
+    geo = GeoInfo(tmp_path)
+    assert geo.enabled is False
+
+    cached_before_reload = geo.lookup(ip)
+    assert cached_before_reload["lat"] is None
+
+    city_db.write_text("", encoding="utf-8")
+    city_reader = FakeReader(
+        {ip: {"location": {"latitude": 40.0, "longitude": -74.0}}}
+    )
+    monkeypatch.setattr(geoinfo.maxminddb, "open_database", lambda path: city_reader)
+
+    assert geo.reload() is True
+
+    result = geo.lookup(ip)
+
+    assert result["lat"] == 40.0
+    assert result["lon"] == -74.0
+    assert city_reader.calls == [ip]
+
+
 def test_open_readers_falls_back_to_dbip_file_names(monkeypatch, tmp_path: Path) -> None:
     """Verify GeoInfo opens DB-IP file names when GeoLite2 files are absent."""
     city_db = tmp_path / GeoInfo.DBIP_CITY_DB_NAME

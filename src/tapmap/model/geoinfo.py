@@ -109,12 +109,13 @@ class GeoInfo:
         return self._asn_reader is not None
 
     def reload(self) -> bool:
-        """Reopen database readers from disk.
+        """Reopen database readers and clear cached lookups.
 
         Returns:
             True if at least one database is available after reload.
         """
         self.close()
+        self._ip_cache.clear()
         self._open_readers()
         return self.enabled
 
