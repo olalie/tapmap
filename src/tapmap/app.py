@@ -662,6 +662,12 @@ class TapMap:
         return isinstance(value, list) and "on" in value
 
     @staticmethod
+    def _is_map_reset(relayout_data: Any) -> bool:
+        """Return whether relayout_data matches the map's Reset event."""
+        # Reset includes geo.fitbounds; pan and zoom omit it while the figure leaves it unset.
+        return isinstance(relayout_data, dict) and "geo.fitbounds" in relayout_data
+
+    @staticmethod
     def _startup_geodb_modal_should_close(
         modal_state: dict[str, Any] | None,
         snapshot: Any,
@@ -1772,7 +1778,22 @@ class TapMap:
                 return None, None
 
             return country_code, None
-        
+
+        @self.app.callback(
+            Output("selected_country", "data", allow_duplicate=True),
+            Output("map", "relayoutData"),
+            Input("map", "relayoutData"),
+            prevent_initial_call=True,
+        )
+        def clear_country_on_map_reset(relayout_data: Any) -> tuple[Any, Any]:
+            """Clear the selected country when the map's Reset button is used."""
+            if not self._is_map_reset(relayout_data):
+                return no_update, no_update
+
+            # Dash ignores unchanged props; clearing relayoutData lets the next
+            # identical Reset event trigger this callback again.
+            return None, None
+
     def _register_status_callbacks(self) -> None:
         @self.app.callback(
             Output("status_bar", "children"),
