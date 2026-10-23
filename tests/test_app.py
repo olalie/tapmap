@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Iterator
 from contextvars import copy_context
 from datetime import datetime
@@ -734,3 +735,20 @@ def test_build_runtime_info_reports_desktop_notifications_available_with_a_chann
     info = app._build_runtime_info()
 
     assert info["desktop_notifications_available"] is True
+
+
+# SHA-256 of dist/TwemojiCountryFlags.woff2 in country-flag-emoji-polyfill 0.1.10,
+# as recorded in third_party/THIRD_PARTY_NOTICES.md.
+_FLAG_FONT_SHA256 = "9f04f14429bb6a9f415c7a4dd902a918d7e81a4f7526c415496fdb063954e3b8"
+
+
+def test_flag_font_is_served_unmodified(tmp_path: Path) -> None:
+    """Serve the bundled flag font from assets, matching the recorded checksum."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        response = app.app.server.test_client().get("/assets/TwemojiCountryFlags.woff2")
+
+        assert response.status_code == 200
+        assert hashlib.sha256(response.data).hexdigest() == _FLAG_FONT_SHA256
+    finally:
+        app.close()

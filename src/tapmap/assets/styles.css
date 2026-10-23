@@ -4,6 +4,17 @@
 *::after {
   box-sizing: border-box;
 }
+
+/* Country flags; Chrome and Edge on Windows have no flag glyphs.
+   unicode-range keeps all other text, including the globe fallback, on the next fonts. */
+@font-face {
+  font-family: "Twemoji Country Flags";
+  src: url("TwemojiCountryFlags.woff2") format("woff2");
+  unicode-range: U+1F1E6-1F1FF;
+  /* Without swap, text using this font list can stay hidden until the font loads. */
+  font-display: swap;
+}
+
 :root {
   --mx-green: #00ff66;
   --mx-green-soft: rgba(0, 255, 102, 0.55);
@@ -27,7 +38,7 @@
   --mx-radius: 10px;
   --mx-radius-lg: 12px;
 
-  --mx-font: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", "Courier New", monospace;
+  --mx-font: "Twemoji Country Flags", ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", "Courier New", monospace;
 
   --mx-modal-max-h: 80vh;
   --mx-modal-w: min(900px, 68vw);
@@ -482,6 +493,8 @@ summary.mx-acc-header:hover {
 .modal-body pre {
   margin: 0;
   white-space: pre-wrap;
+  /* pre does not inherit font-family; keep the browser's monospace for other characters. */
+  font-family: "Twemoji Country Flags", monospace;
 }
 
 .mx-modal-actions {

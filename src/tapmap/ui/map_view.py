@@ -284,8 +284,9 @@ class MapUI:
 
     def _apply_layout(self, fig: go.Figure) -> None:
         """Apply layout styling and interaction settings."""
+        # Hover labels are SVG text styled by Plotly, so the CSS font list does not reach them.
         font_family = (
-            "ui-monospace, SFMono-Regular, Menlo, Consolas, "
+            "'Twemoji Country Flags', ui-monospace, SFMono-Regular, Menlo, Consolas, "
             "'Liberation Mono', 'Courier New', monospace"
         )
         fig.update_layout(

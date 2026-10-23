@@ -12,6 +12,13 @@
 - Remove the Today section from the Insights panel. New activity is shown in Significant Connections and notifications
 - Remove the Insights panel reference from the Daily Activity Report summary
 
+### Fixes
+
+- Clear the selected country in Insights and on the map when Reset is clicked
+- Show country flags in Chrome and Edge on Windows by bundling the Twemoji Country Flags font
+  - Use the same Twemoji flags in all browsers and platforms
+  - Credit the Twemoji artwork in About
+
 ## 1.14.2 - 2026-09-22
 
 ### Distribution

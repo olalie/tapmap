@@ -169,3 +169,18 @@ def test_command_line_block_includes_configure_mqtt() -> None:
     assert "tapmap --help" in text
     assert "tapmap --version" in text
     assert "tapmap --no-browser" in text
+
+
+def test_about_credits_twemoji_flags_under_cc_by() -> None:
+    """Credit the bundled Twemoji flag artwork and link its CC BY 4.0 license."""
+    credit = next(
+        c
+        for c in _render()
+        if isinstance(c, html.P)
+        and isinstance(c.children, list)
+        and "Twemoji" in str(c.children[0])
+    )
+
+    assert "Twitter, Inc and other contributors" in credit.children[0]
+    link = next(c for c in credit.children if isinstance(c, html.A))
+    assert link.href == "https://creativecommons.org/licenses/by/4.0/"
