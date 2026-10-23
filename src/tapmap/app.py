@@ -106,7 +106,7 @@ from .runtime import AppMeta, RuntimeContext, build_runtime
 from .tray import create_tray_icon
 
 if TYPE_CHECKING:
-    from pystray import Icon
+    from .tray import TrayIcon
 
 LonLat = tuple[float, float]
 
@@ -1835,7 +1835,7 @@ class TapMap:
         if self.desktop_notification_channel is not None:
             self.desktop_notification_channel.activate()
 
-    def _create_tray_icon(self) -> Icon | None:
+    def _create_tray_icon(self) -> TrayIcon | None:
         """Build this instance's tray icon, or None if unavailable (Docker always has none)."""
         if self.runtime.is_docker:
             return None
@@ -1862,7 +1862,7 @@ class TapMap:
             return
         self._open_browser(url)
 
-    def _decide_browser_open(self, url: str, icon: Icon | None) -> None:
+    def _decide_browser_open(self, url: str, icon: TrayIcon | None) -> None:
         """Open or defer the browser according to the launch context.
 
         Do not open the browser if macOS login-launch detection is unavailable.

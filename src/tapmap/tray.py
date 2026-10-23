@@ -9,12 +9,21 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from pystray import Icon
+from typing import Protocol
 
 logger = logging.getLogger(__name__)
+
+
+class TrayIcon(Protocol):
+    """Tray icon interface used by TapMap."""
+
+    visible: bool
+
+    def run(self, setup: Callable[[TrayIcon], None] | None = None) -> None:
+        """Run the blocking event loop; call setup with the icon once it is running."""
+
+    def stop(self) -> None:
+        """Stop the event loop."""
 
 
 def create_tray_icon(
@@ -23,7 +32,7 @@ def create_tray_icon(
     tooltip: str,
     on_open: Callable[[], None],
     on_quit: Callable[[], None],
-) -> Icon | None:
+) -> TrayIcon | None:
     """Build the tray icon with its Open/Quit menu, or return None if unavailable."""
     try:
         import pystray
