@@ -80,7 +80,7 @@ TapMap makes this visible so you can:
 - Application information for each network operator
 - Operating system verification status for applications
 - Nearby locations highlighted when multiple connections overlap
-- Insights panel showing new and frequent activity over time
+- Insights panel showing frequent activity and the 30-day history of each entry
 - Significant Connections history of new applications, countries, network operators, ports, and failed verification
 - Desktop and MQTT notifications for new Significant Connections
 - Daily Activity Report with application patterns, provider analysis, and activity timelines
@@ -100,7 +100,7 @@ All data is collected locally on your machine.
 - Open the menu in the upper-left corner to access Insights and network tools
 - Open the Daily Activity Report with **D**
 - Open Significant Connections with **S**
-- Click countries in Insights to zoom to a country
+- Click entries in Insights to see their 30-day history. Countries also zoom the map
 
 ---
 
@@ -110,9 +110,9 @@ TapMap builds a rolling 30-day history of network activity and helps you underst
 
 The Insights panel highlights:
 
-- New apps, providers (ASN), countries, and ports
-- Frequent activity (Top 5+, including ties)
-- Click countries to zoom and inspect on the map
+- Frequent apps, providers (ASN), countries, and ports (Top 5+, including ties)
+- Click an entry to see its 30-day history: last seen, earliest recorded activity, and active days
+- Click a country to open its history and zoom to it on the map. Click the selected country again to clear the selection
 
 The Daily Activity Report provides a broader summary of recent activity:
 

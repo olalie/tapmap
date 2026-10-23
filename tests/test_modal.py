@@ -1,8 +1,11 @@
 """Tests for modal state transition logic."""
 
+import pytest
+
 from tapmap.state.modal import (
     ModalRoute,
     _decide_close,
+    _decide_insights_entry_click,
     _decide_internal_navigation,
     _decide_map_click,
     _decide_row_click,
@@ -298,6 +301,8 @@ def test_decide_modal_route_applies_close_when_close_rule_matches() -> None:
     """Return an apply route with None modal state for closing."""
     result = decide_modal_route(
         trigger="btn_close",
+        trigger_value=None,
+        selected_country=None,
         is_open=True,
         current_screen="menu_about",
         action=None,
@@ -315,6 +320,8 @@ def test_decide_modal_route_applies_screen_change_when_menu_screen_is_selected()
     """Return an apply route for a screen transition."""
     result = decide_modal_route(
         trigger="menu_about",
+        trigger_value=None,
+        selected_country=None,
         is_open=False,
         current_screen=None,
         action=None,
@@ -340,6 +347,8 @@ def test_decide_modal_route_applies_map_click_after_higher_priority_checks() -> 
 
     result = decide_modal_route(
         trigger="map",
+        trigger_value=None,
+        selected_country=None,
         is_open=False,
         current_screen=None,
         action=None,
@@ -373,6 +382,8 @@ def test_decide_modal_route_applies_row_click_after_higher_priority_checks() -> 
 
     result = decide_modal_route(
         trigger=trigger,
+        trigger_value=None,
+        selected_country=None,
         is_open=True,
         current_screen="menu_significant_connections",
         action=None,
@@ -403,6 +414,8 @@ def test_decide_modal_route_returns_noop_when_no_rule_matches() -> None:
     """Return noop when no route rule matches."""
     result = decide_modal_route(
         trigger="something_else",
+        trigger_value=None,
+        selected_country=None,
         is_open=False,
         current_screen=None,
         action=None,
@@ -414,3 +427,120 @@ def test_decide_modal_route_returns_noop_when_no_rule_matches() -> None:
     )
 
     assert result == ModalRoute(action="noop")
+
+
+def _insights_entry(category: str, value: str) -> dict[str, str]:
+    """Return an Insights entry row ID."""
+    return {"type": "insights-entry", "category": category, "value": value}
+
+
+@pytest.mark.parametrize(
+    ("category", "value"),
+    [
+        ("applications", "Firefox"),
+        ("providers", "Example Networks, Inc."),
+        ("ports", "443"),
+        ("countries", "NO"),
+    ],
+)
+def test_decide_insights_entry_click_opens_entry_screen(category: str, value: str) -> None:
+    """A click on any Insights entry opens its detail screen."""
+    result = _decide_insights_entry_click(
+        trigger=_insights_entry(category, value),
+        trigger_value=1,
+        selected_country=None,
+        now_iso="2026-03-10T10:00:00",
+    )
+
+    assert result == {
+        "screen": "menu_insights_entry",
+        "t": "2026-03-10T10:00:00",
+        "payload": {"category": category, "value": value},
+    }
+
+
+def test_decide_insights_entry_click_ignores_zero_clicks() -> None:
+    """A re-rendered row with n_clicks=0 does not open the modal."""
+    result = _decide_insights_entry_click(
+        trigger=_insights_entry("applications", "Firefox"),
+        trigger_value=0,
+        selected_country=None,
+        now_iso="2026-03-10T10:00:00",
+    )
+
+    assert result is None
+
+
+def test_decide_insights_entry_click_ignores_click_on_selected_country() -> None:
+    """Do not open entry details when the selected country is clicked."""
+    result = _decide_insights_entry_click(
+        trigger=_insights_entry("countries", "NO"),
+        trigger_value=2,
+        selected_country="NO",
+        now_iso="2026-03-10T10:00:00",
+    )
+
+    assert result is None
+
+
+def test_decide_insights_entry_click_opens_other_country_while_one_is_selected() -> None:
+    """A click on a different country opens its detail screen."""
+    result = _decide_insights_entry_click(
+        trigger=_insights_entry("countries", "SE"),
+        trigger_value=1,
+        selected_country="NO",
+        now_iso="2026-03-10T10:00:00",
+    )
+
+    assert result is not None
+    assert result["payload"] == {"category": "countries", "value": "SE"}
+
+
+def test_decide_insights_entry_click_ignores_non_country_matching_selected_country() -> None:
+    """Only the countries category is compared with the selected country."""
+    result = _decide_insights_entry_click(
+        trigger=_insights_entry("applications", "NO"),
+        trigger_value=1,
+        selected_country="NO",
+        now_iso="2026-03-10T10:00:00",
+    )
+
+    assert result is not None
+
+
+def test_decide_insights_entry_click_returns_none_for_other_triggers() -> None:
+    """Ignore triggers that aren't an Insights entry click."""
+    result = _decide_insights_entry_click(
+        trigger="menu_about",
+        trigger_value=1,
+        selected_country=None,
+        now_iso="2026-03-10T10:00:00",
+    )
+
+    assert result is None
+
+
+def test_decide_modal_route_applies_insights_entry_click() -> None:
+    """Return an apply route for an Insights entry click."""
+    result = decide_modal_route(
+        trigger=_insights_entry("providers", "Example Networks"),
+        trigger_value=1,
+        selected_country=None,
+        is_open=False,
+        current_screen=None,
+        action=None,
+        show_system=False,
+        menu_screens={"menu_about"},
+        open_ports_prefs=None,
+        click_data=None,
+        now_iso="2026-03-10T10:00:00",
+    )
+
+    assert result == ModalRoute(
+        action="apply",
+        modal_state={
+            "screen": "menu_insights_entry",
+            "t": "2026-03-10T10:00:00",
+            "payload": {"category": "providers", "value": "Example Networks"},
+        },
+    )

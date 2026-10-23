@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterator
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -18,6 +19,7 @@ from tapmap.mqtt_config import MqttConfig, mqtt_config_path, save_mqtt_config
 from tapmap.runtime import RuntimeContext
 from tapmap.significant_connections_persistence import load_significant_connections
 from tapmap.state.connection_state import ConnectionState
+from tapmap.state.insights_state import CURRENT_SCHEMA_VERSION, InsightsState
 from tapmap.state.significant_connections import SignificantConnections
 from tapmap.state.status_cache import StatusCache
 from tapmap.state.unmapped_state import UnmappedState
@@ -258,6 +260,79 @@ def test_render_modal_shows_unavailable_message_when_significant_connection_is_g
     )
 
     assert body_class == "modal-body"
+    assert any(
+        isinstance(c, html.Pre) and "no longer available" in c.children for c in children
+    )
+
+
+def _render_insights_entry(app: TapMap, category: str, value: str) -> list:
+    """Render the Insights entry detail screen for category/value."""
+    children, _body_class = app._render_modal(
+        {
+            "screen": "menu_insights_entry",
+            "t": "2026-01-01T00:00:00",
+            "payload": {"category": category, "value": value},
+        },
+        None,
+        None,
+        "",
+        None,
+        False,
+        False,
+    )
+    return children
+
+
+class _FixedDatetime(datetime):
+    """Provide a fixed current time for Insights entry rendering."""
+
+    @classmethod
+    def now(cls, tz: Any = None) -> _FixedDatetime:
+        """Return 2026-10-23 12:00."""
+        return cls(2026, 10, 23, 12, 0)
+
+
+def _insights_detail_value(children: list, label: str) -> Any:
+    """Return the value cell content for label in the Insights entry detail table."""
+    for component in children:
+        if not isinstance(component, html.Table):
+            continue
+        tbody = next(c for c in component.children if isinstance(c, html.Tbody))
+        for tr in tbody.children:
+            key_cell, value_cell = tr.children
+            if key_cell.children == label:
+                return value_cell.children
+    return None
+
+
+def test_render_modal_shows_insights_entry_history(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The Insights entry screen renders history from the current Insights state."""
+    monkeypatch.setattr("tapmap.app.datetime", _FixedDatetime)
+    today_day = _FixedDatetime.now().date().toordinal()
+    app = _bare_app()
+    app.insights_state = InsightsState(
+        version=CURRENT_SCHEMA_VERSION,
+        insights={"applications": {"Firefox": {"l": today_day, "m": 1 | 1 << 3 | 1 << 10}}},
+        verification_failed={},
+    )
+
+    children = _render_insights_entry(app, "applications", "Firefox")
+
+    assert children[0].children == "Firefox"
+    assert _insights_detail_value(children, "Active days") == "3 of the last 30 days"
+
+
+def test_render_modal_shows_unavailable_message_when_insights_entry_is_gone() -> None:
+    """Show an unavailable message when the entry is missing."""
+    app = _bare_app()
+    app.insights_state = InsightsState(
+        version=CURRENT_SCHEMA_VERSION,
+        insights={"applications": {}},
+        verification_failed={},
+    )
+
+    children = _render_insights_entry(app, "applications", "Firefox")
+
     assert any(
         isinstance(c, html.Pre) and "no longer available" in c.children for c in children
     )

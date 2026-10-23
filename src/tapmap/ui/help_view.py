@@ -33,7 +33,7 @@ def render_help() -> list[Any]:
                 html.Li("Start TapMap."),
                 html.Li("Hover map markers for a connection summary."),
                 html.Li("Click map markers for connection details and application information."),
-                html.Li("The Insights panel highlights new and frequent activity."),
+                html.Li("The Insights panel highlights frequent activity over the last 30 days."),
                 html.Li(
                     "Open the Daily Activity Report (D) for deeper analysis of activity patterns."
                 ),
@@ -421,9 +421,18 @@ def render_help() -> list[Any]:
         ),
         html.Ul(
             [
-                html.Li("New apps, providers (ASN), countries, and ports observed today."),
-                html.Li("Top 5+ most frequently observed items over the last 30 days."),
-                html.Li("Click countries to zoom to the selected country."),
+                html.Li(
+                    "Top 5+ most frequently observed apps, providers (ASN), countries, "
+                    "and ports over the last 30 days."
+                ),
+                html.Li(
+                    "Click an entry to see its 30-day history: last seen, earliest recorded "
+                    "activity, and active days."
+                ),
+                html.Li(
+                    "Click a country to open its history and zoom to it on the map. "
+                    "Click the selected country again to clear the selection."
+                ),
             ]
         ),
         html.P(

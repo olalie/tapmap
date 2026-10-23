@@ -154,13 +154,13 @@ def test_analyze_excludes_non_public_connections_from_insights() -> None:
 
 
 def test_analyze_returns_process_insights_result() -> None:
-    """analyze() returns the same {new, top} shape process_insights() produces."""
+    """analyze() returns the same {top} shape process_insights() produces."""
     analyzer = _analyzer()
 
     result = analyzer.analyze([_connection()])
 
-    assert set(result.keys()) == {"new", "top"}
-    assert result["new"]["countries"][0]["value"] == "US"
+    assert set(result.keys()) == {"top"}
+    assert result["top"]["countries"][0]["value"] == "US"
 
 
 # --- significant connections wiring ---

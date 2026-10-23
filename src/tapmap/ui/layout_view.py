@@ -51,7 +51,7 @@ def render_layout(
             dcc.Store(id="status_flash", data=None),
             dcc.Store(id="geodb_event", data=None),
             dcc.Store(id="model_snapshot", data=None),
-            dcc.Store(id="insights_cache", data={"new": {}, "top": {}}),
+            dcc.Store(id="insights_cache", data={"top": {}}),
             dcc.Store(id="status_cache", data=status_cache_store),
             dcc.Store(id="ui_view", data={"points": [], "summaries": {}, "details": {}}),
             dcc.Store(id="modal_state", data=initial_modal_state),

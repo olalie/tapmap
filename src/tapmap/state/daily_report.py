@@ -224,7 +224,7 @@ def build_today_text(insights: dict[str, Any]) -> str:
     else:
         summary = f"{', '.join(parts[:-1])} and {parts[-1]}"
 
-    return f"{summary} appeared today. See details in the Insights panel."
+    return f"{summary} appeared today."
 
 
 def compute_activity_days_fraction(

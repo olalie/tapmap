@@ -7,6 +7,8 @@ from typing import Any, TypedDict
 
 import pycountry
 
+HISTORY_WINDOW_DAYS = 30
+
 
 class InsightStateItem(TypedDict):
     """State for an entry.
@@ -41,12 +43,24 @@ class Insights(TypedDict):
     state: InsightsState
     meta: InsightsMeta
 
+
+class EntryHistory(TypedDict):
+    """Recorded activity within a 30-day window.
+
+    last_seen_day and first_seen_day are date ordinals within the window.
+    days contains 30 flags, oldest first; the last flag is the window's final day.
+    """
+    last_seen_day: int
+    first_seen_day: int
+    active_days: int
+    days: list[bool]
+
 def process_insights(
     items: list[dict[str, Any]],
     insights: dict[str, Any],
     now: datetime,
 ) -> dict[str, Any]:
-    """Process items and return new insights entries.
+    """Process items, update insights in place, and return the top entries per dimension.
 
     Caller must supply only mapped PUBLIC connections; no scope filtering is
     applied here.
@@ -125,25 +139,6 @@ def process_insights(
     update_dimension(ports, ports_state)
     update_dimension(apps, apps_state)
 
-    def build_new(state: dict[str, dict[str, int]], category: str) -> list[dict[str, Any]]:
-        """Return entries where m == 1: observed today with no activity in the prior 29 days."""
-        items = []
-        for k, v in state.items():
-            if v["m"] != 1:
-                continue
-
-            if category == "countries":
-                try:
-                    country = pycountry.countries.get(alpha_2=k.upper())
-                    name = country.name if country else k
-                except Exception:
-                    name = k
-                items.append({"value": k, "name": name})
-            else:
-                items.append({"value": k})
-
-        return items
-
     def build_top(
         state: dict[str, dict[str, int]],
         category: str,
@@ -171,23 +166,11 @@ def process_insights(
         result = []
         for k, _ in selected:
             if category == "countries":
-                try:
-                    country = pycountry.countries.get(alpha_2=k.upper())
-                    name = country.name if country else k
-                except Exception:
-                    name = k
-                result.append({"value": k, "name": name})
+                result.append({"value": k, "name": country_name(k)})
             else:
                 result.append({"value": k})
 
         return result
-
-    new = {
-        "countries": build_new(countries_state, "countries"),
-        "providers": build_new(providers_state, "providers"),
-        "ports": build_new(ports_state, "ports"),
-        "applications": build_new(apps_state, "applications"),
-    }
 
     top = {
         "countries": build_top(countries_state, "countries"),
@@ -197,9 +180,68 @@ def process_insights(
     }
 
     return {
-        "new": new,
         "top": top,
     }
+
+
+def country_name(code: str) -> str:
+    """Return the country name for an alpha-2 code.
+
+    Return the code itself if it is unknown or the lookup fails.
+    """
+    try:
+        country = pycountry.countries.get(alpha_2=code.upper())
+        return country.name if country else code
+    except Exception:
+        return code
+
+
+def last_seen_day(entry: Any) -> int | None:
+    """Return the latest observation day of an {l, m} entry.
+
+    Return None if the entry is not a dict, l or m is not an int, or m is 0.
+    """
+    if not isinstance(entry, dict):
+        return None
+    anchor_day = entry.get("l")
+    mask = entry.get("m")
+    if not isinstance(anchor_day, int) or not isinstance(mask, int) or mask == 0:
+        return None
+    lowest_set_bit_position = (mask & -mask).bit_length() - 1
+    return anchor_day - lowest_set_bit_position
+
+
+def entry_history(entry: Any, today_day: int) -> EntryHistory | None:
+    """Return an entry's recorded activity within the 30 days ending on today_day.
+
+    l is the anchor day's ordinal; bit i of m represents day l - i.
+    The anchor may precede today_day if the entry has not been updated today.
+    Return None if the entry is not a dict, l or m is not an int, or no activity
+    falls within the window.
+    """
+    if not isinstance(entry, dict):
+        return None
+    anchor_day = entry.get("l")
+    mask = entry.get("m")
+    if not isinstance(anchor_day, int) or not isinstance(mask, int):
+        return None
+
+    window_start_day = today_day - (HISTORY_WINDOW_DAYS - 1)
+    active_day_list = [
+        day
+        for day in range(window_start_day, today_day + 1)
+        if 0 <= anchor_day - day < HISTORY_WINDOW_DAYS and (mask >> (anchor_day - day)) & 1
+    ]
+    if not active_day_list:
+        return None
+
+    active_day_set = set(active_day_list)
+    return EntryHistory(
+        last_seen_day=active_day_list[-1],
+        first_seen_day=active_day_list[0],
+        active_days=len(active_day_list),
+        days=[day in active_day_set for day in range(window_start_day, today_day + 1)],
+    )
 
 
 def distinct_active_days(insights: dict[str, Any]) -> int:
