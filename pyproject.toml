@@ -38,4 +38,13 @@ per-file-ignores = { "tests/*" = ["D101", "D102", "D103"] }
 convention = "google"
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "tools"]
+
+[tool.pyright]
+# Keep Pylance's default level; a config file otherwise defaults to "standard".
+typeCheckingMode = "off"
+extraPaths = ["src"]
+# tools/ is a script directory; only tests import its modules directly.
+executionEnvironments = [
+  { root = "tests", extraPaths = ["src", "tools"] },
+]
