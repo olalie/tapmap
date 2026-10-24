@@ -30,7 +30,8 @@ class ServiceManagementError(Exception):
 
 def _main_app():
     """Return SMAppService.mainApp."""
-    from ServiceManagement import SMAppService
+    # PyObjC is installed only on macOS; these functions run only there.
+    from ServiceManagement import SMAppService  # pyright: ignore[reportMissingImports]
 
     return SMAppService.mainAppService()
 
@@ -93,6 +94,6 @@ def unregister() -> None:
 
 def open_system_settings_login_items() -> None:
     """Open System Settings to the Login Items panel."""
-    from ServiceManagement import SMAppService
+    from ServiceManagement import SMAppService  # pyright: ignore[reportMissingImports]
 
     SMAppService.openSystemSettingsLoginItems()

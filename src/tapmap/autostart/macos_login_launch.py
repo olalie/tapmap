@@ -10,9 +10,10 @@ import logging
 from collections.abc import Callable
 from typing import Final
 
-import objc
-from AppKit import NSApplication
-from Foundation import NSAppleEventManager, NSObject
+# PyObjC is installed only on macOS; this module is imported only there.
+import objc  # pyright: ignore[reportMissingImports]
+from AppKit import NSApplication  # pyright: ignore[reportMissingImports]
+from Foundation import NSAppleEventManager, NSObject  # pyright: ignore[reportMissingImports]
 
 logger = logging.getLogger(__name__)
 

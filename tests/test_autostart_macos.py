@@ -647,7 +647,7 @@ def test_handler_invokes_callback_at_most_once() -> None:
 
 def test_install_sets_the_application_delegate() -> None:
     """Set NSApplication.shared's delegate to the installed login-launch delegate."""
-    from AppKit import NSApplication
+    from AppKit import NSApplication  # pyright: ignore[reportMissingImports]
 
     macos_login_launch.install(lambda _is_login_launch: None)
 

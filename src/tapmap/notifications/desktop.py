@@ -124,10 +124,11 @@ def _build_windows_sender(icon_path: Path) -> Callable[[dict[str, Any]], None] |
 def _build_linux_sender() -> Callable[[dict[str, Any]], None] | None:
     """Build a Linux notification sender via libnotify (GObject introspection)."""
     try:
-        import gi
+        # PyGObject is installed only on Linux.
+        import gi  # pyright: ignore[reportMissingImports]
 
         gi.require_version("Notify", "0.7")
-        from gi.repository import Notify
+        from gi.repository import Notify  # pyright: ignore[reportMissingImports]
     except (ImportError, ValueError):
         # gi.require_version() raises ValueError when the Notify typelib is missing.
         logger.warning(
@@ -150,7 +151,8 @@ def _build_linux_sender() -> Callable[[dict[str, Any]], None] | None:
 def _build_macos_sender() -> tuple[Callable[[dict[str, Any]], None], Callable[[], None]] | None:
     """Build a macOS notification sender and activation callback, or None if unavailable."""
     try:
-        import UserNotifications as UN
+        # PyObjC is installed only on macOS.
+        import UserNotifications as UN  # pyright: ignore[reportMissingImports]
     except ImportError:
         logger.warning(
             "pyobjc-framework-UserNotifications is not installed; "
