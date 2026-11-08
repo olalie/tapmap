@@ -67,11 +67,16 @@ def load_insights(path: Path) -> InsightsState:
         insights["applications"] = {}
         version = CURRENT_SCHEMA_VERSION
 
+    learning_completed_day = data.get("notification_learning_completed_day")
+
     return InsightsState(
         version=version,
         insights=insights,
         verification_failed=verification_failed,
         significance_last_seen=_parse_significance_last_seen(data.get("significance_last_seen")),
+        notification_learning_completed_day=(
+            learning_completed_day if isinstance(learning_completed_day, int) else None
+        ),
     )
 
 
@@ -122,6 +127,7 @@ def save_insights(path: Path, state: InsightsState) -> None:
                 "insights": state.insights,
                 "verification_failed": state.verification_failed,
                 "significance_last_seen": state.significance_last_seen,
+                "notification_learning_completed_day": state.notification_learning_completed_day,
             },
             f,
             ensure_ascii=False,

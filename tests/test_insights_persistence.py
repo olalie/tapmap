@@ -346,6 +346,62 @@ def test_periodic_save_prunes_stale_significance_last_seen(tmp_path: Path) -> No
     assert saved["significance_last_seen"]["applications"] == {"codex": today - 1}
 
 
+def test_learning_completion_survives_save_and_reload(tmp_path: Path) -> None:
+    """Persist the recorded learning completion day across a save and reload."""
+    app = _bare_app(tmp_path)
+    app.insights_state = InsightsState(
+        version=CURRENT_SCHEMA_VERSION,
+        insights=dict(_EMPTY),
+        verification_failed={},
+        notification_learning_completed_day=739900,
+    )
+    app._save_history()
+
+    app._load_history()
+
+    assert app.insights_state.notification_learning_completed_day == 739900
+
+
+def test_learning_completion_is_inferred_from_event_days(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Record completion at startup from 4 Insights days plus 3 older event days."""
+    app = _bare_app(tmp_path)
+    app.runtime.notification_learning_days = 7
+    today = datetime.now().date().toordinal()
+    app.insights_state = InsightsState(
+        version=CURRENT_SCHEMA_VERSION,
+        insights={**_EMPTY, "countries": {"NO": {"l": today, "m": 0b1111}}},
+        verification_failed={},
+    )
+    app.significant_connections = SignificantConnections(
+        [
+            {"timestamp": "2026-09-01T10:00:00", "reasons": ["new_app"]},
+            {"timestamp": "2026-09-02T10:00:00", "reasons": ["new_app"]},
+            {"timestamp": "2026-09-03T10:00:00", "reasons": ["new_app"]},
+        ]
+    )
+
+    with caplog.at_level(logging.INFO, logger="test"):
+        app._record_learning_completion_from_history()
+
+    assert app.insights_state.notification_learning_completed_day == today
+    assert "Notification learning period completed based on existing history" in caplog.text
+
+
+def test_learning_completion_is_not_inferred_for_zero_learning_days(tmp_path: Path) -> None:
+    """Leave completion unrecorded at startup when the learning period is 0 days."""
+    app = _bare_app(tmp_path)
+    app.runtime.notification_learning_days = 0
+    app.significant_connections = SignificantConnections(
+        [{"timestamp": "2026-09-01T10:00:00", "reasons": ["new_app"]}]
+    )
+
+    app._record_learning_completion_from_history()
+
+    assert app.insights_state.notification_learning_completed_day is None
+
+
 def test_load_history_does_not_migrate_newer_version(tmp_path: Path) -> None:
     """Keep applications history for a schema version newer than 2."""
     app = _bare_app(tmp_path)

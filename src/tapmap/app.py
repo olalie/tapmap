@@ -69,6 +69,7 @@ from tapmap.state.insights_state import CURRENT_SCHEMA_VERSION, InsightsState
 from tapmap.state.keyboard import build_key_action
 from tapmap.state.menu import compute_menu_open_state
 from tapmap.state.modal import decide_modal_route
+from tapmap.state.notification_policy import event_day_ordinals, record_learning_completion
 from tapmap.state.open_ports_prefs import set_show_system_pref
 from tapmap.state.poll import (
     ACTION_CLEAR_CACHE,
@@ -223,6 +224,7 @@ class TapMap:
             self.runtime.app_data_dir / "significant_connections.json"
         )
         self._load_history()
+        self._record_learning_completion_from_history()
         self._last_history_save = 0.0
 
         # Constructed after _load_history() so SignificanceHistory derives from
@@ -246,7 +248,7 @@ class TapMap:
         self.connection_analyzer = ConnectionAnalyzer(
             self.connection_state,
             self.unmapped_state,
-            self.insights_state.insights,
+            self.insights_state,
             self.significant_connections,
             self.significance_history,
             notification_channels=notification_channels,
@@ -1994,6 +1996,23 @@ class TapMap:
             backup_path.name,
         )
         return True
+
+    def _record_learning_completion_from_history(self) -> None:
+        """Record learning completion if loaded Insights and event days reach the threshold.
+
+        Count the days of the Insights history together with the days of the
+        Significant Connection events. Log when completion is recorded.
+        """
+        if record_learning_completion(
+            self.insights_state,
+            self.runtime.notification_learning_days,
+            datetime.now().date().toordinal(),
+            event_day_ordinals(self.significant_connections.items),
+        ):
+            self.logger.info(
+                "Notification learning period completed based on existing history; "
+                "notifications are enabled."
+            )
 
     def _maybe_save_history(self) -> None:
         """Save Insights and Significant Connections history periodically to limit disk writes.

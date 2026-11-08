@@ -244,16 +244,26 @@ def entry_history(entry: Any, today_day: int) -> EntryHistory | None:
     )
 
 
-def distinct_active_days(insights: dict[str, Any]) -> int:
-    """Return the number of distinct active days in the 30-day Insights history."""
-    combined = 0
+def active_day_ordinals(insights: dict[str, Any]) -> set[int]:
+    """Return the date ordinals of all days with recorded activity in the Insights history.
+
+    Ignore entries that are not dicts or whose l or m is not an int.
+    """
+    days: set[int] = set()
     for dimension in insights.values():
         if not isinstance(dimension, dict):
             continue
         for entry in dimension.values():
             if not isinstance(entry, dict):
                 continue
+            anchor_day = entry.get("l")
             mask = entry.get("m")
-            if isinstance(mask, int):
-                combined |= mask
-    return combined.bit_count()
+            if not isinstance(anchor_day, int) or not isinstance(mask, int):
+                continue
+            days.update(anchor_day - i for i in range(HISTORY_WINDOW_DAYS) if (mask >> i) & 1)
+    return days
+
+
+def distinct_active_days(insights: dict[str, Any]) -> int:
+    """Return the number of distinct active days in the 30-day Insights history."""
+    return len(active_day_ordinals(insights))

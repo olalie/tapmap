@@ -23,9 +23,14 @@ class InsightsState:
     dimensions, including values seen only on unmapped connections; port
     values are int. Mutated externally by SignificanceHistory, which holds
     this dict by reference, not a copy.
+
+    notification_learning_completed_day: date ordinal on which the
+    notification learning period completed, or None while learning. Once
+    set, it is never cleared.
     """
 
     version: int
     insights: dict[str, Any]
     verification_failed: dict[str, int]
     significance_last_seen: dict[str, dict[Any, int]] = field(default_factory=dict)
+    notification_learning_completed_day: int | None = None
