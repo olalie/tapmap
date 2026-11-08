@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import threading
 from collections.abc import Iterator
 from contextvars import copy_context
 from dataclasses import replace
@@ -263,11 +264,152 @@ def test_normal_poll_dispatches_notifiable_events_to_channels(tmp_path: Path) ->
             "connections": [_mapped_candidate(service_scope="PUBLIC", app_name="Firefox")]
         }
 
-        app._handle_normal_poll(1, app._status_cache, False)
+        app.poll_once()
 
         assert channel.received == app.significant_connections.items
         assert len(channel.received) == 1
     finally:
+        app.close()
+
+
+@pytest.mark.parametrize("failed_snapshot", [None, {"error": True}])
+def test_failed_snapshot_does_not_save_history(tmp_path: Path, failed_snapshot: Any) -> None:
+    """Skip saving history after a poll whose snapshot failed."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        app.model.snapshot = lambda: failed_snapshot
+
+        app.poll_once()
+
+        assert not app.insights_path.exists()
+        assert not app.significant_connections_path.exists()
+    finally:
+        app.close()
+
+
+def test_close_waits_for_running_snapshot_before_closing_geoinfo(tmp_path: Path) -> None:
+    """Close the GeoInfo readers only after a running snapshot has finished."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    snapshot_started = threading.Event()
+    release_snapshot = threading.Event()
+    order: list[str] = []
+
+    def _blocking_snapshot() -> dict[str, Any]:
+        """Signal that the snapshot started, then return once released."""
+        snapshot_started.set()
+        release_snapshot.wait(timeout=5)
+        order.append("snapshot")
+        return {"connections": []}
+
+    def _record_close() -> None:
+        """Record the close."""
+        order.append("close")
+
+    app.model.snapshot = _blocking_snapshot
+    app.model.geoinfo.close = _record_close
+    poll = threading.Thread(target=app.poll_once)
+    close = threading.Thread(target=app.close)
+    try:
+        poll.start()
+        assert snapshot_started.wait(timeout=5)
+        close.start()
+        close.join(timeout=0.2)
+        assert close.is_alive()
+
+        release_snapshot.set()
+        poll.join(timeout=5)
+        close.join(timeout=5)
+        assert order == ["snapshot", "close"]
+    finally:
+        release_snapshot.set()
+        close.join(timeout=5)
+
+
+_POLL_OUTPUTS = {
+    ("model_snapshot", "data"),
+    ("status_cache", "data"),
+    ("ui_view", "data"),
+    ("status_flash", "data"),
+    ("insights_cache", "data"),
+}
+
+
+def test_clear_cache_waits_for_poll_applying_its_snapshot(tmp_path: Path) -> None:
+    """Run Clear cache only after a poll that is updating shared state has finished."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    analysis_started = threading.Event()
+    release_analysis = threading.Event()
+    try:
+        app.model.snapshot = lambda: {"connections": [_mapped_candidate(service_scope="PUBLIC")]}
+        real_analyze = app.connection_analyzer.analyze
+
+        def _blocking_analyze(items: list[dict[str, Any]]) -> Any:
+            """Signal that analysis started, then analyze items once released."""
+            analysis_started.set()
+            release_analysis.wait(timeout=5)
+            return real_analyze(items)
+
+        app.connection_analyzer.analyze = _blocking_analyze
+        spec = _callback_by_outputs_and_input(app, _POLL_OUTPUTS, ("menu_clear_cache", "n_clicks"))
+        triggered = {"prop_id": "menu_clear_cache.n_clicks", "value": 1}
+        poll = threading.Thread(target=app.poll_once)
+        clear = threading.Thread(
+            target=_run_callback, args=(spec, triggered, 0, None, 1, False, None, None)
+        )
+
+        poll.start()
+        assert analysis_started.wait(timeout=5)
+        clear.start()
+        clear.join(timeout=0.2)
+        assert clear.is_alive()
+
+        release_analysis.set()
+        poll.join(timeout=5)
+        clear.join(timeout=5)
+        assert not clear.is_alive()
+        assert app.connection_state.cache == {}
+    finally:
+        release_analysis.set()
+        app.close()
+
+
+def test_geodb_reload_waits_for_running_snapshot(tmp_path: Path) -> None:
+    """Reload GeoInfo readers only after a running snapshot has finished."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    snapshot_started = threading.Event()
+    release_snapshot = threading.Event()
+    order: list[str] = []
+    try:
+
+        def _blocking_snapshot() -> dict[str, Any]:
+            """Signal that the snapshot started, then return once released."""
+            snapshot_started.set()
+            release_snapshot.wait(timeout=5)
+            order.append("snapshot")
+            return {"connections": []}
+
+        def _record_reload() -> bool:
+            """Record the reload."""
+            order.append("reload")
+            return True
+
+        app.model.snapshot = _blocking_snapshot
+        app.model.geoinfo.reload = _record_reload
+        poll = threading.Thread(target=app.poll_once)
+        reload = threading.Thread(target=app._reload_geodb_runtime)
+
+        poll.start()
+        assert snapshot_started.wait(timeout=5)
+        reload.start()
+        reload.join(timeout=0.2)
+        assert reload.is_alive()
+
+        release_snapshot.set()
+        poll.join(timeout=5)
+        reload.join(timeout=5)
+        assert order == ["snapshot", "reload"]
+    finally:
+        release_snapshot.set()
         app.close()
 
 

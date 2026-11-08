@@ -5,6 +5,7 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+import threading
 import unittest.mock
 from datetime import datetime
 from pathlib import Path
@@ -14,6 +15,7 @@ from unittest.mock import MagicMock, patch
 import psutil
 import pytest
 
+import tapmap.app
 from tapmap.app import TapMap
 from tapmap.settings_persistence import Settings
 from tapmap.state.insights_state import CURRENT_SCHEMA_VERSION, InsightsState
@@ -73,6 +75,69 @@ def test_save_history_isolates_failure_per_file(tmp_path: Path) -> None:
     assert app.significant_connections_path.exists()
 
 
+def test_save_writes_the_history_copied_before_writing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exclude changes made to live state while the copied history is being written."""
+    app = _bare_app(tmp_path)
+    app.insights_state = InsightsState(
+        version=CURRENT_SCHEMA_VERSION,
+        insights={**_EMPTY, "countries": {"NO": {"l": 739900, "m": 1}}},
+        verification_failed={},
+    )
+    real_save_insights = tapmap.app.save_insights
+
+    def _save_after_live_change(path: Path, state: InsightsState) -> None:
+        """Change live state, then write the given state."""
+        app.insights_state.insights["countries"]["SE"] = {"l": 739900, "m": 1}
+        real_save_insights(path, state)
+
+    monkeypatch.setattr(tapmap.app, "save_insights", _save_after_live_change)
+
+    app._save_history()
+
+    saved = json.loads(app.insights_path.read_text(encoding="utf-8"))
+    assert set(saved["insights"]["countries"]) == {"NO"}
+
+
+def test_second_save_waits_until_first_save_is_written(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Start writing a second history save only after the first save has been written."""
+    app = _bare_app(tmp_path)
+    first_write_started = threading.Event()
+    release_first_write = threading.Event()
+    order: list[str] = []
+    real_save_insights = tapmap.app.save_insights
+
+    def _save_in_order(path: Path, state: InsightsState) -> None:
+        """Block the first write until released and record the write order."""
+        if not first_write_started.is_set():
+            first_write_started.set()
+            release_first_write.wait(timeout=5)
+            order.append("first")
+        else:
+            order.append("second")
+        real_save_insights(path, state)
+
+    monkeypatch.setattr(tapmap.app, "save_insights", _save_in_order)
+    first = threading.Thread(target=app._save_history)
+    second = threading.Thread(target=app._save_history)
+    try:
+        first.start()
+        assert first_write_started.wait(timeout=5)
+        second.start()
+        second.join(timeout=0.2)
+        assert second.is_alive()
+
+        release_first_write.set()
+        first.join(timeout=5)
+        second.join(timeout=5)
+        assert order == ["first", "second"]
+    finally:
+        release_first_write.set()
+
+
 def test_failed_save_settings_does_not_corrupt_state(tmp_path: Path) -> None:
     """A failed settings save does not corrupt or clear in-memory state."""
     app = _bare_app(tmp_path)
@@ -106,6 +171,8 @@ def _bare_app(tmp_path: Path) -> TapMap:
     app._lock_path = tmp_path / "tapmap.lock"
     app._is_insights_save_enabled = True
     app._is_significant_connections_save_enabled = True
+    app._state_lock = threading.Lock()
+    app._history_save_lock = threading.Lock()
     return app
 
 
@@ -337,7 +404,7 @@ def test_periodic_save_prunes_stale_significance_last_seen(tmp_path: Path) -> No
         significance_last_seen={"applications": {"codex": today - 1, "stale": today - 30}},
     )
     app.significance_history = SignificanceHistory.from_insights_state(app.insights_state)
-    app._last_history_save = 0.0
+    app._last_history_save_s = None
 
     app._maybe_save_history()
 
