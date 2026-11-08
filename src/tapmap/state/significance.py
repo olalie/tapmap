@@ -56,19 +56,18 @@ class SignificanceHistory:
 
     @classmethod
     def from_insights_state(cls, insights_state: InsightsState) -> SignificanceHistory:
-        """Derive runtime last_seen state from persisted Insights bitmasks.
+        """Build runtime last_seen state from persisted last-seen days and Insights bitmasks.
 
-        Read-only against insights_state.insights: does not age or mutate the
-        Insights bitmasks. verification_failed is held by direct reference,
-        not copied, since it has no separate persisted representation of its
-        own outside InsightsState.
+        Merge the days derived from Insights bitmasks into
+        insights_state.significance_last_seen in place, keeping the later day
+        per value. Read-only against insights_state.insights: does not age or
+        mutate the Insights bitmasks. significance_last_seen and
+        verification_failed are held by direct reference, not copied, so
+        saving insights_state persists runtime updates.
         """
-        last_seen: dict[str, dict[Any, int]] = {
-            _DIM_APPLICATIONS: {},
-            _DIM_COUNTRIES: {},
-            _DIM_PROVIDERS: {},
-            _DIM_PORTS: {},
-        }
+        last_seen = insights_state.significance_last_seen
+        for dimension in (_DIM_APPLICATIONS, _DIM_COUNTRIES, _DIM_PROVIDERS, _DIM_PORTS):
+            last_seen.setdefault(dimension, {})
 
         for dimension in (_DIM_APPLICATIONS, _DIM_COUNTRIES, _DIM_PROVIDERS):
             source = insights_state.insights.get(dimension)
@@ -77,7 +76,7 @@ class SignificanceHistory:
             for key, entry in source.items():
                 day = last_seen_day(entry)
                 if day is not None:
-                    last_seen[dimension][key] = day
+                    _record_later_day(last_seen[dimension], key, day)
 
         ports_source = insights_state.insights.get(_DIM_PORTS)
         if isinstance(ports_source, dict):
@@ -86,11 +85,21 @@ class SignificanceHistory:
                 if day is None:
                     continue
                 try:
-                    last_seen[_DIM_PORTS][int(key)] = day
+                    _record_later_day(last_seen[_DIM_PORTS], int(key), day)
                 except (TypeError, ValueError):
                     continue
 
         return cls(last_seen=last_seen, verification_failed=insights_state.verification_failed)
+
+    def prune(self, today: int) -> None:
+        """Remove last_seen entries recorded 30 or more days before today, in place.
+
+        Removed entries would already be treated as new by check_and_update().
+        """
+        for target in self.last_seen.values():
+            stale_keys = [key for key, day in target.items() if today - day >= 30]
+            for key in stale_keys:
+                del target[key]
 
     def check_and_update(self, dimension: str, key: Any, today: int) -> bool:
         """Return True if key was not seen within the last 30 days for dimension.
@@ -106,6 +115,13 @@ class SignificanceHistory:
         is_new = last_day is None or (today - last_day) >= 30
         target[key] = today
         return is_new
+
+
+def _record_later_day(target: dict[Any, int], key: Any, day: int) -> None:
+    """Set target[key] to day unless it already holds a later day."""
+    current = target.get(key)
+    if current is None or day > current:
+        target[key] = day
 
 
 def get_significant(

@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import pytest
 
+from tapmap.insights_persistence import load_insights, save_insights
 from tapmap.state.insights_state import InsightsState
 from tapmap.state.significance import (
     REASON_NEW_APP,
@@ -100,6 +102,64 @@ def test_from_insights_state_skips_zeroed_and_malformed_entries() -> None:
 
     assert history.last_seen["countries"] == {}
     assert history.last_seen["ports"] == {}
+
+
+def test_from_insights_state_merges_persisted_last_seen_by_reference() -> None:
+    """Keep the later of persisted and bitmask-derived days and share the persisted dict."""
+    today = datetime(2026, 8, 22).date().toordinal()
+    insights_state = InsightsState(
+        version=2,
+        insights={
+            "countries": {},
+            "providers": {},
+            "ports": {},
+            "applications": {"Google Chrome": _bitmask_entry(today, 1)},
+        },
+        verification_failed={},
+        significance_last_seen={"applications": {"codex": today - 3, "Google Chrome": today - 20}},
+    )
+
+    history = SignificanceHistory.from_insights_state(insights_state)
+
+    assert history.last_seen is insights_state.significance_last_seen
+    assert history.last_seen["applications"] == {"codex": today - 3, "Google Chrome": today - 1}
+
+
+def test_prune_removes_entries_30_or_more_days_old_in_place() -> None:
+    """Remove entries 30 or more days old without replacing the dimension dicts."""
+    today = 738000
+    last_seen = {**_empty_last_seen(), "countries": {"SE": today - 29, "NO": today - 30}}
+    countries = last_seen["countries"]
+    history = SignificanceHistory(last_seen=last_seen, verification_failed={})
+
+    history.prune(today)
+
+    assert history.last_seen["countries"] is countries
+    assert countries == {"SE": today - 29}
+
+
+def test_unmapped_only_app_is_not_new_after_restart(tmp_path: Path) -> None:
+    """Report an app seen only on unmapped connections as new once across a save and reload."""
+    path = tmp_path / "insights.json"
+    now = datetime(2026, 8, 22)
+    unmapped_item = _connection(app_name="codex", lat=None, lon=None, port=8443)
+    insights_state = InsightsState(
+        version=2,
+        insights={"countries": {}, "providers": {}, "ports": {}, "applications": {}},
+        verification_failed={},
+    )
+    first = get_significant(
+        unmapped_item, SignificanceHistory.from_insights_state(insights_state), now
+    )
+
+    save_insights(path, insights_state)
+    reloaded = load_insights(path)
+    second = get_significant(unmapped_item, SignificanceHistory.from_insights_state(reloaded), now)
+
+    assert first is not None
+    assert REASON_NEW_APP in first["reasons"]
+    assert second is None
+    assert 8443 in reloaded.significance_last_seen["ports"]
 
 
 # --- check_and_update: 30-day boundary ---

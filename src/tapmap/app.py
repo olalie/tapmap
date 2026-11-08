@@ -1996,11 +1996,15 @@ class TapMap:
         return True
 
     def _maybe_save_history(self) -> None:
-        """Save Insights and Significant Connections history periodically to limit disk writes."""
-        now = datetime.now().timestamp()
+        """Save Insights and Significant Connections history periodically to limit disk writes.
 
-        if now - self._last_history_save >= 60:
-            self._last_history_save = now
+        Prune stale significance last-seen entries before each periodic save.
+        """
+        now = datetime.now()
+
+        if now.timestamp() - self._last_history_save >= 60:
+            self._last_history_save = now.timestamp()
+            self.significance_history.prune(now.date().toordinal())
             self._save_history()
 
     def _save_settings(self) -> None:

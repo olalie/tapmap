@@ -6,6 +6,7 @@ import contextlib
 import json
 import logging
 import unittest.mock
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -16,6 +17,7 @@ import pytest
 from tapmap.app import TapMap
 from tapmap.settings_persistence import Settings
 from tapmap.state.insights_state import CURRENT_SCHEMA_VERSION, InsightsState
+from tapmap.state.significance import SignificanceHistory
 from tapmap.state.significant_connections import SignificantConnections
 
 
@@ -300,6 +302,48 @@ def test_load_history_does_not_migrate_current_version(tmp_path: Path) -> None:
     app._load_history()
 
     assert app.insights_state.insights["applications"] == {"Google Chrome": {"l": 738000, "m": 1}}
+
+
+def test_load_history_drops_malformed_significance_last_seen_entries(tmp_path: Path) -> None:
+    """Keep valid last-seen entries as int-keyed ports and drop malformed ones."""
+    app = _bare_app(tmp_path)
+    data = {
+        "version": CURRENT_SCHEMA_VERSION,
+        "insights": _EMPTY,
+        "significance_last_seen": {
+            "ports": {"443": 739900, "not-a-port": 739900},
+            "applications": {"codex": 739900, "broken": "not-a-day"},
+            "unknown_dimension": {"x": 739900},
+        },
+    }
+    app.insights_path.write_text(json.dumps(data), encoding="utf-8")
+
+    app._load_history()
+
+    assert app.insights_state.significance_last_seen == {
+        "ports": {443: 739900},
+        "applications": {"codex": 739900},
+    }
+
+
+def test_periodic_save_prunes_stale_significance_last_seen(tmp_path: Path) -> None:
+    """Drop last-seen entries 30 or more days old from the shared dict before saving."""
+    app = _bare_app(tmp_path)
+    today = datetime.now().date().toordinal()
+    app.insights_state = InsightsState(
+        version=CURRENT_SCHEMA_VERSION,
+        insights=dict(_EMPTY),
+        verification_failed={},
+        significance_last_seen={"applications": {"codex": today - 1, "stale": today - 30}},
+    )
+    app.significance_history = SignificanceHistory.from_insights_state(app.insights_state)
+    app._last_history_save = 0.0
+
+    app._maybe_save_history()
+
+    assert app.significance_history.last_seen is app.insights_state.significance_last_seen
+    saved = json.loads(app.insights_path.read_text(encoding="utf-8"))
+    assert saved["significance_last_seen"]["applications"] == {"codex": today - 1}
 
 
 def test_load_history_does_not_migrate_newer_version(tmp_path: Path) -> None:

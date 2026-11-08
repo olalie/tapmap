@@ -71,7 +71,36 @@ def load_insights(path: Path) -> InsightsState:
         version=version,
         insights=insights,
         verification_failed=verification_failed,
+        significance_last_seen=_parse_significance_last_seen(data.get("significance_last_seen")),
     )
+
+
+def _parse_significance_last_seen(raw: Any) -> dict[str, dict[Any, int]]:
+    """Return {dimension: {value: day}} from raw, dropping malformed entries.
+
+    Convert port values to int. Return an empty dict if raw is not a dict.
+    """
+    if not isinstance(raw, dict):
+        return {}
+
+    last_seen: dict[str, dict[Any, int]] = {}
+    for dimension in _DIMENSION_KEYS:
+        raw_entries = raw.get(dimension)
+        if not isinstance(raw_entries, dict):
+            continue
+        entries: dict[Any, int] = {}
+        for key, day in raw_entries.items():
+            if not isinstance(day, int):
+                continue
+            if dimension == "ports":
+                try:
+                    entries[int(key)] = day
+                except ValueError:
+                    continue
+            else:
+                entries[key] = day
+        last_seen[dimension] = entries
+    return last_seen
 
 
 def save_insights(path: Path, state: InsightsState) -> None:
@@ -92,6 +121,7 @@ def save_insights(path: Path, state: InsightsState) -> None:
                 "version": state.version,
                 "insights": state.insights,
                 "verification_failed": state.verification_failed,
+                "significance_last_seen": state.significance_last_seen,
             },
             f,
             ensure_ascii=False,
