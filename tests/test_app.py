@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 from collections.abc import Iterator
 from contextvars import copy_context
+from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -236,6 +237,36 @@ def test_refresh_pending_app_verifications_persists_the_corrected_significant_ev
         assert persisted[0]["app_verification_status"] == "verified"
         assert persisted[0]["app_creator"] == "Mozilla Corporation"
         assert persisted[0]["reasons"] == ["new_app"]
+    finally:
+        app.close()
+
+
+class _RecordingChannel:
+    """Record events sent to the channel."""
+
+    def __init__(self) -> None:
+        """Start with no received events."""
+        self.received: list[dict[str, Any]] = []
+
+    def send(self, event: dict[str, Any]) -> None:
+        """Record event."""
+        self.received.append(event)
+
+
+def test_normal_poll_dispatches_notifiable_events_to_channels(tmp_path: Path) -> None:
+    """Send each notifiable Significant Connection from a poll to every channel."""
+    app = TapMap(replace(_runtime_ctx(tmp_path), notification_learning_days=0))
+    try:
+        channel = _RecordingChannel()
+        app.notification_channels = [channel]
+        app.model.snapshot = lambda: {
+            "connections": [_mapped_candidate(service_scope="PUBLIC", app_name="Firefox")]
+        }
+
+        app._handle_normal_poll(1, app._status_cache, False)
+
+        assert channel.received == app.significant_connections.items
+        assert len(channel.received) == 1
     finally:
         app.close()
 

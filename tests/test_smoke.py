@@ -221,7 +221,7 @@ def test_tapmap_has_no_mqtt_channel_without_mqtt_json(tmp_path: Path) -> None:
     app = TapMap(_runtime_ctx(tmp_path))
     try:
         assert app.mqtt_channel is None
-        assert app.mqtt_channel not in app.connection_analyzer.notification_channels
+        assert app.mqtt_channel not in app.notification_channels
     finally:
         app.close()
 
@@ -238,7 +238,7 @@ def test_tapmap_has_mqtt_channel_with_valid_mqtt_json(
     app = TapMap(_runtime_ctx(tmp_path))
     try:
         assert app.mqtt_channel is not None
-        assert app.mqtt_channel in app.connection_analyzer.notification_channels
+        assert app.mqtt_channel in app.notification_channels
     finally:
         app.close()
 

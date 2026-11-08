@@ -102,6 +102,7 @@ from .lifecycle import LifecycleCoordinator, start_server_thread
 from .logging_config import configure_logging
 from .mqtt_cli import run_configure_mqtt
 from .mqtt_config import load_mqtt_config, mqtt_config_path
+from .notifications.channel import NotificationChannel, dispatch_notification
 from .notifications.desktop import create_desktop_notification_channel
 from .notifications.mqtt import create_mqtt_channel
 from .runtime import AppMeta, RuntimeContext, build_runtime
@@ -240,7 +241,7 @@ class TapMap:
             icon_path=self.runtime.tray_icon_path,
             enabled=self.settings.desktop_notifications,
         )
-        notification_channels = [
+        self.notification_channels: list[NotificationChannel] = [
             channel
             for channel in (self.mqtt_channel, self.desktop_notification_channel)
             if channel is not None
@@ -251,7 +252,6 @@ class TapMap:
             self.insights_state,
             self.significant_connections,
             self.significance_history,
-            notification_channels=notification_channels,
             notification_learning_days=self.runtime.notification_learning_days,
         )
 
@@ -571,7 +571,9 @@ class TapMap:
         items_any = snap.get("connections")
         items = items_any if isinstance(items_any, list) else []
 
-        insights_data = self.connection_analyzer.analyze(items)
+        insights_data, notifiable_events = self.connection_analyzer.analyze(items)
+        for event in notifiable_events:
+            dispatch_notification(event, self.notification_channels)
         self._refresh_pending_app_verifications()
 
         status_cache.update(items)

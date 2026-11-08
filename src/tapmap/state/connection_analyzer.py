@@ -11,7 +11,6 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from ..notifications.channel import NotificationChannel, dispatch_notification
 from .connection_state import ConnectionState
 from .insights import distinct_active_days, process_insights
 from .insights_state import InsightsState
@@ -34,7 +33,6 @@ class ConnectionAnalyzer:
         significant_connections: SignificantConnections,
         significance_history: SignificanceHistory,
         *,
-        notification_channels: list[NotificationChannel] | None = None,
         notification_learning_days: int = 7,
     ) -> None:
         """Store references to the collaborating state and history objects."""
@@ -43,19 +41,19 @@ class ConnectionAnalyzer:
         self.insights_state = insights_state
         self.significant_connections = significant_connections
         self.significance_history = significance_history
-        self.notification_channels = (
-            notification_channels if notification_channels is not None else []
-        )
         self.notification_learning_days = notification_learning_days
         self._is_learning_suppression_logged = False
 
-    def analyze(self, connections: list[dict[str, Any]]) -> dict[str, Any]:
+    def analyze(
+        self, connections: list[dict[str, Any]]
+    ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
         """Update ConnectionState, UnmappedState, Significant Connections, and Insights.
 
         Insights is derived only from mapped PUBLIC connections. Notification
         eligibility is evaluated once, before this poll updates Insights; the
         learning period completion is recorded in insights_state. Returns the
-        Insights result ({top}).
+        Insights result ({top}) and the new Significant Connection events to
+        notify, oldest first; the events list is empty during learning.
         """
         now = datetime.now()
         if record_learning_completion(
@@ -70,6 +68,7 @@ class ConnectionAnalyzer:
             self.insights_state, self.notification_learning_days
         )
         has_suppressed_event = False
+        notifiable_events: list[dict[str, Any]] = []
         mapped: list[dict[str, Any]] = []
         unmapped: list[dict[str, Any]] = []
 
@@ -88,7 +87,7 @@ class ConnectionAnalyzer:
             if significant_connection is not None:
                 self.significant_connections.add(significant_connection)
                 if is_notification_allowed:
-                    dispatch_notification(significant_connection, self.notification_channels)
+                    notifiable_events.append(significant_connection)
                 else:
                     has_suppressed_event = True
 
@@ -104,4 +103,4 @@ class ConnectionAnalyzer:
         self.connection_state.merge(mapped)
         self.unmapped_state.merge(unmapped)
 
-        return process_insights(mapped, self.insights_state.insights, now)
+        return process_insights(mapped, self.insights_state.insights, now), notifiable_events
