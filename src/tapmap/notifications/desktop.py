@@ -107,13 +107,32 @@ def _build_windows_sender(icon_path: Path) -> Callable[[dict[str, Any]], None] |
     except OSError:
         logger.warning("Unable to set the Windows AppUserModelID.", exc_info=True)
 
-    toaster = WindowsToaster(APP_NAME)
+    try:
+        toaster = WindowsToaster(WINDOWS_AUMID)
+    except OSError:
+        logger.error(
+            "Unable to create a Windows toast notifier for %s; "
+            "desktop notifications are unavailable.",
+            WINDOWS_AUMID,
+            exc_info=True,
+        )
+        return None
+
     display_image = ToastDisplayImage.fromPath(str(icon_path)) if icon_path.exists() else None
 
+    def handle_failed(event_args: Any) -> None:
+        """Log a Windows toast delivery failure with its error code."""
+        logger.warning(
+            "Windows failed to show a desktop notification (error code %s).",
+            getattr(event_args, "error_code", None),
+        )
+
     def send(event: dict[str, Any]) -> None:
+        """Show one Significant Connection event as a Windows toast."""
         title, body = _notification_text(event)
         toast = Toast()
         toast.text_fields = [title, body]
+        toast.on_failed = handle_failed
         if display_image is not None:
             toast.AddImage(display_image)
         toaster.show_toast(toast)
