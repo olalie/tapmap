@@ -1,5 +1,7 @@
 ## Unreleased
 
+## 1.14.3 - 2026-11-08
+
 ### Features
 
 - Open a 30-day history for apps, providers, countries, and ports in the Insights panel
