@@ -41,9 +41,14 @@ def load(dll_dir: Path) -> None:
 
     clr.AddReference(str(dll_path))
 
-    from Microsoft.Security.Extensions import FileSignatureInfo
-    from System.IO import File
-    from System.Security.Cryptography.X509Certificates import X509NameType
+    # pythonnet exposes .NET namespaces only at runtime, after AddReference.
+    from Microsoft.Security.Extensions import (  # pyright: ignore[reportMissingImports]
+        FileSignatureInfo,
+    )
+    from System.IO import File  # pyright: ignore[reportMissingImports]
+    from System.Security.Cryptography.X509Certificates import (  # pyright: ignore[reportMissingImports]
+        X509NameType,
+    )
 
     _FileSignatureInfo = FileSignatureInfo
     _File = File

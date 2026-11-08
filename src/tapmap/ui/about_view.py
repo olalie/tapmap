@@ -245,6 +245,19 @@ def render_about(
                 ),
             ]
         ),
+        html.P(
+            [
+                "Country flags: Twemoji graphics by Twitter, Inc and other contributors, "
+                "licensed under ",
+                html.A(
+                    "CC BY 4.0",
+                    href="https://creativecommons.org/licenses/by/4.0/",
+                    target="_blank",
+                    rel="noopener noreferrer",
+                ),
+                ".",
+            ]
+        ),
     ]
 
 

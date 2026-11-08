@@ -62,6 +62,7 @@ from tapmap.significant_connections_persistence import (
 )
 from tapmap.state.connection_analyzer import ConnectionAnalyzer
 from tapmap.state.connection_state import ConnectionState
+from tapmap.state.insights import entry_history
 from tapmap.state.insights_log import write_insights_log
 from tapmap.state.insights_state import CURRENT_SCHEMA_VERSION, InsightsState
 from tapmap.state.keyboard import build_key_action
@@ -83,7 +84,7 @@ from tapmap.state.status_line import render_status_text
 from tapmap.state.unmapped_state import UnmappedState
 from tapmap.ui.daily_activity_report_view import render_daily_activity_report
 from tapmap.ui.insights_log_view import render_insights_log
-from tapmap.ui.insights_view import render_insights_panel
+from tapmap.ui.insights_view import render_insights_entry_detail, render_insights_panel
 from tapmap.ui.layout_view import render_layout
 from tapmap.ui.map_view import MapUI
 from tapmap.ui.modal_view import ModalTextBuilder
@@ -105,7 +106,7 @@ from .runtime import AppMeta, RuntimeContext, build_runtime
 from .tray import create_tray_icon
 
 if TYPE_CHECKING:
-    from pystray import Icon
+    from .tray import TrayIcon
 
 LonLat = tuple[float, float]
 
@@ -661,6 +662,12 @@ class TapMap:
         return isinstance(value, list) and "on" in value
 
     @staticmethod
+    def _is_map_reset(relayout_data: Any) -> bool:
+        """Return whether relayout_data matches the map's Reset event."""
+        # Reset includes geo.fitbounds; pan and zoom omit it while the figure leaves it unset.
+        return isinstance(relayout_data, dict) and "geo.fitbounds" in relayout_data
+
+    @staticmethod
     def _startup_geodb_modal_should_close(
         modal_state: dict[str, Any] | None,
         snapshot: Any,
@@ -750,6 +757,25 @@ class TapMap:
                 )
             return (
                 render_significant_connection_detail(event),
+                self._class_for_modal_screen(screen),
+            )
+
+        if screen == "menu_insights_entry":
+            category = payload.get("category")
+            value = payload.get("value")
+            if not isinstance(category, str) or not isinstance(value, str):
+                return [], "modal-body"
+
+            today_day = datetime.now().date().toordinal()
+            dimension = self.insights_state.insights.get(category)
+            entry = dimension.get(value) if isinstance(dimension, dict) else None
+            return (
+                render_insights_entry_detail(
+                    category,
+                    value,
+                    entry_history(entry, today_day),
+                    today_day,
+                ),
                 self._class_for_modal_screen(screen),
             )
 
@@ -1577,9 +1603,18 @@ class TapMap:
                 "n_clicks",
             ),
             Input("btn_sc_back", "n_clicks", allow_optional=True),
+            Input(
+                {
+                    "type": "insights-entry",
+                    "category": ALL,
+                    "value": ALL,
+                },
+                "n_clicks",
+            ),
             Input("key_action", "data"),
             State("modal_state", "data"),
             State("open_ports_prefs", "data"),
+            State("selected_country", "data"),
             prevent_initial_call=True,
         )
         def modal_controller(
@@ -1599,9 +1634,11 @@ class TapMap:
             _log_back_clicks: int | None,
             _sc_row_clicks: list[int],
             _sc_back_clicks: int | None,
+            _insights_entry_clicks: list[int],
             key_action: Any,
             modal_state_data: Any,
             open_ports_prefs_data: Any,
+            selected_country: Any,
         ):
             current_state = modal_state_data if isinstance(modal_state_data, dict) else None
             current_screen = (
@@ -1624,6 +1661,8 @@ class TapMap:
             )
             route = decide_modal_route(
                 trigger=trigger,
+                trigger_value=ctx.triggered[0]["value"] if ctx.triggered else None,
+                selected_country=selected_country,
                 is_open=is_open,
                 current_screen=current_screen if isinstance(current_screen, str) else None,
                 action=action,
@@ -1686,9 +1725,9 @@ class TapMap:
             Input("key_action", "data"),
             Input(
                 {
-                    "type": "insights-country",
-                    "country_code": ALL,
-                    "section": ALL,
+                    "type": "insights-entry",
+                    "category": ALL,
+                    "value": ALL,
                 },
                 "n_clicks",
             ),
@@ -1728,10 +1767,10 @@ class TapMap:
             if not trigger["value"]:
                 return no_update, no_update
 
-            if not isinstance(trigger_id, dict):
+            if not isinstance(trigger_id, dict) or trigger_id.get("category") != "countries":
                 return no_update, no_update
 
-            country_code = trigger_id.get("country_code")
+            country_code = trigger_id.get("value")
             if not isinstance(country_code, str):
                 return no_update, no_update
 
@@ -1739,7 +1778,22 @@ class TapMap:
                 return None, None
 
             return country_code, None
-        
+
+        @self.app.callback(
+            Output("selected_country", "data", allow_duplicate=True),
+            Output("map", "relayoutData"),
+            Input("map", "relayoutData"),
+            prevent_initial_call=True,
+        )
+        def clear_country_on_map_reset(relayout_data: Any) -> tuple[Any, Any]:
+            """Clear the selected country when the map's Reset button is used."""
+            if not self._is_map_reset(relayout_data):
+                return no_update, no_update
+
+            # Dash ignores unchanged props; clearing relayoutData lets the next
+            # identical Reset event trigger this callback again.
+            return None, None
+
     def _register_status_callbacks(self) -> None:
         @self.app.callback(
             Output("status_bar", "children"),
@@ -1781,7 +1835,7 @@ class TapMap:
         if self.desktop_notification_channel is not None:
             self.desktop_notification_channel.activate()
 
-    def _create_tray_icon(self) -> Icon | None:
+    def _create_tray_icon(self) -> TrayIcon | None:
         """Build this instance's tray icon, or None if unavailable (Docker always has none)."""
         if self.runtime.is_docker:
             return None
@@ -1808,7 +1862,7 @@ class TapMap:
             return
         self._open_browser(url)
 
-    def _decide_browser_open(self, url: str, icon: Icon | None) -> None:
+    def _decide_browser_open(self, url: str, icon: TrayIcon | None) -> None:
         """Open or defer the browser according to the launch context.
 
         Do not open the browser if macOS login-launch detection is unavailable.

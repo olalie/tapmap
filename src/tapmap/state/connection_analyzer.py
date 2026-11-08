@@ -48,7 +48,7 @@ class ConnectionAnalyzer:
         """Update ConnectionState, UnmappedState, Significant Connections, and Insights.
 
         Insights is derived only from mapped PUBLIC connections. Returns the
-        Insights result ({new, top}).
+        Insights result ({top}).
         """
         now = datetime.now()
         mapped: list[dict[str, Any]] = []

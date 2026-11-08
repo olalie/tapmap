@@ -45,8 +45,9 @@ def _ensure_loaded() -> None:
     import clr
 
     clr.AddReference("System")
-    from System import Activator, Array, Object, Type
-    from System.Reflection import BindingFlags, Missing
+    # pythonnet exposes .NET namespaces only at runtime, after AddReference.
+    from System import Activator, Array, Object, Type  # pyright: ignore[reportMissingImports]
+    from System.Reflection import BindingFlags, Missing  # pyright: ignore[reportMissingImports]
 
     _BindingFlags = BindingFlags
     _Missing = Missing

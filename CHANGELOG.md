@@ -1,5 +1,24 @@
 ## Unreleased
 
+### Features
+
+- Open a 30-day history for apps, providers, countries, and ports in the Insights panel
+  - Show when each entry was last seen, its earliest recorded day within the last 30 days, and how many days it was active
+  - Show daily activity for the last 30 days, with the start and end dates
+  - Open the history and zoom to the country when a country is clicked; a second click clears the selection
+
+### Improvements
+
+- Remove the Today section from the Insights panel. New activity is shown in Significant Connections and notifications
+- Remove the Insights panel reference from the Daily Activity Report summary
+
+### Fixes
+
+- Clear the selected country in Insights and on the map when Reset is clicked
+- Show country flags in Chrome and Edge on Windows by bundling the Twemoji Country Flags font
+  - Use the same Twemoji flags in all browsers and platforms
+  - Credit the Twemoji artwork in About
+
 ## 1.14.2 - 2026-09-22
 
 ### Distribution

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Iterator
+from contextvars import copy_context
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -11,6 +14,8 @@ from unittest.mock import MagicMock
 import dash
 import pytest
 from dash import html
+from dash._callback_context import context_value
+from dash._utils import AttributeDict
 
 from tapmap.app import APP_META, TapMap
 from tapmap.model.appinfo import ApplicationMetadata, VerificationStatus
@@ -18,6 +23,8 @@ from tapmap.mqtt_config import MqttConfig, mqtt_config_path, save_mqtt_config
 from tapmap.runtime import RuntimeContext
 from tapmap.significant_connections_persistence import load_significant_connections
 from tapmap.state.connection_state import ConnectionState
+from tapmap.state.insights_state import CURRENT_SCHEMA_VERSION, InsightsState
+from tapmap.state.poll import ACTION_ZOOM_CONNECTIONS
 from tapmap.state.significant_connections import SignificantConnections
 from tapmap.state.status_cache import StatusCache
 from tapmap.state.unmapped_state import UnmappedState
@@ -263,6 +270,79 @@ def test_render_modal_shows_unavailable_message_when_significant_connection_is_g
     )
 
 
+def _render_insights_entry(app: TapMap, category: str, value: str) -> list:
+    """Render the Insights entry detail screen for category/value."""
+    children, _body_class = app._render_modal(
+        {
+            "screen": "menu_insights_entry",
+            "t": "2026-01-01T00:00:00",
+            "payload": {"category": category, "value": value},
+        },
+        None,
+        None,
+        "",
+        None,
+        False,
+        False,
+    )
+    return children
+
+
+class _FixedDatetime(datetime):
+    """Provide a fixed current time for Insights entry rendering."""
+
+    @classmethod
+    def now(cls, tz: Any = None) -> _FixedDatetime:
+        """Return 2026-10-23 12:00."""
+        return cls(2026, 10, 23, 12, 0)
+
+
+def _insights_detail_value(children: list, label: str) -> Any:
+    """Return the value cell content for label in the Insights entry detail table."""
+    for component in children:
+        if not isinstance(component, html.Table):
+            continue
+        tbody = next(c for c in component.children if isinstance(c, html.Tbody))
+        for tr in tbody.children:
+            key_cell, value_cell = tr.children
+            if key_cell.children == label:
+                return value_cell.children
+    return None
+
+
+def test_render_modal_shows_insights_entry_history(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The Insights entry screen renders history from the current Insights state."""
+    monkeypatch.setattr("tapmap.app.datetime", _FixedDatetime)
+    today_day = _FixedDatetime.now().date().toordinal()
+    app = _bare_app()
+    app.insights_state = InsightsState(
+        version=CURRENT_SCHEMA_VERSION,
+        insights={"applications": {"Firefox": {"l": today_day, "m": 1 | 1 << 3 | 1 << 10}}},
+        verification_failed={},
+    )
+
+    children = _render_insights_entry(app, "applications", "Firefox")
+
+    assert children[0].children == "Firefox"
+    assert _insights_detail_value(children, "Active days") == "3 of the last 30 days"
+
+
+def test_render_modal_shows_unavailable_message_when_insights_entry_is_gone() -> None:
+    """Show an unavailable message when the entry is missing."""
+    app = _bare_app()
+    app.insights_state = InsightsState(
+        version=CURRENT_SCHEMA_VERSION,
+        insights={"applications": {}},
+        verification_failed={},
+    )
+
+    children = _render_insights_entry(app, "applications", "Firefox")
+
+    assert any(
+        isinstance(c, html.Pre) and "no longer available" in c.children for c in children
+    )
+
+
 def _kv_value(children: list, label: str) -> str | None:
     """Find the value for a given key across every kv_table row in children."""
     for component in children:
@@ -452,6 +532,80 @@ def _callback_by_outputs_and_input(
     return matches[0]
 
 
+def _run_callback(spec: dict[str, Any], triggered: dict[str, Any], *args: Any) -> Any:
+    """Call a registered callback's function with a single triggered input."""
+    context = copy_context()
+
+    def run() -> Any:
+        """Set the Dash callback context and invoke the callback."""
+        context_value.set(AttributeDict(triggered_inputs=[triggered]))
+        return spec["callback"].__wrapped__(*args)
+
+    return context.run(run)
+
+
+_RESET_RELAYOUT = {
+    "geo.fitbounds": False,
+    "geo.projection.scale": 1,
+    "geo.center.lon": 0,
+    "geo.center.lat": 0,
+    "geo.projection.rotation.lon": 0,
+}
+
+
+@pytest.mark.parametrize(
+    ("relayout_data", "expected"),
+    [
+        (_RESET_RELAYOUT, (None, None)),
+        (
+            {"geo.center.lon": 10.5, "geo.center.lat": 59.9, "geo.projection.scale": 2},
+            (dash.no_update, dash.no_update),
+        ),
+        ({"geo.projection.scale": 4}, (dash.no_update, dash.no_update)),
+        (None, (dash.no_update, dash.no_update)),
+    ],
+)
+def test_map_reset_callback_clears_selection_only_on_reset(
+    tmp_path: Path, relayout_data: Any, expected: tuple[Any, Any]
+) -> None:
+    """Clear selection and relayout data on Reset; preserve both for other events."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        spec = _callback_by_outputs_and_input(
+            app,
+            {("selected_country", "data"), ("map", "relayoutData")},
+            ("map", "relayoutData"),
+        )
+
+        result = _run_callback(
+            spec, {"prop_id": "map.relayoutData", "value": relayout_data}, relayout_data
+        )
+
+        assert result == expected
+    finally:
+        app.close()
+
+
+def test_zoom_connections_still_clears_selected_country(tmp_path: Path) -> None:
+    """Clear country selection and enable connection fitting for the zoom action."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        spec = _callback_by_outputs_and_input(
+            app,
+            {("selected_country", "data"), ("camera_mode", "data")},
+            ("key_action", "data"),
+        )
+        key_action = {"action": ACTION_ZOOM_CONNECTIONS, "t": "2026-10-23T12:00:00"}
+
+        result = _run_callback(
+            spec, {"prop_id": "key_action.data", "value": key_action}, key_action, [], "NO", None
+        )
+
+        assert result == (None, "connections")
+    finally:
+        app.close()
+
+
 def test_modal_shell_no_longer_has_geodb_event_as_an_input(tmp_path: Path) -> None:
     """Keep GeoDB events from triggering the modal loading shell."""
     app = TapMap(_runtime_ctx(tmp_path))
@@ -581,3 +735,20 @@ def test_build_runtime_info_reports_desktop_notifications_available_with_a_chann
     info = app._build_runtime_info()
 
     assert info["desktop_notifications_available"] is True
+
+
+# SHA-256 of dist/TwemojiCountryFlags.woff2 in country-flag-emoji-polyfill 0.1.10,
+# as recorded in third_party/THIRD_PARTY_NOTICES.md.
+_FLAG_FONT_SHA256 = "9f04f14429bb6a9f415c7a4dd902a918d7e81a4f7526c415496fdb063954e3b8"
+
+
+def test_flag_font_is_served_unmodified(tmp_path: Path) -> None:
+    """Serve the bundled flag font from assets, matching the recorded checksum."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        response = app.app.server.test_client().get("/assets/TwemojiCountryFlags.woff2")
+
+        assert response.status_code == 200
+        assert hashlib.sha256(response.data).hexdigest() == _FLAG_FONT_SHA256
+    finally:
+        app.close()

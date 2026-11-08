@@ -153,9 +153,41 @@ def _decode_row_id_pid(pid: Any) -> int | None:
     """Decode a row ID PID to its domain value."""
     return None if pid == "" else int(pid)
 
+
+def _decide_insights_entry_click(
+    *,
+    trigger: Any,
+    trigger_value: Any,
+    selected_country: Any,
+    now_iso: str,
+) -> dict[str, Any] | None:
+    """Return modal state for an Insights entry click.
+
+    Return None for unrelated triggers, zero clicks, or the selected country.
+    """
+    if not isinstance(trigger, dict) or trigger.get("type") != "insights-entry":
+        return None
+
+    # Rows are re-rendered on every poll with n_clicks=0.
+    if not trigger_value:
+        return None
+
+    category = trigger.get("category")
+    value = trigger.get("value")
+    if category == "countries" and value == selected_country:
+        return None
+
+    return {
+        "screen": "menu_insights_entry",
+        "t": now_iso,
+        "payload": {"category": category, "value": value},
+    }
+
 def decide_modal_route(
     *,
     trigger: Any,
+    trigger_value: Any,
+    selected_country: Any,
     is_open: bool,
     current_screen: str | None,
     action: Any,
@@ -202,6 +234,15 @@ def decide_modal_route(
 
     next_state = _decide_row_click(
         trigger=trigger,
+        now_iso=now_iso,
+    )
+    if next_state is not None:
+        return ModalRoute(action="apply", modal_state=next_state)
+
+    next_state = _decide_insights_entry_click(
+        trigger=trigger,
+        trigger_value=trigger_value,
+        selected_country=selected_country,
         now_iso=now_iso,
     )
     if next_state is not None:

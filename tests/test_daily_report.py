@@ -527,8 +527,7 @@ def test_build_today_text_single_category_new() -> None:
     """Format the message correctly for one category with new entries."""
     insights = {"applications": {"App": {"m": 1}}}
     result = build_today_text(insights)
-    assert "One new app" in result
-    assert "appeared today" in result
+    assert result == "One new app appeared today."
 
 
 def test_build_today_text_two_categories_joined_with_and() -> None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from .insights import last_seen_day
 from .insights_state import InsightsState
 
 REASON_NEW_APP = "new_app"
@@ -74,14 +75,14 @@ class SignificanceHistory:
             if not isinstance(source, dict):
                 continue
             for key, entry in source.items():
-                day = _last_seen_day(entry)
+                day = last_seen_day(entry)
                 if day is not None:
                     last_seen[dimension][key] = day
 
         ports_source = insights_state.insights.get(_DIM_PORTS)
         if isinstance(ports_source, dict):
             for key, entry in ports_source.items():
-                day = _last_seen_day(entry)
+                day = last_seen_day(entry)
                 if day is None:
                     continue
                 try:
@@ -105,18 +106,6 @@ class SignificanceHistory:
         is_new = last_day is None or (today - last_day) >= 30
         target[key] = today
         return is_new
-
-
-def _last_seen_day(entry: Any) -> int | None:
-    """Return the most recent observation day encoded in a persisted {l, m} Insights entry."""
-    if not isinstance(entry, dict):
-        return None
-    anchor_day = entry.get("l")
-    mask = entry.get("m")
-    if not isinstance(anchor_day, int) or not isinstance(mask, int) or mask == 0:
-        return None
-    lowest_set_bit_position = (mask & -mask).bit_length() - 1
-    return anchor_day - lowest_set_bit_position
 
 
 def get_significant(

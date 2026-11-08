@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING, Final
 from werkzeug.serving import BaseWSGIServer
 
 if TYPE_CHECKING:
-    from pystray import Icon
+    from .tray import TrayIcon
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +31,9 @@ class LifecycleCoordinator:
 
     def __init__(self) -> None:
         self._shutdown_event = threading.Event()
-        self._icon: Icon | None = None
+        self._icon: TrayIcon | None = None
 
-    def set_tray_icon(self, icon: Icon) -> None:
+    def set_tray_icon(self, icon: TrayIcon) -> None:
         """Register the running tray icon so request_shutdown() can also stop it."""
         self._icon = icon
 
@@ -43,7 +43,7 @@ class LifecycleCoordinator:
         if self._icon is not None:
             self._icon.stop()
 
-    def run_tray(self, icon: Icon, *, on_ready: Callable[[], None] | None = None) -> None:
+    def run_tray(self, icon: TrayIcon, *, on_ready: Callable[[], None] | None = None) -> None:
         """Run icon's blocking loop, honoring a shutdown already requested before it started.
 
         pystray's Icon.stop() has no effect until the icon is actually
@@ -57,7 +57,7 @@ class LifecycleCoordinator:
         icon has been marked ready.
         """
 
-        def _setup(icon: Icon) -> None:
+        def _setup(icon: TrayIcon) -> None:
             icon.visible = True
             if self._shutdown_event.is_set():
                 icon.stop()

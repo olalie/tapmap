@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
 import pytest
 
-from tapmap.state.insights import distinct_active_days, process_insights
+from tapmap.state.insights import (
+    country_name,
+    distinct_active_days,
+    entry_history,
+    process_insights,
+)
 
 # Fixed base ordinal: avoids any dependency on the wall clock.
 _BASE = date(2000, 1, 1).toordinal()
@@ -49,22 +55,6 @@ def _call(
 def _bits(*offsets: int) -> int:
     """Return a bitmask with the given bit positions set (position 0 = today's bit)."""
     return sum(1 << i for i in offsets)
-
-
-def _output_new(
-    state: dict[str, Any],
-    values: list[str],
-    day_n: int,
-) -> list[dict[str, Any]]:
-    """Call process_insights and return the new['countries'] output list."""
-    insights: dict[str, Any] = {
-        "countries": state,
-        "providers": {},
-        "ports": {},
-        "applications": {},
-    }
-    result = process_insights(_snap(*values), insights, _now(day_n))
-    return result["new"]["countries"]
 
 
 def _output_top(
@@ -340,75 +330,6 @@ class TestSameDayAccumulation:
             assert state[cc]["m"] == 1
 
 
-class TestBuildNew:
-    """build_new: m == 1 is the exact condition for 'new'."""
-
-    def test_first_observation_appears_in_new(self) -> None:
-        """Key observed for the first time (m=1) appears in new output."""
-        new = _output_new({}, ["US"], 1)
-        assert any(x["value"] == "US" for x in new)
-
-    def test_key_with_prior_day_history_is_not_new(self) -> None:
-        """Key observed yesterday and today (m=0b11) is not in new."""
-        state: dict[str, Any] = {}
-        _call(state, ["US"], 1)
-        new = _output_new(state, ["US"], 2)
-        assert not any(x["value"] == "US" for x in new)
-
-    def test_delta_30_reobservation_is_new(self) -> None:
-        """Key re-observed after 30-day gap (m=1 after stale) appears in new."""
-        state: dict[str, Any] = {}
-        _call(state, ["US"], 1)
-        new = _output_new(state, ["US"], 31)
-        assert any(x["value"] == "US" for x in new)
-
-    def test_delta_29_reobservation_is_not_new(self) -> None:
-        """Key re-observed after 29-day gap (two bits set) does not appear in new."""
-        state: dict[str, Any] = {}
-        _call(state, ["US"], 1)
-        new = _output_new(state, ["US"], 30)
-        assert not any(x["value"] == "US" for x in new)
-
-    def test_entry_with_single_old_bit_not_today_is_not_new(self) -> None:
-        """Entry active 15 days ago but not today is not in new (m != 1, bit 0 not set)."""
-        # Pre-populate with bit 15 set (observed 15 days ago relative to anchor).
-        # Call today with US absent → bit 15 shifts, bit 0 not set → not new.
-        state: dict[str, Any] = {"US": {"l": _day(1), "m": _bits(14)}}
-        # Advance one day without observing US: l → day(2), m shifts to bit 15
-        new = _output_new(state, [], 2)
-        assert not any(x["value"] == "US" for x in new)
-
-    def test_country_new_entry_has_value_and_name_keys(self) -> None:
-        """Country entries in new output include both 'value' and 'name'."""
-        new = _output_new({}, ["US"], 1)
-        assert len(new) == 1
-        assert "value" in new[0]
-        assert "name" in new[0]
-
-    def test_unknown_country_code_falls_back_to_code_as_name(self) -> None:
-        """An unrecognised country code uses the code itself as the name."""
-        with patch("tapmap.state.insights.pycountry") as mock_pc:
-            mock_pc.countries.get.return_value = None
-            new = _output_new({}, ["XX"], 1)
-        assert new[0]["value"] == "XX"
-        assert new[0]["name"] == "XX"
-
-    def test_non_country_new_entry_has_value_key_only(self) -> None:
-        """Non-country entries in new output have 'value' but not 'name'."""
-        items = [{"service_scope": "PUBLIC", "asn_org": "Acme Inc"}]
-        insights: dict[str, Any] = {}
-        result = process_insights(items, insights, _now(1))
-        new_providers = result["new"]["providers"]
-        assert len(new_providers) == 1
-        assert new_providers[0]["value"] == "Acme Inc"
-        assert "name" not in new_providers[0]
-
-    def test_empty_snapshot_produces_no_new_entries(self) -> None:
-        """Empty snapshot: no entries appear in new."""
-        new = _output_new({}, [], 1)
-        assert new == []
-
-
 class TestBuildTop:
     """build_top: ranks by bit_count with inclusive tie-breaking at the cutoff."""
 
@@ -623,3 +544,85 @@ class TestDistinctActiveDays:
             "ports": {"443": {"l": _day(1)}},
         }
         assert distinct_active_days(insights) == 1
+
+
+class TestEntryHistory:
+    """entry_history: decode one {l, m} entry relative to the 30-day window ending today."""
+
+    def test_entry_seen_today_only(self) -> None:
+        """A single bit 0 yields today as both first and last seen."""
+        history = entry_history({"l": _day(40), "m": _bits(0)}, _day(40))
+        assert history is not None
+        assert history["last_seen_day"] == _day(40)
+        assert history["first_seen_day"] == _day(40)
+        assert history["active_days"] == 1
+        assert history["days"] == [False] * 29 + [True]
+
+    def test_first_last_and_active_days(self) -> None:
+        """Bits 2, 5 and 10 map to last seen 2 days ago and first seen 10 days ago."""
+        history = entry_history({"l": _day(40), "m": _bits(2, 5, 10)}, _day(40))
+        assert history is not None
+        assert history["last_seen_day"] == _day(38)
+        assert history["first_seen_day"] == _day(30)
+        assert history["active_days"] == 3
+        assert len(history["days"]) == 30
+        assert [i for i, active in enumerate(history["days"]) if active] == [19, 24, 27]
+
+    def test_bit_29_is_first_day_of_window(self) -> None:
+        """Activity on the oldest retained day yields the window's first day as first seen."""
+        history = entry_history({"l": _day(40), "m": _bits(0, 29)}, _day(40))
+        assert history is not None
+        assert history["first_seen_day"] == _day(11)
+        assert history["days"][0] is True
+
+    def test_stale_anchor_is_shifted_to_today(self) -> None:
+        """Read activity relative to today when the anchor is three days old."""
+        history = entry_history({"l": _day(37), "m": _bits(0, 20)}, _day(40))
+        assert history is not None
+        assert history["last_seen_day"] == _day(37)
+        assert history["first_seen_day"] == _day(17)
+        assert history["active_days"] == 2
+        assert len(history["days"]) == 30
+        assert [i for i, active in enumerate(history["days"]) if active] == [6, 26]
+
+    def test_bits_outside_window_are_ignored(self) -> None:
+        """Bits older than the window ending today are not counted."""
+        history = entry_history({"l": _day(37), "m": _bits(0, 28, 29)}, _day(40))
+        assert history is not None
+        assert history["active_days"] == 1
+        assert history["first_seen_day"] == _day(37)
+
+    def test_no_activity_in_window_returns_none(self) -> None:
+        """An entry whose activity lies entirely before the window returns None."""
+        assert entry_history({"l": _day(1), "m": _bits(0)}, _day(40)) is None
+
+    @pytest.mark.parametrize(
+        "entry",
+        [None, {}, {"l": "x", "m": 1}, {"l": 1, "m": None}, {"l": 1, "m": 0}],
+    )
+    def test_missing_or_malformed_entry_returns_none(self, entry: Any) -> None:
+        """Missing, malformed, and empty entries return None."""
+        assert entry_history(entry, _day(1)) is None
+
+
+class TestCountryName:
+    """country_name: resolve alpha-2 codes, falling back to the code."""
+
+    def test_known_code(self) -> None:
+        """A known code resolves to the country name."""
+        with patch("tapmap.state.insights.pycountry") as mock_pc:
+            mock_pc.countries.get.return_value = SimpleNamespace(name="Norway")
+            assert country_name("no") == "Norway"
+        mock_pc.countries.get.assert_called_once_with(alpha_2="NO")
+
+    def test_unknown_code_falls_back_to_code(self) -> None:
+        """An unrecognised code is returned as is."""
+        with patch("tapmap.state.insights.pycountry") as mock_pc:
+            mock_pc.countries.get.return_value = None
+            assert country_name("XX") == "XX"
+
+    def test_lookup_error_falls_back_to_code(self) -> None:
+        """A failing lookup returns the code."""
+        with patch("tapmap.state.insights.pycountry") as mock_pc:
+            mock_pc.countries.get.side_effect = KeyError("XX")
+            assert country_name("XX") == "XX"
