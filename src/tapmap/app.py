@@ -43,6 +43,7 @@ from werkzeug.serving import make_server
 from tapmap import __version__
 from tapmap.geodb import GeoDbService
 from tapmap.geodb.service import GeoDbResponse
+from tapmap.history_backup import backup_corrupt_file
 from tapmap.insights_persistence import (
     build_daily_report as persist_build_daily_report,
 )
@@ -1929,13 +1930,17 @@ class TapMap:
         return {"countries": {}, "providers": {}, "ports": {}, "applications": {}}
 
     def _load_history(self) -> None:
-        """Load Insights and Significant Connections history from disk (delegated)."""
+        """Load Insights and Significant Connections history from disk (delegated).
+
+        Start a history empty if its file cannot be loaded. Move a corrupt file to a
+        timestamped backup; disable saving a file that cannot be read or backed up.
+        """
         try:
             self.insights_state = load_insights(self.insights_path)
-        except Exception as exc:
-            self.logger.warning(
-                "Unable to load insights. Starting with empty history. Reason: %s",
-                exc,
+            self._is_insights_save_enabled = True
+        except (ValueError, OSError) as exc:
+            self._is_insights_save_enabled = self._preserve_unloadable_history(
+                self.insights_path, exc
             )
             self.insights_state = InsightsState(
                 version=CURRENT_SCHEMA_VERSION,
@@ -1947,13 +1952,48 @@ class TapMap:
             significant_connections_items = load_significant_connections(
                 self.significant_connections_path
             )
-        except Exception as exc:
-            self.logger.warning(
-                "Unable to load Significant Connections history. Starting empty. Reason: %s",
-                exc,
+            self._is_significant_connections_save_enabled = True
+        except (ValueError, OSError) as exc:
+            self._is_significant_connections_save_enabled = self._preserve_unloadable_history(
+                self.significant_connections_path, exc
             )
             significant_connections_items = []
         self.significant_connections = SignificantConnections(significant_connections_items)
+
+    def _preserve_unloadable_history(self, path: Path, reason: ValueError | OSError) -> bool:
+        """Back up a corrupt history file and log why it was not loaded.
+
+        Return True if saving path is safe: the corrupt original was moved to a backup.
+        Return False if the original remains in place, unreadable or not backed up.
+        """
+        if isinstance(reason, OSError):
+            self.logger.error(
+                "Unable to read history file %s (%s). Started with empty history; "
+                "it will not be saved this session.",
+                path.name,
+                reason,
+            )
+            return False
+
+        try:
+            backup_path = backup_corrupt_file(path, datetime.now())
+        except OSError as exc:
+            self.logger.error(
+                "Corrupt history file %s (%s) could not be backed up (%s). "
+                "Started with empty history; it will not be saved this session.",
+                path.name,
+                reason,
+                exc,
+            )
+            return False
+
+        self.logger.error(
+            "Corrupt history file %s (%s). Moved it to %s and started with empty history.",
+            path.name,
+            reason,
+            backup_path.name,
+        )
+        return True
 
     def _maybe_save_history(self) -> None:
         """Save Insights and Significant Connections history periodically to limit disk writes."""
@@ -1977,26 +2017,29 @@ class TapMap:
         """Write Insights and Significant Connections history to disk atomically (delegated).
 
         Each file's save failure is isolated so one failing write does not
-        prevent the other from being persisted.
+        prevent the other from being persisted. Skip a file whose saving was
+        disabled by _load_history.
         """
-        try:
-            save_insights(self.insights_path, self.insights_state)
-        except Exception as exc:
-            self.logger.warning(
-                "Unable to save insights. Changes will not be preserved. Reason: %s",
-                exc,
-            )
+        if self._is_insights_save_enabled:
+            try:
+                save_insights(self.insights_path, self.insights_state)
+            except Exception as exc:
+                self.logger.warning(
+                    "Unable to save insights. Changes will not be preserved. Reason: %s",
+                    exc,
+                )
 
-        try:
-            save_significant_connections(
-                self.significant_connections_path, self.significant_connections.items
-            )
-        except Exception as exc:
-            self.logger.warning(
-                "Unable to save Significant Connections history. Changes will not be preserved."
-                " Reason: %s",
-                exc,
-            )
+        if self._is_significant_connections_save_enabled:
+            try:
+                save_significant_connections(
+                    self.significant_connections_path, self.significant_connections.items
+                )
+            except Exception as exc:
+                self.logger.warning(
+                    "Unable to save Significant Connections history. Changes will not be"
+                    " preserved. Reason: %s",
+                    exc,
+                )
 
     def _acquire_lock(self) -> None:
         """Write a lock file, or open the browser to the running instance and exit."""

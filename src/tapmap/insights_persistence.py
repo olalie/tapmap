@@ -9,6 +9,7 @@ from tapmap.state.daily_report import DailyReportData, build_report_data
 from tapmap.state.insights_state import CURRENT_SCHEMA_VERSION, InsightsState
 
 _DIMENSION_KEYS = ("countries", "providers", "ports", "applications")
+_APP_NAME_KEYED_SCHEMA_VERSION = 2
 
 
 def _empty_insights_dict() -> dict[str, Any]:
@@ -18,54 +19,59 @@ def _empty_insights_dict() -> dict[str, Any]:
 def load_insights(path: Path) -> InsightsState:
     """Load InsightsState from a JSON file, migrating older schema versions as needed.
 
-    A file with no version marker, or version < CURRENT_SCHEMA_VERSION, has
-    its applications history reset (process-name-keyed history cannot be
-    reliably converted to app_name-keyed history); countries, providers, and
-    ports are preserved.
+    A file with no version marker, or version < 2, has its applications
+    history reset (process-name-keyed history cannot be reliably converted
+    to app_name-keyed history); countries, providers, and ports are preserved.
 
     Args:
         path: Path to the insights file.
 
     Returns:
-        InsightsState at the current schema version. Empty on missing,
-        corrupt, or malformed input.
+        InsightsState at the current schema version. Empty if the file is missing.
+
+    Raises:
+        ValueError: If the file is not valid JSON or its top-level structure is malformed.
+        OSError: If the file exists but cannot be read.
     """
     try:
         with path.open(encoding="utf-8") as f:
             data = json.load(f)
-
-        version = data.get("version")
-        version = version if isinstance(version, int) else 1
-
-        raw_insights = data.get("insights")
-        if not isinstance(raw_insights, dict):
-            raise ValueError("insights is not a dict")
-
-        insights = {
-            k: dict(raw_insights[k]) if isinstance(raw_insights.get(k), dict) else {}
-            for k in _DIMENSION_KEYS
-        }
-
-        raw_verification_failed = data.get("verification_failed")
-        verification_failed = (
-            dict(raw_verification_failed) if isinstance(raw_verification_failed, dict) else {}
-        )
-
-        if version < CURRENT_SCHEMA_VERSION:
-            insights["applications"] = {}
-            version = CURRENT_SCHEMA_VERSION
-
-        return InsightsState(
-            version=version,
-            insights=insights,
-            verification_failed=verification_failed,
-        )
-    except Exception:
+    except FileNotFoundError:
         return InsightsState(
             version=CURRENT_SCHEMA_VERSION,
             insights=_empty_insights_dict(),
             verification_failed={},
         )
+
+    if not isinstance(data, dict):
+        raise ValueError("insights file is not a JSON object")
+
+    version = data.get("version")
+    version = version if isinstance(version, int) else 1
+
+    raw_insights = data.get("insights")
+    if not isinstance(raw_insights, dict):
+        raise ValueError("insights is not a dict")
+
+    insights = {
+        k: dict(raw_insights[k]) if isinstance(raw_insights.get(k), dict) else {}
+        for k in _DIMENSION_KEYS
+    }
+
+    raw_verification_failed = data.get("verification_failed")
+    verification_failed = (
+        dict(raw_verification_failed) if isinstance(raw_verification_failed, dict) else {}
+    )
+
+    if version < _APP_NAME_KEYED_SCHEMA_VERSION:
+        insights["applications"] = {}
+        version = CURRENT_SCHEMA_VERSION
+
+    return InsightsState(
+        version=version,
+        insights=insights,
+        verification_failed=verification_failed,
+    )
 
 
 def save_insights(path: Path, state: InsightsState) -> None:
