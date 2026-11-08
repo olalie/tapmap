@@ -100,7 +100,7 @@ from tapmap.ui.significant_connections_view import (
 
 from .app_dirs import open_folder, reveal_in_file_manager
 from .config import COORD_PRECISION, MY_LOCATION, POLL_INTERVAL_MS, ZOOM_NEAR_KM
-from .lifecycle import LifecycleCoordinator, start_server_thread
+from .lifecycle import LifecycleCoordinator, start_poller_thread, start_server_thread
 from .logging_config import configure_logging
 from .mqtt_cli import run_configure_mqtt
 from .mqtt_config import load_mqtt_config, mqtt_config_path
@@ -120,6 +120,10 @@ APP_META: Final[AppMeta] = AppMeta(
     version=__version__,
     author="Ola Lie",
 )
+
+# Together below Docker's default 10 s stop grace period.
+POLLER_JOIN_TIMEOUT_S: Final[float] = 8.0
+SHUTDOWN_LOCK_TIMEOUT_S: Final[float] = 0.5
 
 class GeoDbEvent(TypedDict):
     """GeoDB action and response payload for UI rendering."""
@@ -238,6 +242,7 @@ class TapMap:
         self._last_history_save_s: float | None = None
         self._latest_snapshot: dict[str, Any] | None = None
         self._latest_insights: dict[str, Any] | None = None
+        self._poller_thread: threading.Thread | None = None
 
         # Constructed after _load_history() so SignificanceHistory derives from
         # the loaded InsightsState, and ConnectionAnalyzer references the
@@ -248,9 +253,13 @@ class TapMap:
         self.settings: Settings = load_settings(self.settings_path)
 
         self.mqtt_channel = create_mqtt_channel(self.runtime)
-        self.desktop_notification_channel = create_desktop_notification_channel(
-            icon_path=self.runtime.tray_icon_path,
-            enabled=self.settings.desktop_notifications,
+        self.desktop_notification_channel = (
+            None
+            if self.runtime.is_docker
+            else create_desktop_notification_channel(
+                icon_path=self.runtime.tray_icon_path,
+                enabled=self.settings.desktop_notifications,
+            )
         )
         self.notification_channels: list[NotificationChannel] = [
             channel
@@ -609,12 +618,17 @@ class TapMap:
         self._latest_insights = insights_data
         return notifiable_copies
 
-    def _render_latest_poll(self, technical_details_enabled: bool) -> tuple[Any, Any, Any, Any]:
+    def _render_latest_poll(
+        self, technical_details_enabled: bool
+    ) -> tuple[Any, Any, Any, Any] | None:
         """Return the snapshot, status store, view, and Insights result of the latest poll.
 
-        Caller holds _state_lock and has published at least one poll. Return
-        no_update for the Insights result if the latest poll failed.
+        Caller holds _state_lock. Return None if no poll has completed yet.
+        Return no_update for the Insights result if the latest poll failed.
         """
+        if self._latest_snapshot is None:
+            return None
+
         snapshot = {**self._latest_snapshot, "runtime_info": self._build_runtime_info()}
         view = self.view_builder.build_view_from_cache(
             self.connection_state.cache, technical_details_enabled
@@ -969,11 +983,11 @@ class TapMap:
                 return snap, sc_store, view, flash, insights_data
 
             if decision.action == ACTION_NORMAL_POLL:
-                self.poll_once()
                 with self._state_lock:
-                    snap, sc_store, view, insights_data = self._render_latest_poll(
-                        technical_details_enabled
-                    )
+                    rendered = self._render_latest_poll(technical_details_enabled)
+                if rendered is None:
+                    return no_update, no_update, no_update, no_update, no_update
+                snap, sc_store, view, insights_data = rendered
                 self._last_built_technical_details = technical_details_enabled
 
                 now = datetime.now().timestamp()
@@ -1938,7 +1952,7 @@ class TapMap:
             self._open_browser(url)
 
     def run(self) -> None:
-        """Bind the server, launch the local UI, and block until shutdown is requested."""
+        """Bind the server, start the poller, launch the local UI, and block until shutdown."""
         host = self.runtime.server_host
         port = self.runtime.server_port
         url = self._server_url()
@@ -1956,6 +1970,9 @@ class TapMap:
         )
 
         server = make_server(host, port, self.app.server)
+        self._poller_thread = start_poller_thread(
+            self.poll_once, POLL_INTERVAL_MS / 1000, self.lifecycle
+        )
 
         if icon is not None:
             self.lifecycle.set_tray_icon(icon)
@@ -1966,6 +1983,7 @@ class TapMap:
         if icon is not None:
             self.lifecycle.run_tray(icon, on_ready=self._activate_desktop_notification_channel)
         else:
+            self._activate_desktop_notification_channel()
             self.lifecycle.wait_for_shutdown()
 
         server.shutdown()
@@ -2082,19 +2100,32 @@ class TapMap:
                 exc,
             )
 
-    def _save_history(self) -> None:
+    def _save_history(self, lock_timeout_s: float | None = None) -> None:
         """Write Insights and Significant Connections history to disk atomically (delegated).
 
         Serialize saves under _history_save_lock: copy the history under
         _state_lock and write the copy after releasing it. Each file's save
         failure is isolated so one failing write does not prevent the other
-        from being persisted. Skip a file whose saving was disabled by _load_history.
+        from being persisted. Skip a file whose saving was disabled by
+        _load_history. If lock_timeout_s is given, wait at most that long for
+        each lock; on timeout, log an error and skip the save.
         """
-        with self._history_save_lock:
-            with self._state_lock:
+        timeout_s = -1 if lock_timeout_s is None else lock_timeout_s
+        if not self._history_save_lock.acquire(timeout=timeout_s):
+            self.logger.error("History save skipped: history is locked by another thread.")
+            return
+        try:
+            if not self._state_lock.acquire(timeout=timeout_s):
+                self.logger.error("History save skipped: history is locked by another thread.")
+                return
+            try:
                 insights_state = copy.deepcopy(self.insights_state)
                 significant_connection_items = copy.deepcopy(self.significant_connections.items)
+            finally:
+                self._state_lock.release()
             self._write_history(insights_state, significant_connection_items)
+        finally:
+            self._history_save_lock.release()
 
     def _write_history(
         self, insights_state: InsightsState, significant_connection_items: list[dict[str, Any]]
@@ -2178,19 +2209,49 @@ class TapMap:
             self._lock_path.unlink(missing_ok=True)
 
     def close(self) -> None:
-        """Close model resources."""
+        """Stop the poller, save history a final time, release the lock file, close resources.
+
+        Request shutdown and wait up to POLLER_JOIN_TIMEOUT_S for the poller.
+        If the poller is still running, wait at most SHUTDOWN_LOCK_TIMEOUT_S
+        per lock for the final save, and keep the lock file and Model
+        resources until process exit; the next start replaces the stale lock file.
+        """
         self.logger.info("Shutting down")
-        self._save_history()
-        self._release_lock()
-        with self._model_lock:
-            close_fn = getattr(self.model.geoinfo, "close", None)
-            if callable(close_fn):
-                close_fn()
-            appinfo_close_fn = getattr(self.model.appinfo, "close", None)
-            if callable(appinfo_close_fn):
-                appinfo_close_fn()
+        self.lifecycle.request_shutdown()
+
+        if self._stop_poller():
+            self._save_history()
+            self._release_lock()
+            with self._model_lock:
+                close_fn = getattr(self.model.geoinfo, "close", None)
+                if callable(close_fn):
+                    close_fn()
+                appinfo_close_fn = getattr(self.model.appinfo, "close", None)
+                if callable(appinfo_close_fn):
+                    appinfo_close_fn()
+        else:
+            self._save_history(lock_timeout_s=SHUTDOWN_LOCK_TIMEOUT_S)
+
         if self.mqtt_channel is not None:
             self.mqtt_channel.close()
+
+    def _stop_poller(self) -> bool:
+        """Wait up to POLLER_JOIN_TIMEOUT_S for the poller thread to exit.
+
+        Caller has requested shutdown. Return True if no poller is running
+        afterwards; log an error otherwise.
+        """
+        if self._poller_thread is None:
+            return True
+        self._poller_thread.join(timeout=POLLER_JOIN_TIMEOUT_S)
+        if self._poller_thread.is_alive():
+            self.logger.error(
+                "Background poller did not stop within %.0f s; keeping the lock file"
+                " and Model resources until exit.",
+                POLLER_JOIN_TIMEOUT_S,
+            )
+            return False
+        return True
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:

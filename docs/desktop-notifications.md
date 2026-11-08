@@ -10,7 +10,7 @@ The setting is stored between TapMap sessions.
 
 Desktop notifications are separate from Significant Connections history and MQTT notifications.
 
-By default, notifications start after 7 active Insights days. Set `TAPMAP_NOTIFICATION_LEARNING_DAYS` to a value from `0` to `30` to change the learning period. A value of `0` enables notifications immediately.
+By default, notifications start after 7 active Insights days. Set `TAPMAP_NOTIFICATION_LEARNING_DAYS` to a value from `0` to `30` to change the learning period. A value of `0` enables notifications immediately. Once the learning period has completed, notifications continue after restarts and after periods without activity.
 
 A desktop notification shows:
 

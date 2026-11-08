@@ -1,5 +1,14 @@
 ## Unreleased
 
+### Fixes
+
+- Monitor connections and record Insights history while no browser tab is open, including when TapMap starts automatically at login
+- Keep notifications enabled once the learning period has completed, also after restarts and periods without activity
+  - Existing installations complete the learning period from their recorded history
+- Show Windows notifications under TapMap with its name and icon
+- Keep a corrupt history file as a timestamped backup instead of replacing it with empty history
+- Stop reporting apps, countries, providers, and ports seen only on connections without location data as new after every restart
+
 ## 1.14.3 - 2026-11-08
 
 ### Features

@@ -169,7 +169,9 @@ This separation isolates provider-specific concerns such as downloads, credentia
 
 ## Lifecycle, Tray, and Autostart
 
-TapMap runs as a single desktop process with two threads: the main thread owns the tray icon and application lifecycle, and the local web server runs on one background thread. The tray/lifecycle code communicates with the rest of the application only through a narrow interface and never reaches into `Model` or state stores directly.
+TapMap runs as a single desktop process with three application threads: the main thread owns the tray icon and application lifecycle, the local web server runs on one background thread, and a poller thread observes network connections. The tray/lifecycle code communicates with the rest of the application only through a narrow interface and never reaches into `Model` or state stores directly; the poller thread runs a polling function supplied by the application.
+
+The poller takes a snapshot every 5 seconds from startup until shutdown, independently of any browser session, including when TapMap starts with `--no-browser`. The web UI only renders the latest completed poll. Shared state is guarded by locks in `TapMap`: one for `Model` observation and GeoIP readers, one for analysis state, history, and the published poll result, and one that serializes history saves. On shutdown, TapMap stops the poller before the final history save, then releases the instance lock file and closes `Model` resources. If the poller does not stop in time, TapMap saves with bounded lock waits and keeps the lock file and `Model` resources until the process exits.
 
 All shutdown paths (tray Quit, the web UI Exit, process signals, and Docker container termination) go through the same coordinated shutdown sequence. Closing the browser tab does not stop TapMap; the browser and the TapMap process have independent lifetimes.
 
@@ -177,7 +179,7 @@ If a tray backend is unavailable, TapMap continues running without one; the web 
 
 Responsibilities:
 
-- `lifecycle.py` — shutdown request handling, the tray run loop, and signal handlers.
+- `lifecycle.py` — shutdown request handling, the tray run loop, signal handlers, and the server and poller threads.
 - `tray.py` — tray icon and menu construction (Open TapMap / Quit TapMap).
 - `autostart/` — per-platform login autostart integration.
 
@@ -197,7 +199,7 @@ Docker/headless runs share the same lifecycle and shutdown model but have no tra
 
 ## Data Flow
 
-Network activity enters the system through periodic snapshots.
+Network activity enters the system through periodic snapshots taken by the poller thread, whether or not a browser is open.
 
 ```text
 Network Connections
@@ -322,13 +324,13 @@ process_insights()
   insights.json
 ```
 
-Significant Connections evaluation runs per connection, inside the same loop that classifies mapped/unmapped connections, for every PUBLIC connection regardless of mapped/unmapped status. Novelty is judged against SignificanceHistory, an in-memory structure seeded from the persisted Insights bitmasks at startup and updated as each connection is evaluated; SignificanceHistory itself is not directly persisted. Connections judged significant are appended to SignificantConnections, a bounded, persisted event log.
+Significant Connections evaluation runs per connection, inside the same loop that classifies mapped/unmapped connections, for every PUBLIC connection regardless of mapped/unmapped status. Novelty is judged against SignificanceHistory, which is persisted with Insights and updated as each connection is evaluated. Connections judged significant are appended to SignificantConnections, a bounded, persisted event log.
 
 Insights is a separate, batch-updated structure: after the per-connection loop completes, process_insights() updates the rolling 30-day Insights history using only the mapped PUBLIC connections observed in that poll. Unmapped PUBLIC connections are evaluated for significance but do not contribute to Insights.
 
 Historical state survives application restarts.
 
-Notification handling is separate from Significant Connections history. A newly accepted Significant Connection is stored first, then evaluated against the notification policy. Eligible events are passed to `dispatch_notification()`, which sends them independently to the configured notification channels. Significant Connections history is not a notification queue, and notification failures do not affect event storage or other channels.
+Notification handling is separate from Significant Connections history. A newly accepted Significant Connection is stored first, then evaluated against the notification policy. The policy holds notifications back until the learning period has completed; completion is recorded in insights.json and is never revoked. ConnectionAnalyzer returns the eligible events, and after the poll has released its locks they are passed to `dispatch_notification()`, which sends them independently to the configured notification channels. Significant Connections history is not a notification queue, and notification failures do not affect event storage or other channels.
 
 `MqttChannel` owns the MQTT client and its network lifecycle, including connection and reconnection. `DesktopNotificationChannel` delegates notification delivery to the operating system on desktop installations. The channels operate independently and do not modify ConnectionAnalyzer, SignificantConnections, Insights, or UI state.
 
@@ -338,9 +340,9 @@ Notification handling is separate from Significant Connections history. A newly 
 
 ### model_snapshot
 
-Represents the current network snapshot.
+Represents the latest completed network snapshot.
 
-This state is transient and replaced during each polling cycle.
+This state is transient and replaced during each polling cycle. The web UI receives it on each UI tick; a tick during a running poll receives the previous completed snapshot.
 
 ### ConnectionState
 
@@ -368,9 +370,9 @@ Cleared when the application exits or the user clears the cache.
 
 ### SignificanceHistory
 
-Runtime-only novelty tracking. Not directly persisted.
+Novelty tracking, persisted in insights.json.
 
-Records the last-seen day for each observed application, country, provider, and port, plus verification-failure history. The last-seen dictionaries are seeded once from the persisted Insights bitmasks at startup; verification-failure history is shared with InsightsState. The history is then updated in memory as each PUBLIC connection is evaluated.
+Records the last-seen day for each observed application, country, provider, and port, including values seen only on unmapped connections, plus verification-failure history. At startup, the persisted last-seen days are merged with the days derived from the Insights bitmasks; both dictionaries are shared with InsightsState and updated in memory as each PUBLIC connection is evaluated. Last-seen entries 30 or more days old are pruned before each periodic save.
 
 Used by ConnectionAnalyzer to decide whether a connection is significant.
 
@@ -467,7 +469,7 @@ During startup:
 2. GeoIP services are initialized.
 3. Historical insights are loaded from disk.
 4. Dash callbacks are registered.
-5. The tray and browser launch are initialized, the web server starts on a background thread, and the main thread runs the application lifecycle.
+5. The tray and browser launch are initialized, the web server and the poller start on background threads, and the main thread runs the application lifecycle.
 
 ---
 

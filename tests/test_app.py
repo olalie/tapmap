@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import threading
 from collections.abc import Iterator
 from contextvars import copy_context
@@ -19,7 +20,9 @@ from dash import html
 from dash._callback_context import context_value
 from dash._utils import AttributeDict
 
+from tapmap import app as app_module
 from tapmap.app import APP_META, TapMap
+from tapmap.lifecycle import start_poller_thread
 from tapmap.model.appinfo import ApplicationMetadata, VerificationStatus
 from tapmap.mqtt_config import MqttConfig, mqtt_config_path, save_mqtt_config
 from tapmap.runtime import RuntimeContext
@@ -411,6 +414,153 @@ def test_geodb_reload_waits_for_running_snapshot(tmp_path: Path) -> None:
     finally:
         release_snapshot.set()
         app.close()
+
+
+_TICK = {"prop_id": "tick_model.n_intervals", "value": 1}
+
+
+def test_tick_renders_published_poll_without_observing(tmp_path: Path) -> None:
+    """Render nothing before the first poll, then the published poll, without snapshots."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    try:
+        snapshot_calls: list[None] = []
+
+        def _counting_snapshot() -> dict[str, Any]:
+            """Count the snapshot and return one mapped connection."""
+            snapshot_calls.append(None)
+            return {"connections": [_mapped_candidate(service_scope="PUBLIC")]}
+
+        app.model.snapshot = _counting_snapshot
+        spec = _callback_by_outputs_and_input(app, _POLL_OUTPUTS, ("tick_model", "n_intervals"))
+
+        before_poll = _run_callback(spec, _TICK, 1, None, None, False, None, None)
+        app.poll_once()
+        first_tick = _run_callback(spec, _TICK, 2, None, None, False, None, None)
+        second_tick = _run_callback(spec, _TICK, 3, None, None, False, None, first_tick[0])
+
+        assert before_poll == (dash.no_update,) * 5
+        assert first_tick[0]["connections"] == second_tick[0]["connections"]
+        assert "runtime_info" in first_tick[0]
+        assert len(snapshot_calls) == 1
+    finally:
+        app.close()
+
+
+def test_tick_during_running_poll_renders_previous_completed_poll(tmp_path: Path) -> None:
+    """Render the last completed poll immediately while the next snapshot is still running."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    snapshot_started = threading.Event()
+    release_snapshot = threading.Event()
+    try:
+        app.model.snapshot = lambda: {"connections": [], "stats": {"poll": "first"}}
+        app.poll_once()
+
+        def _blocking_snapshot() -> dict[str, Any]:
+            """Signal that the snapshot started, then return once released."""
+            snapshot_started.set()
+            release_snapshot.wait(timeout=5)
+            return {"connections": [], "stats": {"poll": "second"}}
+
+        app.model.snapshot = _blocking_snapshot
+        poll = threading.Thread(target=app.poll_once)
+        poll.start()
+        assert snapshot_started.wait(timeout=5)
+        spec = _callback_by_outputs_and_input(app, _POLL_OUTPUTS, ("tick_model", "n_intervals"))
+
+        rendered = _run_callback(spec, _TICK, 2, None, None, False, None, {"stats": {}})
+
+        assert rendered[0]["stats"] == {"poll": "first"}
+        release_snapshot.set()
+        poll.join(timeout=5)
+    finally:
+        release_snapshot.set()
+        app.close()
+
+
+def test_close_stops_poller_before_final_save_and_resource_shutdown(tmp_path: Path) -> None:
+    """Stop the poller before the final history save and before closing GeoInfo."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    app.model.snapshot = lambda: {"connections": []}
+    first_poll_done = threading.Event()
+
+    def _poll() -> None:
+        """Poll once and signal it."""
+        app.poll_once()
+        first_poll_done.set()
+
+    app._poller_thread = start_poller_thread(_poll, 0.01, app.lifecycle)
+    assert first_poll_done.wait(timeout=5)
+    is_poller_alive_at: dict[str, bool] = {}
+    real_save_history = app._save_history
+
+    def _record_save_history() -> None:
+        """Record whether the poller is alive at the final save, then save."""
+        is_poller_alive_at["save"] = app._poller_thread.is_alive()
+        real_save_history()
+
+    def _record_geoinfo_close() -> None:
+        """Record whether the poller is alive when GeoInfo closes."""
+        is_poller_alive_at["geoinfo_close"] = app._poller_thread.is_alive()
+
+    app._save_history = _record_save_history
+    app.model.geoinfo.close = _record_geoinfo_close
+
+    app.close()
+
+    assert is_poller_alive_at == {"save": False, "geoinfo_close": False}
+
+
+def test_close_with_stuck_poller_saves_and_keeps_lock_file_and_resources(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Save, keep the lock file, and leave GeoInfo open when the poller does not stop."""
+    monkeypatch.setattr(app_module, "POLLER_JOIN_TIMEOUT_S", 0.05)
+    app = TapMap(_runtime_ctx(tmp_path))
+    release_poller = threading.Event()
+    app._poller_thread = threading.Thread(target=release_poller.wait, args=(5,), daemon=True)
+    app._poller_thread.start()
+    geoinfo_close_calls: list[None] = []
+    app.model.geoinfo.close = lambda: geoinfo_close_calls.append(None)
+    try:
+        with caplog.at_level(logging.ERROR, logger="tapmap.app"):
+            app.close()
+
+        assert "Background poller did not stop" in caplog.text
+        assert app.insights_path.exists()
+        assert app._lock_path.exists()
+        assert geoinfo_close_calls == []
+    finally:
+        release_poller.set()
+
+
+def test_close_with_poller_stuck_holding_state_lock_skips_save_without_hanging(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Return from close() and skip the final save when a stuck poller holds _state_lock."""
+    monkeypatch.setattr(app_module, "POLLER_JOIN_TIMEOUT_S", 0.05)
+    monkeypatch.setattr(app_module, "SHUTDOWN_LOCK_TIMEOUT_S", 0.05)
+    app = TapMap(_runtime_ctx(tmp_path))
+    release_poller = threading.Event()
+
+    def _hold_state_lock() -> None:
+        """Hold _state_lock until released."""
+        with app._state_lock:
+            release_poller.wait(timeout=5)
+
+    app._poller_thread = threading.Thread(target=_hold_state_lock, daemon=True)
+    app._poller_thread.start()
+    try:
+        closer = threading.Thread(target=app.close)
+        with caplog.at_level(logging.ERROR, logger="tapmap.app"):
+            closer.start()
+            closer.join(timeout=2)
+
+        assert not closer.is_alive()
+        assert "History save skipped" in caplog.text
+        assert not app.insights_path.exists()
+        assert app._lock_path.exists()
+    finally:
+        release_poller.set()
 
 
 def test_render_modal_shows_unavailable_message_when_significant_connection_is_gone() -> None:
