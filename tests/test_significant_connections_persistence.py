@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from tapmap.significant_connections_persistence import (
     load_significant_connections,
     save_significant_connections,
@@ -32,12 +34,13 @@ def test_load_missing_file_returns_empty_list(tmp_path: Path) -> None:
     assert load_significant_connections(path) == []
 
 
-def test_load_corrupt_json_returns_empty_list(tmp_path: Path) -> None:
-    """Corrupt JSON must not crash; loading falls back to an empty list."""
+def test_load_corrupt_json_raises_value_error(tmp_path: Path) -> None:
+    """Raise ValueError for a file that is not valid JSON."""
     path = tmp_path / "significant_connections.json"
     path.write_text("not valid json", encoding="utf-8")
 
-    assert load_significant_connections(path) == []
+    with pytest.raises(ValueError):
+        load_significant_connections(path)
 
 
 def test_load_drops_malformed_records_but_keeps_valid_ones(tmp_path: Path) -> None:
@@ -62,9 +65,10 @@ def test_load_drops_malformed_records_but_keeps_valid_ones(tmp_path: Path) -> No
     assert loaded == [{"timestamp": "t", "reasons": ["new_app"]}]
 
 
-def test_load_wrong_events_type_returns_empty_list(tmp_path: Path) -> None:
-    """A non-list 'events' value falls back to an empty list."""
+def test_load_wrong_events_type_raises_value_error(tmp_path: Path) -> None:
+    """Raise ValueError for a non-list 'events' value."""
     path = tmp_path / "significant_connections.json"
     path.write_text(json.dumps({"events": "not-a-list"}), encoding="utf-8")
 
-    assert load_significant_connections(path) == []
+    with pytest.raises(ValueError):
+        load_significant_connections(path)

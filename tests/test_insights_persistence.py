@@ -5,7 +5,9 @@ from __future__ import annotations
 import contextlib
 import json
 import logging
+import threading
 import unittest.mock
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -13,9 +15,11 @@ from unittest.mock import MagicMock, patch
 import psutil
 import pytest
 
+import tapmap.app
 from tapmap.app import TapMap
 from tapmap.settings_persistence import Settings
 from tapmap.state.insights_state import CURRENT_SCHEMA_VERSION, InsightsState
+from tapmap.state.significance import SignificanceHistory
 from tapmap.state.significant_connections import SignificantConnections
 
 
@@ -71,6 +75,69 @@ def test_save_history_isolates_failure_per_file(tmp_path: Path) -> None:
     assert app.significant_connections_path.exists()
 
 
+def test_save_writes_the_history_copied_before_writing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Exclude changes made to live state while the copied history is being written."""
+    app = _bare_app(tmp_path)
+    app.insights_state = InsightsState(
+        version=CURRENT_SCHEMA_VERSION,
+        insights={**_EMPTY, "countries": {"NO": {"l": 739900, "m": 1}}},
+        verification_failed={},
+    )
+    real_save_insights = tapmap.app.save_insights
+
+    def _save_after_live_change(path: Path, state: InsightsState) -> None:
+        """Change live state, then write the given state."""
+        app.insights_state.insights["countries"]["SE"] = {"l": 739900, "m": 1}
+        real_save_insights(path, state)
+
+    monkeypatch.setattr(tapmap.app, "save_insights", _save_after_live_change)
+
+    app._save_history()
+
+    saved = json.loads(app.insights_path.read_text(encoding="utf-8"))
+    assert set(saved["insights"]["countries"]) == {"NO"}
+
+
+def test_second_save_waits_until_first_save_is_written(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Start writing a second history save only after the first save has been written."""
+    app = _bare_app(tmp_path)
+    first_write_started = threading.Event()
+    release_first_write = threading.Event()
+    order: list[str] = []
+    real_save_insights = tapmap.app.save_insights
+
+    def _save_in_order(path: Path, state: InsightsState) -> None:
+        """Block the first write until released and record the write order."""
+        if not first_write_started.is_set():
+            first_write_started.set()
+            release_first_write.wait(timeout=5)
+            order.append("first")
+        else:
+            order.append("second")
+        real_save_insights(path, state)
+
+    monkeypatch.setattr(tapmap.app, "save_insights", _save_in_order)
+    first = threading.Thread(target=app._save_history)
+    second = threading.Thread(target=app._save_history)
+    try:
+        first.start()
+        assert first_write_started.wait(timeout=5)
+        second.start()
+        second.join(timeout=0.2)
+        assert second.is_alive()
+
+        release_first_write.set()
+        first.join(timeout=5)
+        second.join(timeout=5)
+        assert order == ["first", "second"]
+    finally:
+        release_first_write.set()
+
+
 def test_failed_save_settings_does_not_corrupt_state(tmp_path: Path) -> None:
     """A failed settings save does not corrupt or clear in-memory state."""
     app = _bare_app(tmp_path)
@@ -102,31 +169,97 @@ def _bare_app(tmp_path: Path) -> TapMap:
     app.settings = Settings()
     app.settings_path = tmp_path / "settings.json"
     app._lock_path = tmp_path / "tapmap.lock"
+    app._is_insights_save_enabled = True
+    app._is_significant_connections_save_enabled = True
+    app._state_lock = threading.Lock()
+    app._history_save_lock = threading.Lock()
     return app
 
 
 # --- _load_history: corrupt JSON ---
 
 
-def test_load_history_corrupt_json_fallback(tmp_path: Path) -> None:
-    """Corrupt JSON must not crash; insights must become the empty structure."""
+@pytest.mark.parametrize("content", [b"not valid json", b"\xff\xfe invalid utf-8"])
+def test_load_history_corrupt_json_fallback(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture, content: bytes
+) -> None:
+    """Back up corrupt insights, log an error, and start with empty insights."""
     app = _bare_app(tmp_path)
-    app.insights_path.write_text("not valid json", encoding="utf-8")
-    app._load_history()
+    app.insights_path.write_bytes(content)
+
+    with caplog.at_level(logging.ERROR, logger="test"):
+        app._load_history()
+
     assert app.insights_state.insights == _EMPTY
     assert app.insights_state.verification_failed == {}
+    backups = list(tmp_path.glob("insights.corrupt-*.json"))
+    assert [backup.read_bytes() for backup in backups] == [content]
+    assert app._is_insights_save_enabled
+    assert "Corrupt history file insights.json" in caplog.text
+
+
+def test_load_history_corrupt_significant_connections_fallback(tmp_path: Path) -> None:
+    """Back up a corrupt Significant Connections file and start with no events."""
+    app = _bare_app(tmp_path)
+    app.significant_connections_path.write_text("not valid json", encoding="utf-8")
+
+    app._load_history()
+
     assert app.significant_connections.items == []
+    assert len(list(tmp_path.glob("significant_connections.corrupt-*.json"))) == 1
+
+
+@pytest.mark.parametrize("failing_target", ["load_insights", "backup_corrupt_file"])
+def test_unloadable_history_file_is_never_overwritten(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    failing_target: str,
+) -> None:
+    """Keep an unreadable or unbackupable history file unchanged by later saves."""
+    app = _bare_app(tmp_path)
+    app.insights_path.write_text("not valid json", encoding="utf-8")
+
+    def _raise_os_error(*_args: object) -> None:
+        """Raise PermissionError for any arguments."""
+        raise PermissionError("locked")
+
+    monkeypatch.setattr(f"tapmap.app.{failing_target}", _raise_os_error)
+
+    with caplog.at_level(logging.ERROR, logger="test"):
+        app._load_history()
+    app._save_history()
+
+    assert app.insights_state.insights == _EMPTY
+    assert app.insights_path.read_text(encoding="utf-8") == "not valid json"
+    assert "will not be saved this session" in caplog.text
+
+
+def test_load_history_missing_files_start_empty_without_error(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Start with empty history and no backup or error log when no history files exist."""
+    app = _bare_app(tmp_path)
+
+    with caplog.at_level(logging.WARNING, logger="test"):
+        app._load_history()
+
+    assert app.insights_state.insights == _EMPTY
+    assert app.significant_connections.items == []
+    assert list(tmp_path.glob("*.corrupt-*")) == []
+    assert caplog.text == ""
 
 
 # --- _load_history: unexpected structure ---
 
 
 def test_load_history_wrong_structure_fallback(tmp_path: Path) -> None:
-    """A non-dict 'insights' value must fall back to the empty structure."""
+    """Back up a file with a non-dict 'insights' value and start with empty insights."""
     app = _bare_app(tmp_path)
     app.insights_path.write_text(json.dumps({"insights": ["not", "a", "dict"]}), encoding="utf-8")
     app._load_history()
     assert app.insights_state.insights == _EMPTY
+    assert len(list(tmp_path.glob("insights.corrupt-*.json"))) == 1
 
 
 # --- _load_history: unknown top-level keys are discarded ---
@@ -224,6 +357,123 @@ def test_load_history_does_not_migrate_current_version(tmp_path: Path) -> None:
     app = _bare_app(tmp_path)
     data = {
         "version": CURRENT_SCHEMA_VERSION,
+        "insights": {
+            "countries": {},
+            "providers": {},
+            "ports": {},
+            "applications": {"Google Chrome": {"l": 738000, "m": 1}},
+        },
+        "verification_failed": {},
+    }
+    app.insights_path.write_text(json.dumps(data), encoding="utf-8")
+    app._load_history()
+
+    assert app.insights_state.insights["applications"] == {"Google Chrome": {"l": 738000, "m": 1}}
+
+
+def test_load_history_drops_malformed_significance_last_seen_entries(tmp_path: Path) -> None:
+    """Keep valid last-seen entries as int-keyed ports and drop malformed ones."""
+    app = _bare_app(tmp_path)
+    data = {
+        "version": CURRENT_SCHEMA_VERSION,
+        "insights": _EMPTY,
+        "significance_last_seen": {
+            "ports": {"443": 739900, "not-a-port": 739900},
+            "applications": {"codex": 739900, "broken": "not-a-day"},
+            "unknown_dimension": {"x": 739900},
+        },
+    }
+    app.insights_path.write_text(json.dumps(data), encoding="utf-8")
+
+    app._load_history()
+
+    assert app.insights_state.significance_last_seen == {
+        "ports": {443: 739900},
+        "applications": {"codex": 739900},
+    }
+
+
+def test_periodic_save_prunes_stale_significance_last_seen(tmp_path: Path) -> None:
+    """Drop last-seen entries 30 or more days old from the shared dict before saving."""
+    app = _bare_app(tmp_path)
+    today = datetime.now().date().toordinal()
+    app.insights_state = InsightsState(
+        version=CURRENT_SCHEMA_VERSION,
+        insights=dict(_EMPTY),
+        verification_failed={},
+        significance_last_seen={"applications": {"codex": today - 1, "stale": today - 30}},
+    )
+    app.significance_history = SignificanceHistory.from_insights_state(app.insights_state)
+    app._last_history_save_s = None
+
+    app._maybe_save_history()
+
+    assert app.significance_history.last_seen is app.insights_state.significance_last_seen
+    saved = json.loads(app.insights_path.read_text(encoding="utf-8"))
+    assert saved["significance_last_seen"]["applications"] == {"codex": today - 1}
+
+
+def test_learning_completion_survives_save_and_reload(tmp_path: Path) -> None:
+    """Persist the recorded learning completion day across a save and reload."""
+    app = _bare_app(tmp_path)
+    app.insights_state = InsightsState(
+        version=CURRENT_SCHEMA_VERSION,
+        insights=dict(_EMPTY),
+        verification_failed={},
+        notification_learning_completed_day=739900,
+    )
+    app._save_history()
+
+    app._load_history()
+
+    assert app.insights_state.notification_learning_completed_day == 739900
+
+
+def test_learning_completion_is_inferred_from_event_days(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Record completion at startup from 4 Insights days plus 3 older event days."""
+    app = _bare_app(tmp_path)
+    app.runtime.notification_learning_days = 7
+    today = datetime.now().date().toordinal()
+    app.insights_state = InsightsState(
+        version=CURRENT_SCHEMA_VERSION,
+        insights={**_EMPTY, "countries": {"NO": {"l": today, "m": 0b1111}}},
+        verification_failed={},
+    )
+    app.significant_connections = SignificantConnections(
+        [
+            {"timestamp": "2026-09-01T10:00:00", "reasons": ["new_app"]},
+            {"timestamp": "2026-09-02T10:00:00", "reasons": ["new_app"]},
+            {"timestamp": "2026-09-03T10:00:00", "reasons": ["new_app"]},
+        ]
+    )
+
+    with caplog.at_level(logging.INFO, logger="test"):
+        app._record_learning_completion_from_history()
+
+    assert app.insights_state.notification_learning_completed_day == today
+    assert "Notification learning period completed based on existing history" in caplog.text
+
+
+def test_learning_completion_is_not_inferred_for_zero_learning_days(tmp_path: Path) -> None:
+    """Leave completion unrecorded at startup when the learning period is 0 days."""
+    app = _bare_app(tmp_path)
+    app.runtime.notification_learning_days = 0
+    app.significant_connections = SignificantConnections(
+        [{"timestamp": "2026-09-01T10:00:00", "reasons": ["new_app"]}]
+    )
+
+    app._record_learning_completion_from_history()
+
+    assert app.insights_state.notification_learning_completed_day is None
+
+
+def test_load_history_does_not_migrate_newer_version(tmp_path: Path) -> None:
+    """Keep applications history for a schema version newer than 2."""
+    app = _bare_app(tmp_path)
+    data = {
+        "version": 3,
         "insights": {
             "countries": {},
             "providers": {},

@@ -10,6 +10,7 @@ from unittest.mock import patch
 import pytest
 
 from tapmap.state.insights import (
+    active_day_ordinals,
     country_name,
     distinct_active_days,
     entry_history,
@@ -544,6 +545,15 @@ class TestDistinctActiveDays:
             "ports": {"443": {"l": _day(1)}},
         }
         assert distinct_active_days(insights) == 1
+
+    def test_entries_with_different_anchors_count_absolute_days(self) -> None:
+        """Count bit 0 of entries anchored on different days as different days."""
+        insights = {
+            "countries": {"US": {"l": _day(1), "m": _bits(0)}},
+            "providers": {"Acme Inc": {"l": _day(2), "m": _bits(0, 1)}},
+        }
+        assert active_day_ordinals(insights) == {_day(1), _day(2)}
+        assert distinct_active_days(insights) == 2
 
 
 class TestEntryHistory:

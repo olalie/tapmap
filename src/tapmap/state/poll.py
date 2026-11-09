@@ -37,11 +37,11 @@ def _extract_key_action(key_action: Any) -> str | None:
 def decide_poll_action(*, trigger: Any, key_action: Any, has_polled: bool) -> PollDecision:
     """Decide which high level poll action to execute.
 
-    Only the model timer, and any trigger before the first poll has ever
-    completed, observe and merge into the runtime model. Clear actions reset
-    the cache without observing. The technical-details toggle rebuilds the
-    map view from the existing cache without observing. Every other trigger
-    leaves the runtime model untouched.
+    Only the model timer, and any trigger before the first poll result has
+    been rendered, render the latest completed background poll. Clear
+    actions reset the cache. The technical-details toggle rebuilds the map
+    view from the existing cache. Every other trigger leaves the runtime
+    model untouched.
     """
     if trigger == "menu_clear_cache":
         return PollDecision(action=ACTION_CLEAR_CACHE)

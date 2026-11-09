@@ -2,6 +2,7 @@
 
 import dataclasses
 import platform
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -221,7 +222,7 @@ def test_tapmap_has_no_mqtt_channel_without_mqtt_json(tmp_path: Path) -> None:
     app = TapMap(_runtime_ctx(tmp_path))
     try:
         assert app.mqtt_channel is None
-        assert app.mqtt_channel not in app.connection_analyzer.notification_channels
+        assert app.mqtt_channel not in app.notification_channels
     finally:
         app.close()
 
@@ -238,7 +239,7 @@ def test_tapmap_has_mqtt_channel_with_valid_mqtt_json(
     app = TapMap(_runtime_ctx(tmp_path))
     try:
         assert app.mqtt_channel is not None
-        assert app.mqtt_channel in app.connection_analyzer.notification_channels
+        assert app.mqtt_channel in app.notification_channels
     finally:
         app.close()
 
@@ -1527,5 +1528,52 @@ def test_autostart_click_is_a_noop_on_an_unsupported_platform(
     app = TapMap(_runtime_ctx(tmp_path))
     try:
         assert app._handle_autostart_click() is None
+    finally:
+        app.close()
+
+
+def test_run_without_tray_polls_without_a_browser_and_activates_notifications(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """Start background polling and activate desktop notifications when no tray exists."""
+    app = TapMap(_runtime_ctx(tmp_path))
+    first_poll_done = threading.Event()
+    activate_calls: list[None] = []
+
+    def _snapshot() -> dict[str, Any]:
+        """Signal the first poll and return no connections."""
+        first_poll_done.set()
+        return {"connections": []}
+
+    monkeypatch.setattr(app_module, "create_tray_icon", lambda **_kwargs: None)
+    monkeypatch.setattr(
+        app_module, "make_server", lambda *_args: SimpleNamespace(shutdown=lambda: None)
+    )
+    monkeypatch.setattr(
+        app_module, "start_server_thread", lambda *_args: SimpleNamespace(join=lambda: None)
+    )
+    monkeypatch.setattr(app, "_decide_browser_open", lambda *_args: None)
+    monkeypatch.setattr(app.lifecycle, "install_signal_handlers", lambda: None)
+    monkeypatch.setattr(app.lifecycle, "wait_for_shutdown", lambda: first_poll_done.wait(5))
+    app.model.snapshot = _snapshot
+    app.desktop_notification_channel = SimpleNamespace(
+        activate=lambda: activate_calls.append(None)
+    )
+    try:
+        app.run()
+
+        assert first_poll_done.is_set()
+        assert activate_calls == [None]
+    finally:
+        app.close()
+    assert not app._poller_thread.is_alive()
+
+
+def test_docker_has_no_desktop_notification_channel(tmp_path: Path) -> None:
+    """Create no desktop notification channel when running in Docker."""
+    app = TapMap(_runtime_ctx(tmp_path, is_docker=True))
+    try:
+        assert app.desktop_notification_channel is None
+        assert app.desktop_notification_channel not in app.notification_channels
     finally:
         app.close()

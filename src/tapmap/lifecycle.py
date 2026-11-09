@@ -1,4 +1,4 @@
-"""Application lifecycle coordination: shutdown signaling and the server thread.
+"""Application lifecycle coordination: shutdown signaling, the server and poller threads.
 
 request_shutdown() is the single entry point every shutdown trigger (signal,
 UI action, or the server thread exiting unexpectedly) calls; only the main
@@ -82,6 +82,10 @@ class LifecycleCoordinator:
         while not self._shutdown_event.wait(timeout=_WAIT_POLL_S):
             pass
 
+    def wait(self, timeout_s: float) -> bool:
+        """Block for up to timeout_s; return True if shutdown has been requested."""
+        return self._shutdown_event.wait(timeout=timeout_s)
+
     def install_signal_handlers(self) -> None:
         """Register SIGINT/SIGTERM handlers that request shutdown."""
 
@@ -130,5 +134,29 @@ def start_server_thread(
     # daemon=True is only a backstop for an unplanned main-thread failure -
     # the normal shutdown path always joins this thread before proceeding.
     thread = threading.Thread(target=_serve, daemon=True, name="tapmap-server")
+    thread.start()
+    return thread
+
+
+def start_poller_thread(
+    poll: Callable[[], None], interval_s: float, coordinator: LifecycleCoordinator
+) -> threading.Thread:
+    """Call poll() on a background thread, first immediately, then interval_s after each call.
+
+    Stop once shutdown is requested. Log an exception from poll() and keep polling.
+    """
+
+    def _run() -> None:
+        """Poll until shutdown is requested."""
+        while True:
+            try:
+                poll()
+            except Exception:
+                logger.exception("Background poll failed.")
+            if coordinator.wait(interval_s):
+                return
+
+    # daemon=True is only a backstop: TapMap.close() joins this thread with a timeout.
+    thread = threading.Thread(target=_run, daemon=True, name="tapmap-poller")
     thread.start()
     return thread

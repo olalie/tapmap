@@ -266,3 +266,58 @@ def test_start_server_thread_requests_shutdown_when_serve_forever_raises(monkeyp
 
     assert not thread.is_alive()
     coordinator.wait_for_shutdown()
+
+
+def test_wait_returns_false_on_timeout_and_true_after_shutdown_request() -> None:
+    """Return whether shutdown has been requested once the wait ends."""
+    coordinator = LifecycleCoordinator()
+
+    assert coordinator.wait(0.01) is False
+    coordinator.request_shutdown()
+    assert coordinator.wait(0.01) is True
+
+
+def test_start_poller_thread_polls_immediately_and_repeats_until_shutdown() -> None:
+    """Poll without an initial delay, repeat, and exit once shutdown is requested."""
+    coordinator = LifecycleCoordinator()
+    calls: list[None] = []
+    three_polls_done = threading.Event()
+
+    def _poll() -> None:
+        """Count polls and signal the third."""
+        calls.append(None)
+        if len(calls) == 3:
+            three_polls_done.set()
+
+    thread = lifecycle.start_poller_thread(_poll, 0.01, coordinator)
+    assert three_polls_done.wait(timeout=5)
+    coordinator.request_shutdown()
+    thread.join(timeout=5)
+
+    assert not thread.is_alive()
+    assert thread.name == "tapmap-poller"
+
+
+def test_start_poller_thread_logs_failed_poll_and_keeps_polling(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Log an exception from a poll and run the next poll."""
+    coordinator = LifecycleCoordinator()
+    second_poll_done = threading.Event()
+    calls: list[None] = []
+
+    def _poll() -> None:
+        """Raise on the first poll and signal the second."""
+        calls.append(None)
+        if len(calls) == 1:
+            raise RuntimeError("boom")
+        second_poll_done.set()
+
+    with caplog.at_level("ERROR", logger="tapmap.lifecycle"):
+        thread = lifecycle.start_poller_thread(_poll, 0.01, coordinator)
+        assert second_poll_done.wait(timeout=5)
+        coordinator.request_shutdown()
+        thread.join(timeout=5)
+
+    assert "Background poll failed." in caplog.text
+    assert not thread.is_alive()

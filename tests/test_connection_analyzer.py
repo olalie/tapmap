@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import logging
+from datetime import date
 from typing import Any
+
+import pytest
 
 from tapmap.state.connection_analyzer import ConnectionAnalyzer
 from tapmap.state.connection_state import ConnectionState
@@ -10,16 +14,6 @@ from tapmap.state.insights_state import InsightsState
 from tapmap.state.significance import SignificanceHistory
 from tapmap.state.significant_connections import SignificantConnections
 from tapmap.state.unmapped_state import UnmappedState
-
-
-class _RecordingChannel:
-    """Record events sent to the channel."""
-
-    def __init__(self) -> None:
-        self.received: list[dict[str, Any]] = []
-
-    def send(self, event: dict[str, Any]) -> None:
-        self.received.append(event)
 
 
 def _empty_history() -> SignificanceHistory:
@@ -30,6 +24,18 @@ def _empty_history() -> SignificanceHistory:
             insights={"countries": {}, "providers": {}, "ports": {}, "applications": {}},
             verification_failed={},
         )
+    )
+
+
+def _insights_state(
+    insights: dict[str, Any] | None = None, *, learning_completed_day: int | None = None
+) -> InsightsState:
+    """Return an InsightsState wrapping insights by reference."""
+    return InsightsState(
+        version=2,
+        insights=insights if insights is not None else {},
+        verification_failed={},
+        notification_learning_completed_day=learning_completed_day,
     )
 
 
@@ -69,7 +75,7 @@ def _analyzer(
     return ConnectionAnalyzer(
         connection_state if connection_state is not None else ConnectionState(),
         unmapped_state if unmapped_state is not None else UnmappedState(),
-        insights if insights is not None else {},
+        _insights_state(insights),
         SignificantConnections([]),
         SignificanceHistory.from_insights_state(
             InsightsState(
@@ -157,7 +163,7 @@ def test_analyze_returns_process_insights_result() -> None:
     """analyze() returns the same {top} shape process_insights() produces."""
     analyzer = _analyzer()
 
-    result = analyzer.analyze([_connection()])
+    result, _ = analyzer.analyze([_connection()])
 
     assert set(result.keys()) == {"top"}
     assert result["top"]["countries"][0]["value"] == "US"
@@ -172,7 +178,7 @@ def test_analyze_records_significant_event_for_novel_public_connection() -> None
     analyzer = ConnectionAnalyzer(
         ConnectionState(),
         UnmappedState(),
-        {},
+        _insights_state(),
         significant_connections,
         SignificanceHistory.from_insights_state(
             InsightsState(
@@ -197,7 +203,7 @@ def test_analyze_does_not_evaluate_significance_for_non_public_connections() -> 
     analyzer = ConnectionAnalyzer(
         ConnectionState(),
         UnmappedState(),
-        {},
+        _insights_state(),
         significant_connections,
         SignificanceHistory.from_insights_state(
             InsightsState(
@@ -226,7 +232,7 @@ def test_analyze_does_not_repeat_significant_event_for_same_snapshot_repeat() ->
         )
     )
     analyzer = ConnectionAnalyzer(
-        ConnectionState(), UnmappedState(), {}, significant_connections, history
+        ConnectionState(), UnmappedState(), _insights_state(), significant_connections, history
     )
 
     analyzer.analyze([_connection(country_code="US")])
@@ -273,7 +279,7 @@ def test_verification_backfill_does_not_suppress_a_later_verification_failed_eve
         )
     )
     analyzer = ConnectionAnalyzer(
-        ConnectionState(), UnmappedState(), {}, significant_connections, history
+        ConnectionState(), UnmappedState(), _insights_state(), significant_connections, history
     )
 
     analyzer.analyze(
@@ -307,54 +313,52 @@ def test_verification_backfill_does_not_suppress_a_later_verification_failed_eve
     assert significant_connections.items[1]["app_verification_status"] == "failed"
 
 
-# --- notification dispatch wiring ---
+# --- notifiable events ---
 
 
-def test_no_dispatch_during_learning_period() -> None:
+def test_no_notifiable_events_during_learning_period() -> None:
+    """Record the event but return no notifiable events during learning."""
     significant_connections = SignificantConnections([])
-    channel = _RecordingChannel()
     analyzer = ConnectionAnalyzer(
         ConnectionState(),
         UnmappedState(),
-        {},
+        _insights_state(),
         significant_connections,
         _empty_history(),
-        notification_channels=[channel],
         notification_learning_days=7,
     )
 
-    analyzer.analyze([_connection(country_code="US")])
+    _, notifiable_events = analyzer.analyze([_connection(country_code="US")])
 
     assert len(significant_connections.items) == 1
-    assert channel.received == []
+    assert notifiable_events == []
 
 
-def test_dispatch_after_learning_period_is_over() -> None:
+def test_notifiable_events_after_learning_period_is_over() -> None:
+    """Return the recorded event as notifiable once learning has completed."""
     significant_connections = SignificantConnections([])
-    channel = _RecordingChannel()
-    # "l" (anchor day) is irrelevant here: distinct_active_days() only reads "m".
+    # 7 distinct active days ending on day 1.
     insights: dict[str, Any] = {
         "countries": {"NO": {"l": 1, "m": (1 << 7) - 1}},
     }
     analyzer = ConnectionAnalyzer(
         ConnectionState(),
         UnmappedState(),
-        insights,
+        _insights_state(insights),
         significant_connections,
         _empty_history(),
-        notification_channels=[channel],
         notification_learning_days=7,
     )
 
-    analyzer.analyze([_connection(country_code="US")])
+    _, notifiable_events = analyzer.analyze([_connection(country_code="US")])
 
     assert len(significant_connections.items) == 1
-    assert channel.received == [significant_connections.items[0]]
+    assert notifiable_events == [significant_connections.items[0]]
 
 
 def test_current_poll_does_not_count_toward_its_own_eligibility() -> None:
+    """Return no notifiable events when only the current poll would reach the threshold."""
     significant_connections = SignificantConnections([])
-    channel = _RecordingChannel()
     # 6 active days already recorded; today's observation would be the 7th,
     # but only after process_insights() runs at the end of analyze().
     insights: dict[str, Any] = {
@@ -363,14 +367,89 @@ def test_current_poll_does_not_count_toward_its_own_eligibility() -> None:
     analyzer = ConnectionAnalyzer(
         ConnectionState(),
         UnmappedState(),
-        insights,
+        _insights_state(insights),
         significant_connections,
         _empty_history(),
-        notification_channels=[channel],
         notification_learning_days=7,
     )
 
-    analyzer.analyze([_connection(country_code="US")])
+    _, notifiable_events = analyzer.analyze([_connection(country_code="US")])
 
     assert len(significant_connections.items) == 1
-    assert channel.received == []
+    assert notifiable_events == []
+
+
+def test_recorded_learning_completion_survives_short_window_and_higher_threshold() -> None:
+    """Return notifiable events with no active Insights days and a raised threshold."""
+    significant_connections = SignificantConnections([])
+    analyzer = ConnectionAnalyzer(
+        ConnectionState(),
+        UnmappedState(),
+        _insights_state(learning_completed_day=739000),
+        significant_connections,
+        _empty_history(),
+        notification_learning_days=14,
+    )
+
+    _, notifiable_events = analyzer.analyze([_connection(country_code="US")])
+
+    assert notifiable_events == [significant_connections.items[0]]
+
+
+def test_learning_completion_is_recorded_and_logged_once(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Record today as the completion day and log it once across polls."""
+    insights_state = _insights_state({"countries": {"NO": {"l": 1, "m": (1 << 7) - 1}}})
+    analyzer = ConnectionAnalyzer(
+        ConnectionState(),
+        UnmappedState(),
+        insights_state,
+        SignificantConnections([]),
+        _empty_history(),
+        notification_learning_days=7,
+    )
+
+    with caplog.at_level(logging.INFO, logger="tapmap.state.connection_analyzer"):
+        analyzer.analyze([_connection(country_code="US")])
+        analyzer.analyze([_connection(country_code="SE")])
+
+    assert insights_state.notification_learning_completed_day == date.today().toordinal()
+    assert caplog.text.count("Notification learning period completed") == 1
+
+
+def test_zero_learning_days_notifies_without_recording_completion() -> None:
+    """Return notifiable events for 0 learning days and leave completion unrecorded."""
+    significant_connections = SignificantConnections([])
+    insights_state = _insights_state()
+    analyzer = ConnectionAnalyzer(
+        ConnectionState(),
+        UnmappedState(),
+        insights_state,
+        significant_connections,
+        _empty_history(),
+        notification_learning_days=0,
+    )
+
+    _, notifiable_events = analyzer.analyze([_connection(country_code="US")])
+
+    assert notifiable_events == [significant_connections.items[0]]
+    assert insights_state.notification_learning_completed_day is None
+
+
+def test_learning_suppression_is_logged_once(caplog: pytest.LogCaptureFixture) -> None:
+    """Log suppressed notifications once across polls with new Significant Connections."""
+    analyzer = ConnectionAnalyzer(
+        ConnectionState(),
+        UnmappedState(),
+        _insights_state(),
+        SignificantConnections([]),
+        _empty_history(),
+        notification_learning_days=7,
+    )
+
+    with caplog.at_level(logging.INFO, logger="tapmap.state.connection_analyzer"):
+        analyzer.analyze([_connection(country_code="US")])
+        analyzer.analyze([_connection(country_code="SE")])
+
+    assert caplog.text.count("notifications start after 7 active Insights days") == 1

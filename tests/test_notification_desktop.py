@@ -117,8 +117,10 @@ def test_other_platform_returns_none(
 
 class _FakeToast:
     def __init__(self) -> None:
+        """Create an empty toast with no failure handler."""
         self.text_fields: list[str] = []
         self.images: list[Any] = []
+        self.on_failed: Any = None
 
     def AddImage(self, image: Any) -> None:
         self.images.append(image)
@@ -197,6 +199,7 @@ def test_windows_sender_sets_app_user_model_id(
 def test_windows_sender_shows_toast_with_expected_text(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    """Show one toast with the event text through the no.tip.tapmap notifier."""
     monkeypatch.setattr(sys, "platform", "win32")
     _install_fake_windows_toasts(monkeypatch)
     _install_fake_windll(monkeypatch)
@@ -208,9 +211,51 @@ def test_windows_sender_shows_toast_with_expected_text(
     channel.send(event)
 
     toaster = _FakeWindowsToaster.instances[-1]
-    assert toaster.application_text == "TapMap"
+    assert toaster.application_text == "no.tip.tapmap"
     assert len(toaster.shown) == 1
     assert toaster.shown[0].text_fields == list(_notification_text(event))
+
+
+def test_windows_toaster_creation_failure_returns_none_and_logs_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Return no channel and log an error when the notifier cannot be created."""
+    monkeypatch.setattr(sys, "platform", "win32")
+    fake_module = _install_fake_windows_toasts(monkeypatch)
+    _install_fake_windll(monkeypatch)
+
+    def _failing_toaster(_aumid: str) -> None:
+        """Raise OSError for any AUMID."""
+        raise OSError("notifier unavailable")
+
+    fake_module.WindowsToaster = _failing_toaster
+
+    with caplog.at_level(logging.ERROR, logger="tapmap.notifications.desktop"):
+        channel = create_desktop_notification_channel(
+            icon_path=tmp_path / "tapmap.ico", enabled=True
+        )
+
+    assert channel is None
+    assert "Unable to create a Windows toast notifier for no.tip.tapmap" in caplog.text
+
+
+def test_windows_toast_delivery_failure_is_logged(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Log a warning with the error code when Windows fails to show a toast."""
+    monkeypatch.setattr(sys, "platform", "win32")
+    _install_fake_windows_toasts(monkeypatch)
+    _install_fake_windll(monkeypatch)
+    channel = create_desktop_notification_channel(icon_path=tmp_path / "tapmap.ico", enabled=True)
+    assert channel is not None
+    channel.send(_event())
+    toast = _FakeWindowsToaster.instances[-1].shown[0]
+
+    with caplog.at_level(logging.WARNING, logger="tapmap.notifications.desktop"):
+        toast.on_failed(SimpleNamespace(error_code=-2143420143))
+
+    assert "Windows failed to show a desktop notification" in caplog.text
+    assert "-2143420143" in caplog.text
 
 
 def test_windows_sender_adds_image_when_icon_exists(

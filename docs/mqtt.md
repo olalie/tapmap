@@ -36,7 +36,7 @@ Using authentication without TLS sends the MQTT credentials without encryption. 
 
 Significant Connections are recorded independently of MQTT notifications.
 
-By default, notifications start after 7 active Insights days. Set `TAPMAP_NOTIFICATION_LEARNING_DAYS` to a value from `0` to `30` to change the learning period. A value of `0` enables notifications immediately.
+By default, notifications start after 7 active Insights days. Set `TAPMAP_NOTIFICATION_LEARNING_DAYS` to a value from `0` to `30` to change the learning period. A value of `0` enables notifications immediately. Once the learning period has completed, notifications continue after restarts and after periods without activity.
 
 Each new notification-eligible Significant Connection is published as one MQTT message.
 

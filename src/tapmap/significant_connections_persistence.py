@@ -17,20 +17,27 @@ def load_significant_connections(path: Path) -> list[dict[str, Any]]:
         path: Path to the significant_connections file.
 
     Returns:
-        List of event dicts, oldest first. Empty if the file is missing,
-        corrupt, or malformed; malformed individual records are dropped.
+        List of event dicts, oldest first. Empty if the file is missing;
+        malformed individual records are dropped.
+
+    Raises:
+        ValueError: If the file is not valid JSON or its top-level structure is malformed.
+        OSError: If the file exists but cannot be read.
     """
     try:
         with path.open(encoding="utf-8") as f:
             data = json.load(f)
-
-        events = data.get("events")
-        if not isinstance(events, list):
-            return []
-
-        return [event for event in events if isinstance(event, dict)]
-    except Exception:
+    except FileNotFoundError:
         return []
+
+    if not isinstance(data, dict):
+        raise ValueError("Significant Connections file is not a JSON object")
+
+    events = data.get("events")
+    if not isinstance(events, list):
+        raise ValueError("events is not a list")
+
+    return [event for event in events if isinstance(event, dict)]
 
 
 def save_significant_connections(path: Path, events: list[dict[str, Any]]) -> None:
