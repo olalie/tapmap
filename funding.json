@@ -1,0 +1,63 @@
+{
+  "$schema": "https://fundingjson.org/schema/v1.1.0.json",
+  "version": "v1.1.0",
+  "entity": {
+    "type": "organisation",
+    "role": "owner",
+    "name": "TIP AS",
+    "email": "post@tip.no",
+    "description": "TIP AS is a Norwegian company supporting the development and maintenance of TapMap, a free and open-source network awareness application. TapMap is maintained by its creator, Ola Lie, and is released under the MIT license.",
+    "webpageUrl": {
+      "url": "https://tip.no/tapmap"
+    }
+  },
+  "projects": [
+    {
+      "guid": "tapmap",
+      "name": "TapMap",
+      "description": "TapMap is a free, open-source network awareness tool that makes a computer's network connections visible and understandable. It maps public connections on an interactive world map and provides insights into applications, network providers, countries, ports and connection history. It runs locally on Windows, macOS, Linux and Docker, without telemetry. Funding would support ongoing maintenance, cross-platform testing, release engineering, documentation and further improvements to the clarity and reliability of network information.",
+      "webpageUrl": {
+        "url": "https://tip.no/tapmap"
+      },
+      "repositoryUrl": {
+        "url": "https://github.com/olalie/tapmap"
+      },
+      "licenses": [
+        "spdx:MIT"
+      ],
+      "tags": [
+        "networking",
+        "privacy",
+        "network-monitoring",
+        "visualization",
+        "desktop",
+        "open-source",
+        "python",
+        "local-first"
+      ]
+    }
+  ],
+  "funding": {
+    "channels": [
+      {
+        "guid": "bank-transfer",
+        "type": "bank",
+        "description": "Bank transfer to TIP AS. Payment details can be provided privately upon approval."
+      }
+    ],
+    "plans": [
+      {
+        "guid": "tapmap-sustainability",
+        "status": "active",
+        "name": "TapMap maintenance and sustainability",
+        "description": "One-time support for ongoing development and maintenance of the MIT-licensed TapMap project, including cross-platform testing, release reliability, documentation and maintenance effort.",
+        "amount": 10000,
+        "currency": "USD",
+        "frequency": "one-time",
+        "channels": [
+          "bank-transfer"
+        ]
+      }
+    ]
+  }
+}
