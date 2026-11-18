@@ -8,7 +8,7 @@
 
 ![TapMap demo](docs/images/demo.gif)
 
-Featured in: [How-To Geek](https://www.howtogeek.com/this-self-hosted-global-map-revealed-how-my-network-connects-to-the-outside-world/) • [MakeUseOf](https://www.makeuseof.com/i-put-my-computers-internet-traffic-on-map-didnt-expect-what-found/) • [kode24](https://www.kode24.no/artikkel/da-pc-en-min-begynte-a-tegne-linjer-til-kina/263807) • [AI Heartland](https://ai-heartland.com/tool/tapmap-network-visualizer/)
+Featured in: [How-To Geek](https://www.howtogeek.com/this-self-hosted-global-map-revealed-how-my-network-connects-to-the-outside-world/) • [MakeUseOf](https://www.makeuseof.com/i-put-my-computers-internet-traffic-on-map-didnt-expect-what-found/) • [Help Net Security](https://www.helpnetsecurity.com/2026/11/18/tapmap-network-map-open-source/) • [kode24](https://www.kode24.no/artikkel/da-pc-en-min-begynte-a-tegne-linjer-til-kina/263807) • [AI Heartland](https://ai-heartland.com/tool/tapmap-network-visualizer/)
 
 **Watch your computer connect across the internet in real time. Discover the world behind your apps.**
 
