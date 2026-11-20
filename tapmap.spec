@@ -1,10 +1,12 @@
 # -*- mode: python ; coding: utf-8 -*-
+import platform
 import sys
 from pathlib import Path
 
 from tools.build_common import get_signing_identity, project_metadata
 
 VERSION_FILE = Path("tools") / "windows" / "file_version_info.txt"
+MACOS_X86_64_ENTITLEMENTS_FILE = Path("tools") / "macos" / "entitlements-x86_64.plist"
 
 project = project_metadata()
 version = project["version"]
@@ -65,6 +67,9 @@ if sys.platform == "win32":
 if sys.platform == "darwin":
     if signing_identity := get_signing_identity():
         exe_kwargs["codesign_identity"] = signing_identity
+        # Allow executable memory for PyObjC callbacks on signed Intel builds.
+        if platform.machine() == "x86_64":
+            exe_kwargs["entitlements_file"] = str(MACOS_X86_64_ENTITLEMENTS_FILE)
 
 exe = EXE(
     pyz,
