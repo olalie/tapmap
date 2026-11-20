@@ -1,5 +1,9 @@
 ## Unreleased
 
+### Fixes
+
+- Start TapMap on Intel Macs where it kept running in the background without a menu bar icon or web interface
+
 ## 1.14.4 - 2026-11-09
 
 ### Fixes
