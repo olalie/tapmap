@@ -377,11 +377,14 @@ MIT License
 
 ---
 
+
 ## Acknowledgements
 
 Many thanks to the community members who reported bugs, tested pre-release builds, and suggested improvements.
 
 - @zero77 for reporting the Debian Forky startup crash and thoroughly testing diagnostic builds, system tray behavior, and the final fix.
+- @Phil353556 for reporting the Ubuntu 24.04 startup failure and testing the fix.
+- @dylanpulver for the detailed analysis of Linux build compatibility and library conflicts.
 
 - @sersora0986 for reporting the Dash renderer performance issue and testing diagnostic builds to help identify the cause.
 
@@ -398,3 +401,6 @@ Many thanks to the community members who reported bugs, tested pre-release build
 - @mad-tunes for suggesting optional browser launch control when running TapMap as a service, and configurable cache retention to reduce map clutter on busy systems.
 
 - @forthrin for detailed first-use feedback and suggestions that improved map navigation and overall usability.
+
+- @Zigul1 for reporting the broken MaxMind links in GeoIP Database Management.
+
