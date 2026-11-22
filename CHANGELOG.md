@@ -1,5 +1,7 @@
 ## Unreleased
 
+## 1.14.6 - 2026-11-22
+
 ### Fixes
 - Restore compatibility with Ubuntu 24.04 by building Linux packages on Ubuntu 24.04
 - Prevent bundled libraries from interfering with external processes on Linux
