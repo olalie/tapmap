@@ -165,3 +165,20 @@ def test_for_action_menu_unmapped_routes_to_unmapped_view() -> None:
 
     table = next(c for c in result if isinstance(c, html.Table))
     assert table is not None
+
+
+def test_geodb_management_maxmind_links_open_maxmind_pages() -> None:
+    """MaxMind signup and license key links open MaxMind pages in a new tab."""
+    result = _builder().geodb_management(
+        status={"provider": "none"}, geo_data_dir="/data/geo", is_docker=False
+    )
+    rendered = repr(result)
+
+    assert (
+        "href='https://www.maxmind.com/en/create-account', "
+        "rel='noopener noreferrer', target='_blank'"
+    ) in rendered
+    assert (
+        "href='https://www.maxmind.com/en/accounts/current/license-key', "
+        "rel='noopener noreferrer', target='_blank'"
+    ) in rendered

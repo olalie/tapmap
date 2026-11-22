@@ -1,5 +1,10 @@
 ## Unreleased
 
+### Fixes
+- Restore compatibility with Ubuntu 24.04 by building Linux packages on Ubuntu 24.04
+- Prevent bundled libraries from interfering with external processes on Linux
+- Fix broken MaxMind account registration and license key links in GeoIP Database Management
+
 ## 1.14.5 - 2026-11-22
 
 ### Fixes

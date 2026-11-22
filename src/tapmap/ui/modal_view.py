@@ -554,7 +554,7 @@ class ModalTextBuilder:
                                         ],
                                         className="mx-geodb-card__header",
                                     ),
-                                                                        html.Ul(
+                                    html.Ul(
                                         [
                                             html.Li("+ Better coverage and accuracy"),
                                             html.Li("- Requires a free MaxMind account"),
@@ -563,12 +563,16 @@ class ModalTextBuilder:
                                     ),
                                     html.A(
                                         "Create free MaxMind account",
-                                        href="#",
+                                        href="https://www.maxmind.com/en/create-account",
+                                        target="_blank",
+                                        rel="noopener noreferrer",
                                         className="mx-link",
                                     ),
                                     html.A(
                                         "Create MaxMind credentials",
-                                        href="#",
+                                        href="https://www.maxmind.com/en/accounts/current/license-key",
+                                        target="_blank",
+                                        rel="noopener noreferrer",
                                         className="mx-link",
                                     ),
                                     html.Div(
