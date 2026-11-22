@@ -7,6 +7,7 @@ from tools.build_common import get_signing_identity, project_metadata
 
 VERSION_FILE = Path("tools") / "windows" / "file_version_info.txt"
 MACOS_X86_64_ENTITLEMENTS_FILE = Path("tools") / "macos" / "entitlements-x86_64.plist"
+LINUX_LIBRARY_PATH_HOOK = Path("tools") / "linux" / "pyi_rth_library_path.py"
 
 project = project_metadata()
 version = project["version"]
@@ -24,6 +25,7 @@ if sys.platform == "win32":
     )
 
 hiddenimports = []
+runtime_hooks = []
 
 if sys.platform == "linux":
     # gi.overrides.* supplies pystray's AppIndicator/GTK backend with
@@ -35,6 +37,7 @@ if sys.platform == "linux":
         "gi.overrides.Gtk",
         "gi.overrides.Gio",
     ]
+    runtime_hooks.append(str(LINUX_LIBRARY_PATH_HOOK))
 
 a = Analysis(
     ["src/tapmap/__main__.py"],
@@ -44,7 +47,7 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=runtime_hooks,
     excludes=[],
     noarchive=False,
     optimize=0,
