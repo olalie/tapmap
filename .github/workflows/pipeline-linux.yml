@@ -19,7 +19,8 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Keep Ubuntu 24.04 for GLIBC 2.39 and older x86-64 CPU compatibility.
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout repository
