@@ -1,4 +1,4 @@
-certifi==2026.7.22
+certifi==2026.11.20
 dash==4.1.0
 keyring==25.7.0
 maxminddb==3.1.1
