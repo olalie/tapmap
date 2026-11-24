@@ -2,9 +2,13 @@
 
 ## Reporting Security Issues
 
-If you believe you have found a security issue in TapMap, do not open a public issue.
+Do not report security issues through public GitHub issues, discussions, or pull requests.
 
-Please contact the maintainer directly.
+Report them privately through GitHub's private vulnerability reporting:
+
+[Report a vulnerability](https://github.com/olalie/tapmap/security/advisories/new)
+
+The report is visible only to the maintainer until an advisory is published. A GitHub account is required.
 
 Include:
 
