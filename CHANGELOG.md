@@ -1,4 +1,7 @@
-## Unreleased
+# Unreleased
+
+### Fixes
+- Reduced Docker image size by excluding release installers from the build context.
 
 ## 1.14.7 - 2026-11-24
 
