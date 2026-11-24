@@ -391,6 +391,7 @@ Many thanks to the community members who reported bugs, tested pre-release build
 - @faxotherapy for reporting macOS compatibility issues and testing Intel builds.  
 - @nafarinha for confirming architecture support and validating macOS behavior.
 
+- @TechStud for reporting Docker image security vulnerabilities and the missing private vulnerability reporting channel.
 - @totti4ever for reporting Docker multi-arch issues and confirming the fix on arm64.  
 - @khadanja for suggesting a Docker-based workaround.
 
