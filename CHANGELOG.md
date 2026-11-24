@@ -1,5 +1,16 @@
 ## Unreleased
 
+## 1.14.7 - 2026-11-24
+
+### Fixes
+- Update certifi and Pillow to address known vulnerabilities
+- Apply available Debian security updates during Docker image builds
+- Remove pip from the final Docker image to reduce the attack surface
+
+### Documentation
+- Add private vulnerability reporting through GitHub Security Advisories
+- Update community acknowledgements
+
 ## 1.14.6 - 2026-11-22
 
 ### Fixes
