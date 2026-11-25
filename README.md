@@ -31,7 +31,11 @@ Choose an installation method for your platform.
 
 **Windows**
 
-Download and run the Windows installer from the [Releases page](https://github.com/olalie/tapmap/releases).
+Install with WinGet:
+
+    winget install --id TipTeknologiiPraksisAS.TapMap -e
+
+Alternatively, download and run the Windows installer from the [Releases page](https://github.com/olalie/tapmap/releases).
 
 Windows may show a SmartScreen warning the first time you open the installer. See [Windows SmartScreen](#windows-smartscreen).
 
