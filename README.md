@@ -176,11 +176,9 @@ TapMap keeps running after you close the browser tab or window. Use the system t
 
 The system tray and autostart are available for desktop installations, not Docker.
 
-On Linux, the application menu and automatic launch at login use separate launch entries with their own environment variables. See [Persistent configuration on Linux](https://olalie.github.io/tapmap/environment-variables/#persistent-configuration-on-linux).
-
 TapMap works with the default configuration.
 
-Runtime configuration through environment variables is documented in [Environment Variables](https://olalie.github.io/tapmap/environment-variables/).
+For custom settings, see [Environment Variables](https://olalie.github.io/tapmap/environment-variables/), including [Persistent configuration on Linux](https://olalie.github.io/tapmap/environment-variables/#persistent-configuration-on-linux).
 
 Users running TapMap from source can also adjust settings in `config.py`.
 
