@@ -13,6 +13,8 @@ Common uses include:
 - Using a fixed location instead of automatic public-IP based location detection.
 - Configuring TapMap when running in Docker.
 
+The examples below apply to a single start from a terminal. To keep settings for the application menu and automatic launch at login on Linux, see [Persistent configuration on Linux](#persistent-configuration-on-linux).
+
 ## TAPMAP_PORT
 
 Override the HTTP port used by the local Dash server.
@@ -72,6 +74,16 @@ When running in Docker, TapMap uses:
 unless overridden by `TAPMAP_HOST`.
 
 The default Docker setting allows TapMap to be accessed from other machines on the network.
+
+The About view shows the server host and port that TapMap uses.
+
+### Security
+
+`TAPMAP_HOST=0.0.0.0` makes TapMap listen on all network interfaces. Other devices that can reach the computer can then open TapMap.
+
+The web interface has no authentication. Anyone who can reach the port can see your network connections, applications and processes, and can use the same functions as you.
+
+Use `0.0.0.0` only on trusted networks. Use firewall rules to limit access to trusted devices.
 
 ## TAPMAP_IN_DOCKER
 
@@ -198,3 +210,50 @@ TAPMAP_NOTIFICATION_LEARNING_DAYS=0 tapmap
 ```
 
 The learning period affects notifications only. Significant Connections are recorded during the learning period.
+
+## Persistent configuration on Linux
+
+This section applies to the Linux DEB package.
+
+Manual launch from the application menu and automatic launch at login use separate `.desktop` files. Environment variables added to one file apply only to launches from that file.
+
+| Launch method | File | Created by |
+|---|---|---|
+| Application menu | `/usr/share/applications/no.tip.tapmap.desktop` | The DEB package |
+| Automatic launch at login | `~/.config/autostart/no.tip.tapmap.desktop` | TapMap, the first time it starts |
+
+Changes to the application menu entry are replaced when the DEB package is updated.
+
+### Common configuration for both launch methods
+
+Create `~/.config/environment.d/tapmap.conf` with one `KEY=VALUE` per line. Shell syntax such as `export` is not supported.
+
+```text
+TAPMAP_PORT=8060
+TAPMAP_CACHE_RETENTION_MIN=60
+```
+
+The file is read when the systemd user manager starts. Restart the computer after creating, changing or deleting it. On the test system, logging out and waiting at least 15 seconds before logging in again was also enough.
+
+Limitations:
+
+- Other applications in your user session, including terminals, may also inherit these environment variables.
+- Variables in the `Exec` line of a `.desktop` file take precedence over this file.
+- The default autostart entry includes `--no-browser`, which overrides `TAPMAP_LAUNCH_BROWSER`.
+- Verified on Ubuntu 24.04 with GNOME (X11). Other Linux distributions and desktop environments have not been tested.
+
+### Configure automatic launch separately
+
+Edit `~/.config/autostart/no.tip.tapmap.desktop`. Add `env` and your variables to the start of the `Exec` line. Keep the executable path and `--no-browser`:
+
+```ini
+Exec=env TAPMAP_PORT=8060 /usr/lib/tapmap/tapmap --no-browser
+```
+
+The change takes effect at the next login. Turning **Run TapMap automatically** on or off changes only the `Hidden` line, so your `Exec` line is kept.
+
+Limitations:
+
+- Manual launch from the application menu does not use these settings.
+- If you delete the file, turning on **Run TapMap automatically** creates a new entry with the default settings.
+- If TapMap cannot read the file, for example if the `[Desktop Entry]` line is missing, the **Run TapMap automatically** menu item is disabled.
