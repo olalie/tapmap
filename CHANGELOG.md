@@ -3,6 +3,9 @@
 ### Fixes
 - Reduced Docker image size by excluding release installers from the build context.
 
+### Documentation
+- Added instructions for persistent environment variables on Windows and Linux, covering both manual launch and automatic startup.
+
 ## 1.14.7 - 2026-11-24
 
 ### Fixes
