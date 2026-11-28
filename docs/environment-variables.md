@@ -13,7 +13,7 @@ Common uses include:
 - Using a fixed location instead of automatic public-IP based location detection.
 - Configuring TapMap when running in Docker.
 
-The examples below apply to a single start from a terminal. To keep settings for the application menu and automatic launch at login on Linux, see [Persistent configuration on Linux](#persistent-configuration-on-linux).
+The examples below apply to a single start from a terminal. To keep settings for manual launch and automatic launch at login on Windows and Linux, see [Persistent environment variables](#persistent-environment-variables).
 
 ## TAPMAP_PORT
 
@@ -211,65 +211,31 @@ TAPMAP_NOTIFICATION_LEARNING_DAYS=0 tapmap
 
 The learning period affects notifications only. Significant Connections are recorded during the learning period.
 
-## Persistent configuration on Linux
+## Persistent environment variables
 
-This section applies to the Linux DEB package. It has been verified on Ubuntu 24.04 with GNOME (X11). Other Linux distributions and desktop environments have not been tested.
+To apply environment variables to both manual launch and automatic startup, configure them persistently for your user account.
 
-Manual launch from the application menu and automatic launch at login use separate `.desktop` files. Environment variables added to one file apply only to launches from that file.
+### Windows
 
-| Launch method | File | Created by |
-|---|---|---|
-| Application menu | `/usr/share/applications/no.tip.tapmap.desktop` | The DEB package |
-| Automatic launch at login | `~/.config/autostart/no.tip.tapmap.desktop` | TapMap, the first time it starts |
+For example, using PowerShell:
 
-Shared settings are recommended. They use one file, need no administrator rights and are kept when TapMap is upgraded.
+```powershell
+[Environment]::SetEnvironmentVariable('TAPMAP_PORT', '8060', 'User')
+```
 
-### Shared settings
+Sign out and sign in again to apply the changes.
 
-Create `~/.config/environment.d/tapmap.conf` with one `KEY=VALUE` per line. Create the directory if it does not exist. Shell syntax such as `export` is not supported.
+Verified on Windows 11 Pro.
 
-```text
+### Linux
+
+Create `~/.config/environment.d/tapmap.conf` with one variable per line:
+
+```ini
 TAPMAP_PORT=8060
 TAPMAP_CACHE_RETENTION_MIN=60
 ```
 
-Restart the computer after creating, changing or deleting the file. Logging out and in again is not always enough.
+Restart the computer to apply the changes.
 
-Limitations:
-
-- Other applications in your user session, including terminals, may also inherit these environment variables.
-- Variables in the `Exec` line of a `.desktop` file take precedence over this file.
-- The default autostart entry includes `--no-browser`, which overrides `TAPMAP_LAUNCH_BROWSER`.
-
-### Separate settings
-
-Use separate settings if you need different settings for manual and automatic launch, or if shared settings do not work.
-
-Add `env` and your variables to the start of the `Exec` line in the file you want to configure. Keep the executable path and arguments.
-
-For automatic launch, edit `~/.config/autostart/no.tip.tapmap.desktop`:
-
-```ini
-Exec=env TAPMAP_PORT=8060 /usr/lib/tapmap/tapmap --no-browser
-```
-
-The change takes effect at the next login. Turning **Run TapMap automatically** on or off changes only the `Hidden` line, so your `Exec` line is kept.
-
-For manual launch, do not edit the package entry. It requires administrator rights and is replaced when TapMap is upgraded. Edit a copy in your home directory instead:
-
-```bash
-mkdir -p ~/.local/share/applications
-cp /usr/share/applications/no.tip.tapmap.desktop ~/.local/share/applications/
-```
-
-```ini
-Exec=env TAPMAP_PORT=8060 tapmap
-```
-
-The copy replaces the package entry in the application menu. Log out and in again after creating, changing or deleting it. The copy survives upgrades but may need to be revised if TapMap changes the original package entry.
-
-Limitations:
-
-- To use the same settings for both launch methods, maintain them in both files.
-- To restore the default autostart entry, delete it and turn on **Run TapMap automatically**.
-- If TapMap cannot read the autostart file, for example if the `[Desktop Entry]` line is missing, the **Run TapMap automatically** menu item is disabled.
+Verified on Ubuntu 24.04 with GNOME (X11).
